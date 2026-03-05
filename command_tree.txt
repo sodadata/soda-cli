@@ -30,7 +30,11 @@ soda
   │   └── list                                     # list datasources
   │
   ├── contract
-  │   ├── create    --dataset <ds/db/schema/table>  # bootstrap YAML from live schema # TODO: create could already run autopilot internally if license
+  │   ├── create    --dataset <ds/db/schema/table>
+  │   │   --mode skeleton|copilot     # default: skeleton
+  │   │   --output <file>
+  │   │   # skeleton → bootstrap YAML from live schema (no AI, always works)
+  │   │   # copilot  → full AI-generated contract (requires license)
   │   ├── validate  [<file>]                         # syntax check, no network
   │   ├── push      [<file>]                         # push contract definition to cloud
   │   ├── pull      --dataset <fqn>                  # pull contract from cloud → local file
