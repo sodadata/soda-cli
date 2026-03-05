@@ -9,6 +9,7 @@ soda
   │    --quiet
   │    --verbose
   │    --no-interactive           # for CI/CD and AI agents
+  │    --version  
   │
   ├── version                               # print version info
   │
@@ -71,8 +72,8 @@ soda
   │   │
   │   └── logs  <id>  [--follow]
   │
-  ├── results                              # ⚠ temp name — unified view of all data quality signals
-  │   └── list                             # contract checks + monitor alerts in one place
+  ├── results                              # contract checks + monitor alerts in one place
+  │   └── list
   │       [--datasource <id>]
   │       [--dataset <id>]
   │       [--type check|monitor|all]
@@ -120,7 +121,7 @@ soda
   │       ├── delete  <id>
   │       └── test    <id>
   │
-  ├── role (TODO: should we merger users and roles?)
+  ├── role
   │   ├── list    [--scope global|dataset]
   │   ├── create  --name <n>  --scope global|dataset
   │   ├── delete  <id>
