@@ -35,7 +35,7 @@ soda
   │   │   --output <file>
   │   │   # skeleton → bootstrap YAML from live schema (no AI, always works)
   │   │   # copilot  → full AI-generated contract (requires license)
-  │   ├── validate  [<file>]                         # syntax check, no network
+  │   ├── lint (alias: validate)  [<file>]           # syntax check, no network (previously called validate)
   │   ├── push      [<file>]                         # push contract definition to cloud
   │   ├── pull      --dataset <fqn>                  # pull contract from cloud → local file
   │   ├── diff      [<file>]  --dataset <fqn>        # local vs cloud diff
@@ -46,7 +46,7 @@ soda
   │   │   # file + prompt    → improve existing contract
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    [<file-or-dir>]        # TODO: it is not obvious that this is cloud verification
+  │   ├── verify    [<file-or-dir>]        # cloud check verification
   │   │   --datasource <file>              # explicit override when no soda.yml
   │   │   --agent                          # delegate to Soda Agent
   │   │   --push                           # run checks + push results to cloud
