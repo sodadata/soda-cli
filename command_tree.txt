@@ -10,77 +10,87 @@ soda
   │    --verbose
   │    --no-interactive           # for CI/CD and AI agents
   │
+  ├── version                               # print version info
+  │
   ├── auth
-  │   ├── login   [--profile <name>]    # wizard → API key → test → save to ~/.soda/credentials
+  │   ├── login   [--profile <name>]        # wizard → API key → test → save to ~/.soda/credentials
   │   ├── logout  [--profile <name>]
-  │   ├── status                        # active profile, org, connection health
+  │   ├── status                            # active profile, org, connection health
   │   └── switch  <profile>
   │
-  ├── init                              # scaffold soda.yml + configs/ + contracts/
+  ├── init                                  # scaffold soda.yml + configs/ + contracts/
   │
-  ├── run  [<file-or-dir>]              # smart pipeline: resolves datasource from contract, verify + push results
-  │   --agent                          # delegate to Soda Agent
-  │   --parallel                       # run directory of contracts concurrently
-  │   --datasource <file>              # explicit override when no soda.yml
-  │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
-  │
-  ├── status                            # org dashboard: datasets, results, incidents, recent scans
+  ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs
   │
   ├── datasource  (alias: ds)
   │   ├── create      [--type pg|sf|bq|duck|...]   # local YAML config
-  │   ├── connect     --agent <name> --type <t>    # cloud-registered connection via Soda Agent
-  │   ├── diagnostics <id>                          # primary diagnostics warehouse config (datasource level) (TODO: define what is configurable)
-  │   ├── test        [<name-or-file>]
-  │   └── list
+  │   ├── onboard     --agent <name> --type <t>    # cloud-registered connection via Soda Agent
+  │   ├── diagnostics <id>                         # primary diagnostics warehouse config (datasource level) # TODO: what to is configurable?
+  │   ├── test        [<name-or-file>]             # test connection
+  │   └── list                                     # list datasources
   │
   ├── contract
-  │   ├── create    --dataset <ds/db/schema/table>  # bootstrap YAML from live schema
+  │   ├── create    --dataset <ds/db/schema/table>  # bootstrap YAML from live schema # TODO: create could already run autopilot internally if license
   │   ├── validate  [<file>]                         # syntax check, no network
   │   ├── push      [<file>]                         # push contract definition to cloud
-  │   ├── fetch     --dataset <fqn>                  # pull from cloud → local file
+  │   ├── pull      --dataset <fqn>                  # pull contract from cloud → local file
   │   ├── diff      [<file>]  --dataset <fqn>        # local vs cloud diff
   │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]
-  │   │   # no file + --dataset → generate from scratch (autopilot mode)
-  │   │   # file + prompt       → improve with natural language (copilot mode)
+  │   │   # no args          → wizard: generate or improve?
+  │   │   # file, no prompt  → wizard: what to improve?
+  │   │   # --dataset only   → generate from scratch, no prompt needed
+  │   │   # file + prompt    → improve existing contract
+  │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    [<file>]
-  │   │   --agent                                    # delegate to Soda Agent
-  │   │   --push                                     # run checks + push results to cloud
-  │   │   --set     key=value                        # runtime variable overrides
-  │   │   --check   <dot.path>                       # run specific checks only
-  │   │   --watch                                    # re-run on file changes (dev mode)
-  │   └── request                                    # PR flow for published contracts
-  │       ├── list    [--status open|done|all]
-  │       ├── fetch   <id>  [--proposal <n>]
-  │       ├── push    <id>  [<file>]  [--message]
-  │       └── close   <id>  [--status done|wontdo]
+  │   ├── verify    [<file-or-dir>]        # TODO: it is not obvious that this is cloud verification
+  │   │   --datasource <file>              # explicit override when no soda.yml
+  │   │   --agent                          # delegate to Soda Agent
+  │   │   --push                           # run checks + push results to cloud
+  │   │   --set      key=value             # runtime variable overrides
+  │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
+  │   └── proposal                         # PR flow for published contracts
+  │       ├── list   [--status open|done|all]
+  │       ├── pull   <id>  [--revision <n>]         # download a proposal locally
+  │       ├── push   <id>  [<file>]  [--message]    # submit changes
+  │       └── close  <id>  [--status done|wontdo]
   │
-  ├── scan
-  │   ├── get   <id>
+  ├── job  (alias: scan)
+  │   ├── list
+  │   │   [--datasource <id>]
+  │   │   [--dataset <id>]
+  │   │   [--type contract|monitor|all]
+  │   │   [--status passing|failing|running|error]
+  │   │
+  │   │   # ID          DATASOURCE    DATASET     TYPE      STATUS     DATE
+  │   │   # sc_abc123   pg_prod       orders      contract  ✗ failing  2026-03-05 08:12
+  │   │   # sc_def456   pg_prod       users       monitor   ✓ passing  2026-03-05 06:45
+  │   │
   │   └── logs  <id>  [--follow]
   │
-  ├── results                           # ⚠ temp name — unified view of all data quality signals
-  │   └── list                          # contract checks + monitor alerts in one place
+  ├── results                              # ⚠ temp name — unified view of all data quality signals
+  │   └── list                             # contract checks + monitor alerts in one place
   │       [--datasource <id>]
   │       [--dataset <id>]
   │       [--type check|monitor|all]
   │       [--status passing|failing|all]
+  │       [--from <date>]
+  │       [--to <date>]
   │
-  │   # DATASET                TYPE     NAME                     STATUS     DATE
-  │   # pg/prod/orders         check    row_count > 0            ✓ passing  2026-03-05 08:12
-  │   # pg/prod/orders         check    no_nulls(order_id)       ✗ failing  2026-03-05 08:12
-  │   # pg/prod/users          monitor  daily_signups anomaly    ⚠ alert    2026-03-05 06:45
-  │   # pg/prod/revenue        check    revenue_not_negative     ✓ passing  2026-03-04 23:00
+  │       # DATASET              TYPE     NAME                   STATUS     DATE
+  │       # pg/prod/orders       check    row_count > 0          ✓ passing  2026-03-05 08:12
+  │       # pg/prod/orders       check    no_nulls(order_id)     ✗ failing  2026-03-05 08:12
+  │       # pg/prod/users        monitor  daily_signups anomaly  ⚠ alert    2026-03-05 06:45
   │
   ├── dataset
   │   ├── list         [--filter <query>] [--tag <tag>]
   │   ├── update       <id>  [--name] [--tag] [--attr key=value]
   │   ├── delete       <id>
-  │   ├── profiling    <id>
-  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides (TODO: define what is configurable)
+  │   ├── profiling    <id>                          # view cached profiling data
+  │   ├── profiling refresh <id>                     # trigger new profiling run
+  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides # TODO: what to is configurable?
   │   ├── permissions
   │   │   ├── list  <id>
-  │   │   └── set   <id>  --role <role>  --user <email>|--group <id>
+  │   │   └── set   <id>  --role <role-id>  --user <email>|--group <id>
   │   └── monitor
   │       ├── list    <dataset-id>
   │       ├── add     <dataset-id>                   # column metric or custom SQL
@@ -94,7 +104,10 @@ soda
   │
   ├── notification
   │   ├── list    [--channel <id>]  [--dataset <id>]
-  │   ├── add                                        # wizard: channel → triggers → scope
+  │   ├── add
+  │   │   --channel  <channel-id>
+  │   │   --trigger  check-failure|incident-opened|incident-closed|...
+  │   │   --dataset  <id>                            # optional: scope to specific dataset
   │   ├── update  <id>
   │   ├── delete  <id>
   │   └── channel
@@ -103,21 +116,22 @@ soda
   │       ├── delete  <id>
   │       └── test    <id>
   │
-  ├── role
+  ├── role (TODO: should we merger users and roles?)
   │   ├── list    [--scope global|dataset]
   │   ├── create  --name <n>  --scope global|dataset
   │   ├── delete  <id>
-  │   ├── show    <id>                               # list permissions in this role
-  │   ├── assign  <id>  --user <email>|--group <id>
-  │   └── revoke  <id>  --user <email>|--group <id>
+  │   └── show    <id>                               # list permissions in this role
   │
   ├── users
   │   ├── list
-  │   └── group
-  │       ├── list
-  │       ├── create  --name <n>  --members <emails...>
-  │       ├── update  <id>
-  │       └── delete  <id>
+  │   ├── assign      <user-id>   --role <role-id>
+  │   ├── revoke      <user-id>   --role <role-id>
+  │   ├── group list
+  │   ├── group create  --name <n>  --members <emails...>
+  │   ├── group update  <id>
+  │   ├── group delete  <id>
+  │   ├── group assign  <group-id>  --role <role-id>
+  │   └── group revoke  <group-id>  --role <role-id>
   │
   └── completion  bash|zsh|fish
 
