@@ -42,13 +42,5 @@ def list_cmd(
     if status and status != "all":
         results = [r for r in results if r["status"] == status]
 
-    # Add status icons
-    display = []
-    for r in results:
-        row = dict(r)
-        icon = {"passing": "✓", "failing": "✗", "alert": "⚠"}.get(r["status"], "")
-        row["status"] = f"{icon} {r['status']}"
-        display.append(row)
-
     cols = ["dataset", "type", "name", "status", "value", "date"]
-    render(display, cols, gctx, title="Results")
+    render(results, cols, gctx, title="Results")

@@ -36,15 +36,8 @@ def list_cmd(
     if filter:
         data = [d for d in data if filter.lower() in d["name"].lower() or filter.lower() in d["fqn"].lower()]
 
-    display = []
-    for d in data:
-        row = dict(d)
-        icon = {"passing": "✓", "failing": "✗", "error": "⚠"}.get(d["status"], "")
-        row["status"] = f"{icon} {d['status']}"
-        display.append(row)
-
     cols = ["id", "fqn", "rows", "status", "last_scan"]
-    render(display, cols, gctx, title="Datasets")
+    render(data, cols, gctx, title="Datasets")
 
 
 @app.command("update")

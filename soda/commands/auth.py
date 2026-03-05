@@ -2,12 +2,10 @@ import sys
 from typing import Optional
 
 import typer
-from rich.console import Console
-from rich.prompt import Prompt, Confirm
-from rich.panel import Panel
+from rich.prompt import Prompt
 
 from soda.context import GlobalContext
-from soda.output import render_one, print_success, print_error, get_console
+from soda.output import render_one, print_success, print_error, get_console, output_option
 from soda.mock import AUTH_STATUS
 
 app = typer.Typer(help="Manage authentication and profiles.", no_args_is_help=True)
@@ -29,8 +27,8 @@ def login(
     gctx = _get_ctx(ctx)
     if no_interactive:
         gctx.no_interactive = True
-    console = get_console(gctx)
 
+    console = get_console(gctx)
     profile_name = profile or gctx.profile or "default"
 
     if api_key is None:
@@ -41,23 +39,17 @@ def login(
                 gctx,
                 exit_code=2,
             )
-
-        console.print(Panel.fit(
-            "[bold cyan]Soda Cloud Login[/bold cyan]\n"
-            f"Profile: [yellow]{profile_name}[/yellow]\n"
-            f"Host: [dim]{host}[/dim]",
-        ))
+        console.print(f"\n  [bold]Soda Cloud Login[/bold]")
+        console.print(f"  [dim]profile[/dim]  {profile_name}")
+        console.print(f"  [dim]host[/dim]     {host}")
         console.print()
-        api_key = Prompt.ask("[bold]Enter your Soda Cloud API key[/bold]")
+        api_key = Prompt.ask("  API key")
 
-    console.print(f"[dim]Verifying API key...[/dim]")
+    console.print(f"\n  [dim]Connecting to {host}…[/dim]")
     # mock: always succeeds
-    console.print(f"[dim]Connected to [bold]{host}[/bold] as [bold]alice@acme.com[/bold] (acme-corp)[/dim]")
-
-    print_success(
-        f"Logged in. Profile [bold]{profile_name}[/bold] saved to [dim]~/.soda/credentials[/dim]",
-        gctx,
-    )
+    console.print(f"  [dim]Authenticated as alice@acme.com (acme-corp)[/dim]")
+    console.print()
+    print_success(f"Profile [bold]{profile_name}[/bold] saved to [dim]~/.soda/credentials[/dim]", gctx)
 
 
 @app.command("logout")
@@ -72,10 +64,15 @@ def logout(
 
 
 @app.command("status")
-def status(ctx: typer.Context):
+def status(
+    ctx: typer.Context,
+    output: str = output_option(),
+):
     """Show active profile, org, and connection health."""
     gctx = _get_ctx(ctx)
-    render_one(AUTH_STATUS, gctx, title="Auth Status")
+    if output != "auto":
+        gctx.output = output
+    render_one(AUTH_STATUS, gctx)
 
 
 @app.command("switch")

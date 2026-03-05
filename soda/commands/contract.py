@@ -1,11 +1,10 @@
+import json
 import sys
 import time
 from typing import Optional
 
 import typer
-from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
-from rich.syntax import Syntax
+from rich.prompt import Prompt
 
 from soda.context import GlobalContext
 from soda.output import render, render_one, print_success, print_error, get_console
@@ -47,7 +46,7 @@ def create(
     else:
         console.print(f"[dim]Reading schema for [bold]{dataset}[/bold]...[/dim]")
 
-    console.print(f"  [dim]create[/dim]  [cyan]{out}[/cyan]")
+    console.print(f"  [dim]create[/dim]  {out}")
     print_success(f"Contract written to [bold]{out}[/bold]", gctx)
 
 
@@ -158,8 +157,9 @@ def copilot(
                 "a file path + prompt (to improve an existing contract).",
                 gctx,
             )
-        console.print(Panel.fit("[bold cyan]Soda Copilot[/bold cyan]"))
-        mode = Prompt.ask("What would you like to do?", choices=["generate", "improve"], default="generate")
+        console.print("\n  [bold]Soda Copilot[/bold]")
+        console.print()
+        mode = Prompt.ask("  What would you like to do?", choices=["generate", "improve"], default="generate")
         if mode == "generate":
             dataset = Prompt.ask("Dataset FQN (datasource/db/schema/table)")
         else:
@@ -180,13 +180,13 @@ def copilot(
 
     if file:
         out = output_file or file
-        console.print(f"  [dim]update[/dim]  [cyan]{out}[/cyan]")
+        console.print(f"  [dim]update[/dim]  {out}")
         print_success(f"Contract updated: [bold]{out}[/bold]", gctx)
     else:
         parts = (dataset or "dataset").split("/")
         table = parts[-1]
         out = output_file or f"contracts/{table}.yml"
-        console.print(f"  [dim]create[/dim]  [cyan]{out}[/cyan]")
+        console.print(f"  [dim]create[/dim]  {out}")
         print_success(f"Contract generated: [bold]{out}[/bold]", gctx)
 
 
@@ -194,6 +194,7 @@ def copilot(
 def verify(
     ctx: typer.Context,
     file_or_dir: Optional[str] = typer.Argument(None, help="Contract file or directory (default: contracts/)"),
+    output: str = typer.Option("auto", "--output", "-o", help="Output format: table|json|csv"),
     datasource: Optional[str] = typer.Option(None, "--datasource", help="Datasource config file (overrides soda.yml)"),
     agent: bool = typer.Option(False, "--agent", help="Delegate execution to Soda Agent"),
     push: bool = typer.Option(False, "--push", help="Push check results to Soda Cloud"),
@@ -208,39 +209,53 @@ def verify(
     Use [bold]--agent[/bold] to delegate execution to a Soda Agent.
     """
     gctx = _get_ctx(ctx)
+    if output != "auto":
+        gctx.output = output
     console = get_console(gctx)
 
     target = file_or_dir or "contracts/"
-    console.print(f"[dim]Verifying [bold]{target}[/bold]...[/dim]")
-    if agent:
-        console.print("[dim]Delegating to Soda Agent...[/dim]")
-    if set:
-        for s in set:
-            console.print(f"[dim]  var: {s}[/dim]")
 
-    console.print()
-
-    # Mock verification output
-    results_data = [
-        {"check": "row_count > 0", "status": "✓ passing", "value": "2,412,847"},
-        {"check": "freshness < 1d", "status": "✓ passing", "value": "7m ago"},
-        {"check": "no_nulls(order_id)", "status": "✓ passing", "value": "0 nulls"},
-        {"check": "no_nulls(customer_id)", "status": "✗ failing", "value": "143 nulls"},
-        {"check": "valid_values(status)", "status": "✓ passing", "value": "5 valid values"},
-        {"check": "reference(customer_id) → users", "status": "✗ failing", "value": "23 orphaned"},
-        {"check": "min(amount) >= 0", "status": "✓ passing", "value": "min=0.99"},
-        {"check": "unique(order_id)", "status": "✓ passing", "value": "100% unique"},
+    checks = [
+        {"check": "row_count > 0",                  "status": "passing", "value": "2,412,847 rows"},
+        {"check": "freshness < 1d",                  "status": "passing", "value": "7m ago"},
+        {"check": "no_nulls(order_id)",              "status": "passing", "value": "0 nulls"},
+        {"check": "no_nulls(customer_id)",           "status": "failing", "value": "143 nulls"},
+        {"check": "valid_values(status)",            "status": "passing", "value": "5 valid values"},
+        {"check": "reference(customer_id) → users", "status": "failing", "value": "23 orphaned rows"},
+        {"check": "min(amount) >= 0",               "status": "passing", "value": "min=0.99"},
+        {"check": "unique(order_id)",               "status": "passing", "value": "100% unique"},
     ]
 
-    from soda.output import render
-    render(results_data, ["check", "status", "value"], gctx, title="Verify Results")
+    fmt = gctx.output if gctx.output != "auto" else ("table" if sys.stdout.isatty() else "json")
+
+    if fmt == "json":
+        passed = sum(1 for c in checks if c["status"] == "passing")
+        failed = sum(1 for c in checks if c["status"] == "failing")
+        print(json.dumps({"file": target, "passed": passed, "failed": failed, "checks": checks}, indent=2))
+        raise typer.Exit(1)
 
     console.print()
-    console.print("[red]✗ 2 checks failed, 6 passed[/red]")
+    console.print(f"  [dim]verifying[/dim]  {target}")
+    if agent:
+        console.print(f"  [dim]via agent[/dim]")
+    console.print()
+
+    name_width = max(len(c["check"]) for c in checks)
+    for c in checks:
+        icon = "[green]✓[/green]" if c["status"] == "passing" else "[red]✗[/red]"
+        name = c["check"].ljust(name_width)
+        value = f"[dim]{c['value']}[/dim]"
+        console.print(f"  {icon}  {name}  {value}")
+
+    passed = sum(1 for c in checks if c["status"] == "passing")
+    failed = sum(1 for c in checks if c["status"] == "failing")
+    console.print()
+    console.print(f"  [green]{passed} passed[/green]  [dim]·[/dim]  [red]{failed} failed[/red]")
 
     if push:
-        console.print("[dim]Pushing results to Soda Cloud...[/dim]")
-        print_success("Results pushed to Soda Cloud.", gctx)
+        console.print()
+        console.print(f"  [dim]pushing results to Soda Cloud…[/dim]")
+        print_success("Results pushed.", gctx)
 
     raise typer.Exit(1)  # checks failed
 

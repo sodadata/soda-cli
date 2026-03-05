@@ -37,16 +37,8 @@ def list_cmd(
     if status and status != "all":
         jobs = [j for j in jobs if j["status"] == status]
 
-    # Add status icons for table display
-    display = []
-    for j in jobs:
-        row = dict(j)
-        icon = {"passing": "✓", "failing": "✗", "error": "⚠", "running": "⟳"}.get(j["status"], "")
-        row["status"] = f"{icon} {j['status']}"
-        display.append(row)
-
     cols = ["id", "datasource", "dataset", "type", "status", "duration", "date"]
-    render(display, cols, gctx, title="Jobs")
+    render(jobs, cols, gctx, title="Jobs")
 
 
 @app.command("logs")

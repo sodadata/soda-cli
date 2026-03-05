@@ -1,3 +1,5 @@
+import soda.theme  # must be first — patches typer.rich_utils before app is built
+
 import sys
 from typing import Optional
 
@@ -31,27 +33,26 @@ app = typer.Typer(
     add_completion=False,
 )
 
-# Register subcommand groups
-app.add_typer(auth.app, name="auth", help="Manage authentication and profiles.")
-app.add_typer(datasource.app, name="datasource", help="Manage datasource connections.", rich_help_panel="Resources")
-app.add_typer(datasource.app, name="ds", help="Alias for datasource.", hidden=True)
-app.add_typer(contract.app, name="contract", help="Manage and verify data contracts.", rich_help_panel="Core")
-app.add_typer(job.app, name="job", help="View execution history.", rich_help_panel="Observability")
-app.add_typer(job.app, name="scan", help="Alias for job.", hidden=True)
-app.add_typer(results.app, name="results", help="Query data quality signals.", rich_help_panel="Observability")
-app.add_typer(dataset.app, name="dataset", help="Manage datasets.", rich_help_panel="Resources")
-app.add_typer(incident.app, name="incident", help="Manage incidents.", rich_help_panel="Observability")
-app.add_typer(notification.app, name="notification", help="Manage notifications and channels.", rich_help_panel="Settings")
-app.add_typer(role.app, name="role", help="Manage roles and permissions.", rich_help_panel="Settings")
-app.add_typer(users.app, name="users", help="Manage users and groups.", rich_help_panel="Settings")
-app.add_typer(completion.app, name="completion", help="Shell completion scripts.")
+# ── Command groups (order = help display order, no rich_help_panel grouping) ──
+app.add_typer(auth.app,         name="auth",         help="Manage authentication and profiles.")
+app.add_typer(contract.app,     name="contract",     help="Manage and verify data contracts.")
+app.add_typer(datasource.app,   name="datasource",   help="Manage datasource connections.")
+app.add_typer(datasource.app,   name="ds",           help="Alias for datasource.", hidden=True)
+app.add_typer(dataset.app,      name="dataset",      help="Manage datasets.")
+app.add_typer(job.app,          name="job",          help="View execution history.")
+app.add_typer(job.app,          name="scan",         help="Alias for job.", hidden=True)
+app.add_typer(results.app,      name="results",      help="Query data quality signals.")
+app.add_typer(incident.app,     name="incident",     help="Manage incidents.")
+app.add_typer(notification.app, name="notification", help="Manage notifications and channels.")
+app.add_typer(role.app,         name="role",         help="Manage roles and permissions.")
+app.add_typer(users.app,        name="users",        help="Manage users and groups.")
+app.add_typer(completion.app,   name="completion",   help="Shell completion scripts.")
 
 
 @app.command("version")
 def version_cmd():
     """Print version information."""
-    console = Console()
-    console.print(f"soda version [bold]{__version__}[/bold]")
+    Console().print(f"soda [bold]{__version__}[/bold]")
 
 
 @app.command("init")
@@ -72,7 +73,7 @@ def dashboard_command(ctx: typer.Context):
 @app.callback(invoke_without_command=True, no_args_is_help=True)
 def main(
     ctx: typer.Context,
-    output: str = typer.Option("auto", "--output", "-o", help="Output format: table|json|csv (default: auto-detect TTY)"),
+    output: str = typer.Option("auto", "--output", "-o", help="Output format: table|json|csv"),
     profile: Optional[str] = typer.Option(None, "--profile", help="Override active auth profile"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable color output"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
@@ -85,8 +86,7 @@ def main(
     Run [bold]soda <command> --help[/bold] for details on any command.
     """
     if version:
-        console = Console(no_color=no_color)
-        console.print(f"soda version [bold]{__version__}[/bold]")
+        Console().print(f"soda [bold]{__version__}[/bold]")
         raise typer.Exit(0)
 
     ctx.ensure_object(dict)
