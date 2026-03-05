@@ -1,72 +1,108 @@
 Full Command Tree (WIP)
 
   soda
-
+  │
+  │  Global flags:
+  │    --output table|json|csv   (auto-detects TTY)
+  │    --profile <name>
+  │    --no-color / --quiet / --verbose
+  │    --no-interactive           (for CI/CD and AI agents)
+  │
   ├── auth
-  │   ├── login  [--profile <name>]          # Wizard: enters API key, tests, saves
-  │   ├── logout [--profile <name>]
-  │   ├── status                             # Shows active profile, org, expiry
-  │   └── switch <profile>                   # Swap active profile
-
-  ├── init                                   # Scaffolds soda.yml + configs/ + contracts/
-
+  │   ├── login   [--profile <name>]    # wizard → API key → test → save
+  │   ├── logout  [--profile <name>]
+  │   ├── status                        # active profile, org, connection health
+  │   └── switch  <profile>
+  │
+  ├── init                              # scaffold soda.yml + configs/ + contracts/
+  │
+  ├── run  [<file-or-dir>]              # smart pipeline: resolves DS from contract, verify + publish
+  │   --agent                          # delegate to Soda Agent
+  │   --parallel                       # run directory of contracts concurrently
+  │   --datasource <file>              # override: explicit DS config (no soda.yml needed)
+  │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
+  │
+  ├── status                            # org dashboard: datasets, checks, incidents, recent scans
+  │
   ├── datasource  (alias: ds)
-  │   ├── create  [--type pg|sf|bq|duck...]  # Interactive wizard or --type flag
-  │   ├── test    [<name-or-file>]           # Test connectivity
-  │   └── list                               # Show all configured datasources
-
+  │   ├── create      [--type pg|sf|bq|duck|...]   # local YAML config
+  │   ├── connect     --agent <name> --type <t>    # cloud-registered, via Soda Agent
+  │   ├── diagnostics <id>                          # view/configure diagnostics warehouse
+  │   ├── test        [<name-or-file>]
+  │   └── list
+  │
   ├── contract
-  │   ├── create  --dataset <ds/db/schema/table>  # Bootstrap YAML from live schema
-  │   ├── validate [<file>]                  # Dry-run syntax check (no network)
-  │   ├── publish  [<file>]                  # Push to Soda Cloud
-  │   ├── fetch   --dataset <fqn>            # Pull from cloud → local file
-  │   ├── diff    [<file>] --dataset <fqn>  # Diff local vs cloud version
-  │   └── verify  [<file>]                  # Execute checks
-  │       --agent                            # Delegate to Soda Agent
-  │       --publish                          # Push results to cloud
-  │       --set   key=value                  # Runtime variable overrides
-  │       --check <dot.path>                 # Run specific checks only
-  │       --watch                            # Re-run on file changes
-
+  │   ├── create    --dataset <ds/db/schema/table>  # bootstrap from live schema
+  │   ├── validate  [<file>]                         # syntax check, no network
+  │   ├── publish   [<file>]
+  │   ├── fetch     --dataset <fqn>
+  │   ├── diff      [<file>]  --dataset <fqn>
+  │   ├── suggest   --dataset <fqn>                  # Copilot: propose additions
+  │   ├── generate  --dataset <fqn>                  # Autopilot: full contract from scratch
+  │   ├── verify    [<file>]                         # explicit, all flags required
+  │   │   --agent / --publish / --set / --check / --watch
+  │   └── request                                    # PR flow for published contracts
+  │       ├── list    [--status open|done|all]
+  │       ├── fetch   <id>  [--proposal <n>]
+  │       ├── push    <id>  [<file>]  [--message]
+  │       └── close   <id>  [--status done|wontdo]
+  │
   ├── scan
-  │   ├── get   <id>                         # Status + summary
-  │   └── logs  <id>  [--follow]             # Stream execution logs
-
+  │   ├── get   <id>
+  │   └── logs  <id>  [--follow]
+  │
   ├── checks
-  │   ├── list   [--dataset <id>] [--status passing|failing|all]
-  │   └── delete <id>
-
-  ├── dataset                                # Cloud management (wraps API)
-  │   ├── list   [--filter <query>]  [--tag <tag>]
-  │   ├── update <id>  [--name] [--tag] [--attr key=value]
-  │   ├── delete <id>
-  │   ├── profiling    <id>                  # Show profiling insights
+  │   ├── list    [--dataset <id>] [--status passing|failing|all]
+  │   └── delete  <id>
+  │
+  ├── dataset
+  │   ├── list         [--filter <query>] [--tag <tag>]
+  │   ├── update       <id>  [--name] [--tag] [--attr key=value]
+  │   ├── delete       <id>
+  │   ├── profiling    <id>
+  │   ├── warehouse    <id>               # compute + diagnostics warehouse config
   │   ├── permissions
-  │   │   ├── list   <id>
-  │   │   └── set    <id>  --role <role> --user <email>
+  │   │   ├── list  <id>
+  │   │   └── set   <id>  --role <role>  --user <email>|--group <id>
   │   └── monitor
-  │       ├── list   <dataset-id>
-  │       ├── add    <dataset-id>            # Interactive or flags
-  │       └── update <dataset-id> <monitor-id>
-
+  │       ├── list    <dataset-id>
+  │       ├── add     <dataset-id>        # column metric or custom SQL wizard
+  │       ├── update  <dataset-id> <monitor-id>
+  │       └── delete  <dataset-id> <monitor-id>
+  │
   ├── incident
-  │   ├── list   [--status open|closed|all]  [--dataset <id>]
-  │   ├── get    <id>
-  │   └── update <id>  [--status] [--note <text>]
-
-  ├── request                               # Contract collaboration
-  │   ├── list   [--status open|done|all]
-  │   ├── fetch  <id>  [--proposal <n>]     # Download → local file
-  │   ├── push   <id>  [<file>]  [-m <msg>] # Upload proposal
-  │   └── close  <id>  [--status done|wontdo]
-
-  └── users
-      ├── list
-      └── group
-          ├── list
-          ├── create  --name <n>  --members <emails...>
-          ├── update  <id>
-          └── delete  <id>
+  │   ├── list    [--status open|closed|all] [--dataset <id>]
+  │   ├── get     <id>
+  │   └── update  <id>  [--status] [--note <text>]
+  │
+  ├── notification
+  │   ├── list    [--channel <id>] [--dataset <id>]
+  │   ├── add                             # wizard: channel → triggers → scope
+  │   ├── update  <id>
+  │   ├── delete  <id>
+  │   └── channel
+  │       ├── list
+  │       ├── add   slack|teams|webhook
+  │       ├── delete <id>
+  │       └── test   <id>
+  │
+  ├── role
+  │   ├── list    [--scope global|dataset]
+  │   ├── create  --name <n>  --scope global|dataset
+  │   ├── delete  <id>
+  │   ├── show    <id>                    # permissions in this role
+  │   ├── assign  <id>  --user <email>|--group <group-id>
+  │   └── revoke  <id>  --user <email>|--group <group-id>
+  │
+  ├── users
+  │   ├── list
+  │   └── group
+  │       ├── list
+  │       ├── create  --name <n>  --members <emails...>
+  │       ├── update  <id>
+  │       └── delete  <id>
+  │
+  └── completion  bash|zsh|fish
 
 
 UX Ideas
@@ -89,6 +125,10 @@ UX Ideas
   soda run orders.yml --output json     # for CI/CD pipelines
 
   Exit codes: 0 = all checks pass, 1 = checks failed, 2 = error, 3 = auth error
+
+  The mental model split:
+  soda run → smart, project-aware, CI/CD and agents, accepts files or directories
+  soda contract verify → explicit, all flags, no project context required (power users)
 
   3. soda status — instant dashboard
 
