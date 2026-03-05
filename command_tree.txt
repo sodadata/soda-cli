@@ -96,9 +96,9 @@ soda
   │   ├── permissions
   │   │   ├── list  <id>
   │   │   └── set   <id>  --role <role-id>  --user <email>|--group <id>
-  │   └── monitor
+  │   └── monitor (# todo: this should probably be at top level not under dataset)
   │       ├── list    <dataset-id>
-  │       ├── add     <dataset-id>                   # column metric or custom SQL
+  │       ├── add     <dataset-id>                # (todo: add monitor type)
   │       ├── update  <dataset-id> <monitor-id>
   │       └── delete  <dataset-id> <monitor-id>
   │
