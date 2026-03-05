@@ -29,7 +29,7 @@ soda
   ├── datasource  (alias: ds)
   │   ├── create      [--type pg|sf|bq|duck|...]   # local YAML config
   │   ├── connect     --agent <name> --type <t>    # cloud-registered connection via Soda Agent
-  │   ├── diagnostics <id>                          # primary diagnostics warehouse config (datasource level)
+  │   ├── diagnostics <id>                          # primary diagnostics warehouse config (datasource level) (TODO: define what is configurable)
   │   ├── test        [<name-or-file>]
   │   └── list
   │
@@ -77,7 +77,7 @@ soda
   │   ├── update       <id>  [--name] [--tag] [--attr key=value]
   │   ├── delete       <id>
   │   ├── profiling    <id>
-  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides
+  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides (TODO: define what is configurable)
   │   ├── permissions
   │   │   ├── list  <id>
   │   │   └── set   <id>  --role <role>  --user <email>|--group <id>
