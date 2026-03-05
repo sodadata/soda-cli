@@ -1,4 +1,4 @@
-# soda
+# Soda CLI
 
 A unified CLI for all things Soda — manage contracts, and interact with the Soda Cloud API from one binary.
 
