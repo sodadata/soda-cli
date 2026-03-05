@@ -18,13 +18,13 @@ soda
   │
   ├── init                              # scaffold soda.yml + configs/ + contracts/
   │
-  ├── run  [<file-or-dir>]              # smart pipeline: resolves datasource from contract, verify + publish
+  ├── run  [<file-or-dir>]              # smart pipeline: resolves datasource from contract, verify + push results
   │   --agent                          # delegate to Soda Agent
   │   --parallel                       # run directory of contracts concurrently
   │   --datasource <file>              # explicit override when no soda.yml
   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
   │
-  ├── status                            # org dashboard: datasets, checks, incidents, recent scans
+  ├── status                            # org dashboard: datasets, results, incidents, recent scans
   │
   ├── datasource  (alias: ds)
   │   ├── create      [--type pg|sf|bq|duck|...]   # local YAML config
@@ -36,7 +36,7 @@ soda
   ├── contract
   │   ├── create    --dataset <ds/db/schema/table>  # bootstrap YAML from live schema
   │   ├── validate  [<file>]                         # syntax check, no network
-  │   ├── publish   [<file>]
+  │   ├── push      [<file>]                         # push contract definition to cloud
   │   ├── fetch     --dataset <fqn>                  # pull from cloud → local file
   │   ├── diff      [<file>]  --dataset <fqn>        # local vs cloud diff
   │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]
@@ -45,7 +45,7 @@ soda
   │   │   --output <file>
   │   ├── verify    [<file>]
   │   │   --agent                                    # delegate to Soda Agent
-  │   │   --publish                                  # push results to cloud
+  │   │   --push                                     # run checks + push results to cloud
   │   │   --set     key=value                        # runtime variable overrides
   │   │   --check   <dot.path>                       # run specific checks only
   │   │   --watch                                    # re-run on file changes (dev mode)
@@ -55,6 +55,10 @@ soda
   │       ├── push    <id>  [<file>]  [--message]
   │       └── close   <id>  [--status done|wontdo]
   │
+  ├── scan
+  │   ├── get   <id>
+  │   └── logs  <id>  [--follow]
+  │
   ├── results                           # ⚠ temp name — unified view of all data quality signals
   │   └── list                          # contract checks + monitor alerts in one place
   │       [--datasource <id>]
@@ -62,16 +66,11 @@ soda
   │       [--type check|monitor|all]
   │       [--status passing|failing|all]
   │
-  │   # output:
   │   # DATASET                TYPE     NAME                     STATUS     DATE
   │   # pg/prod/orders         check    row_count > 0            ✓ passing  2026-03-05 08:12
   │   # pg/prod/orders         check    no_nulls(order_id)       ✗ failing  2026-03-05 08:12
   │   # pg/prod/users          monitor  daily_signups anomaly    ⚠ alert    2026-03-05 06:45
   │   # pg/prod/revenue        check    revenue_not_negative     ✓ passing  2026-03-04 23:00
-  │
-  ├── scan
-  │   ├── get   <id>
-  │   └── logs  <id>  [--follow]
   │
   ├── dataset
   │   ├── list         [--filter <query>] [--tag <tag>]
