@@ -24,11 +24,12 @@ soda
   ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs
   │
   ├── datasource  (alias: ds)
-  │   ├── create      [--type pg|sf|bq|duck|...]   # local YAML config
-  │   ├── onboard     --agent <name> --type <t>    # cloud-registered connection via Soda Agent
-  │   ├── diagnostics <id>                         # primary diagnostics warehouse config (datasource level) # TODO: what to is configurable?
-  │   ├── test        [<name-or-file>]             # test connection
-  │   └── list                                     # list datasources
+  │   ├── create           [--type pg|sf|bq|duck|...]   # local YAML config
+  │   ├── onboard          --agent <name> --type <t>    # cloud-registered connection via Soda Agent
+  │   ├── test-connection  [<name-or-file>]             # test connection
+  │   ├── diagnostics      <id>                         # diagnostics warehouse config (datasource level) # TODO: what is configurable?
+  │   ├── list                                          # list datasources
+  │   └── delete           <id>
   │
   ├── contract
   │   ├── create    --dataset <ds/db/schema/table>
@@ -38,8 +39,8 @@ soda
   │   │   # copilot  → full AI-generated contract (requires license)
   │   ├── lint (alias: validate)  [<file>]           # syntax check, no network (previously called validate)
   │   ├── push      [<file>]                         # push contract definition to cloud
-  │   ├── pull      --dataset <fqn>                  # pull contract from cloud → local file
-  │   ├── diff      [<file>]  --dataset <fqn>        # local vs cloud diff
+  │   ├── pull      <identifier>                      # pull contract from cloud → local file
+  │   ├── diff      [<file>]                         # local vs cloud diff (identifier read from file)
   │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]
   │   │   # no args          → wizard: generate or improve?
   │   │   # file, no prompt  → wizard: what to improve?
@@ -92,7 +93,7 @@ soda
   │   ├── delete       <id>
   │   ├── profiling    <id>                          # view cached profiling data
   │   ├── profiling refresh <id>                     # trigger new profiling run
-  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides # TODO: what to is configurable?
+  │   ├── diagnostics  <id>                          # dataset-level diagnostics warehouse overrides # TODO: what is configurable?
   │   ├── permissions
   │   │   ├── list  <id>
   │   │   └── set   <id>  --role <role-id>  --user <email>|--group <id>
@@ -137,5 +138,13 @@ soda
   │   ├── group delete  <id>
   │   ├── group assign  <group-id>  --role <role-id>
   │   └── group revoke  <group-id>  --role <role-id>
+  │
+  ├── agent
+  │   └── list
+  │
+  ├── secret
+  │   ├── create  --name <n>  --value <v>
+  │   ├── update  <id>        --value <v>
+  │   └── delete  <id>
   │
   └── completion  bash|zsh|fish
