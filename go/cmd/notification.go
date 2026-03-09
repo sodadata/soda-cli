@@ -11,140 +11,151 @@ import (
 
 var notificationCmd = &cobra.Command{
 	Use:   "notification",
-	Short: "Manage notification rules and channels",
+	Short: "Manage notification rules and integrations",
 }
 
-var notifListCmd = &cobra.Command{
+// ── notification rule ─────────────────────────────────────────────────────────
+
+var notifRuleCmd = &cobra.Command{
+	Use:   "rule",
+	Short: "Manage notification rules",
+}
+
+var notifRuleListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List notification rules",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		channel, _ := cmd.Flags().GetString("channel")
-		dataset, _ := cmd.Flags().GetString("dataset")
-
-		rows := mock.Notifications
-		filtered := []map[string]string{}
-		for _, n := range rows {
-			if channel != "" && n["channel"] != channel {
-				continue
-			}
-			if dataset != "" && n["dataset"] != dataset {
-				continue
-			}
-			filtered = append(filtered, n)
-		}
-
-		cols := []string{"id", "channel", "trigger", "dataset", "status"}
-		output.Render(filtered, cols, map[string]bool{"status": true}, GCtx)
+		cols := []string{"id", "name", "source", "alert", "dataset", "notify"}
+		output.Render(mock.NotificationRules, cols, nil, GCtx)
 		return nil
 	},
 }
 
-var notifAddCmd = &cobra.Command{
+var notifRuleAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Create a notification rule",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		channel, _ := cmd.Flags().GetString("channel")
-		trigger, _ := cmd.Flags().GetString("trigger")
-		dataset, _ := cmd.Flags().GetString("dataset")
+		name, _ := cmd.Flags().GetString("name")
+		source, _ := cmd.Flags().GetString("source")
+		alert, _ := cmd.Flags().GetString("alert")
+		notify, _ := cmd.Flags().GetStringArray("notify")
 
-		if channel == "" || trigger == "" {
-			return output.Errorf(2, "--channel and --trigger are required")
+		if name == "" || source == "" || alert == "" || len(notify) == 0 {
+			return output.Errorf(2, "--name, --source, --alert, and --notify are required")
 		}
-
-		scope := "(all datasets)"
-		if dataset != "" {
-			scope = dataset
-		}
-		output.PrintSuccess(fmt.Sprintf("Notification rule created: %s on %s → %s", trigger, scope, channel), GCtx)
+		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' created.", name), GCtx)
 		return nil
 	},
 }
 
-var notifUpdateCmd = &cobra.Command{
+var notifRuleUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update a notification rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Notification rule %s updated.", args[0]), GCtx)
+		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' updated.", args[0]), GCtx)
 		return nil
 	},
 }
 
-var notifDeleteCmd = &cobra.Command{
+var notifRuleDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
 	Short: "Delete a notification rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Notification rule %s deleted.", args[0]), GCtx)
+		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' deleted.", args[0]), GCtx)
 		return nil
 	},
 }
 
-// notification channel sub-group
-var notifChannelCmd = &cobra.Command{
-	Use:   "channel",
-	Short: "Manage notification channels (Slack, Teams, webhooks)",
+// ── notification integration ──────────────────────────────────────────────────
+
+var notifIntegrationCmd = &cobra.Command{
+	Use:   "integration",
+	Short: "Manage notification integrations (Slack, Teams, webhooks)",
 }
 
-var channelListCmd = &cobra.Command{
+var notifIntegrationListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List notification channels",
+	Short: "List notification integrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cols := []string{"id", "name", "type", "status"}
-		output.Render(mock.Channels, cols, map[string]bool{"status": true}, GCtx)
+		output.Render(mock.Integrations, cols, map[string]bool{"status": true}, GCtx)
 		return nil
 	},
 }
 
-var channelAddCmd = &cobra.Command{
+var notifIntegrationAddCmd = &cobra.Command{
 	Use:       "add slack|teams|webhook",
-	Short:     "Add a notification channel",
+	Short:     "Add a notification integration",
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"slack", "teams", "webhook"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		chType := args[0]
-
+		intType := args[0]
 		if GCtx.NoInteractive {
-			return output.Errorf(2, "interactive setup required for channel configuration")
+			return output.Errorf(2, "interactive setup required for integration configuration")
 		}
-
-		fmt.Printf("  Configuring %s channel...\n", chType)
-		output.PrintSuccess(fmt.Sprintf("%s channel added.", chType), GCtx)
+		fmt.Printf("  Configuring %s integration...\n", intType)
+		output.PrintSuccess(fmt.Sprintf("%s integration added.", intType), GCtx)
 		return nil
 	},
 }
 
-var channelDeleteCmd = &cobra.Command{
-	Use:   "delete <id>",
-	Short: "Delete a notification channel",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Channel %s deleted.", args[0]), GCtx)
-		return nil
-	},
-}
-
-var channelTestCmd = &cobra.Command{
+var notifIntegrationTestCmd = &cobra.Command{
 	Use:   "test <id>",
-	Short: "Send a test message to a channel",
+	Short: "Send a test message to an integration",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(output.Dim.Render("  Sending test message to channel " + args[0] + "..."))
+		fmt.Println(output.Dim.Render("  Sending test message to integration " + args[0] + "..."))
 		output.PrintSuccess("Test message sent successfully.", GCtx)
 		return nil
 	},
 }
 
+var notifIntegrationDeleteCmd = &cobra.Command{
+	Use:   "delete <id>",
+	Short: "Delete a notification integration",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		output.PrintSuccess(fmt.Sprintf("Integration '%s' deleted.", args[0]), GCtx)
+		return nil
+	},
+}
+
 func init() {
-	notifListCmd.Flags().String("channel", "", "Filter by channel ID")
-	notifListCmd.Flags().String("dataset", "", "Filter by dataset ID")
+	// rule flags
+	notifRuleAddCmd.Flags().String("name", "", "Rule name (required)")
+	notifRuleAddCmd.Flags().String("source", "", "Notification source: check|monitor|all (required)")
+	notifRuleAddCmd.Flags().String("alert", "", "Alert condition: warn-fail|fail-only|anomaly (required)")
+	notifRuleAddCmd.Flags().StringArray("notify", nil, "Recipient email or role ID (repeatable, required)")
+	notifRuleAddCmd.Flags().String("datasource", "", "Scope to a datasource label")
+	notifRuleAddCmd.Flags().String("dataset", "", "Scope to a dataset label")
+	notifRuleAddCmd.Flags().String("dataset-owner", "", "Scope to datasets owned by email")
+	notifRuleAddCmd.Flags().String("dataset-tag", "", "Scope to datasets with tag")
+	notifRuleAddCmd.Flags().String("check-name", "", "Filter by check name (supports 'contains:value')")
+	notifRuleAddCmd.Flags().String("check-owner", "", "Filter by check owner email")
+	notifRuleAddCmd.Flags().String("monitor-type", "", "Filter by monitor type")
+	notifRuleAddCmd.Flags().Bool("granular-results", false, "Send one notification per result (not a summary)")
+	notifRuleAddCmd.Flags().String("message", "", "Custom notification message")
 
-	notifAddCmd.Flags().String("channel", "", "Channel ID (required)")
-	notifAddCmd.Flags().String("trigger", "", "Trigger event (required): check-failure|incident-opened|incident-closed")
-	notifAddCmd.Flags().String("dataset", "", "Scope to a specific dataset (optional)")
+	notifRuleUpdateCmd.Flags().String("name", "", "Rule name")
+	notifRuleUpdateCmd.Flags().String("source", "", "Notification source: check|monitor|all")
+	notifRuleUpdateCmd.Flags().String("alert", "", "Alert condition: warn-fail|fail-only|anomaly")
+	notifRuleUpdateCmd.Flags().StringArray("notify", nil, "Recipient email or role ID (repeatable)")
+	notifRuleUpdateCmd.Flags().String("datasource", "", "Scope to a datasource label")
+	notifRuleUpdateCmd.Flags().String("dataset", "", "Scope to a dataset label")
+	notifRuleUpdateCmd.Flags().String("dataset-owner", "", "Scope to datasets owned by email")
+	notifRuleUpdateCmd.Flags().String("dataset-tag", "", "Scope to datasets with tag")
+	notifRuleUpdateCmd.Flags().String("check-name", "", "Filter by check name")
+	notifRuleUpdateCmd.Flags().String("check-owner", "", "Filter by check owner email")
+	notifRuleUpdateCmd.Flags().String("monitor-type", "", "Filter by monitor type")
+	notifRuleUpdateCmd.Flags().Bool("granular-results", false, "Send one notification per result")
+	notifRuleUpdateCmd.Flags().String("message", "", "Custom notification message")
 
-	notifChannelCmd.AddCommand(channelListCmd, channelAddCmd, channelDeleteCmd, channelTestCmd)
+	notifRuleCmd.AddCommand(notifRuleListCmd, notifRuleAddCmd, notifRuleUpdateCmd, notifRuleDeleteCmd)
 
-	notificationCmd.AddCommand(notifListCmd, notifAddCmd, notifUpdateCmd, notifDeleteCmd, notifChannelCmd)
+	notifIntegrationCmd.AddCommand(notifIntegrationListCmd, notifIntegrationAddCmd, notifIntegrationTestCmd, notifIntegrationDeleteCmd)
+
+	notificationCmd.AddCommand(notifRuleCmd, notifIntegrationCmd)
 	rootCmd.AddCommand(notificationCmd)
 }

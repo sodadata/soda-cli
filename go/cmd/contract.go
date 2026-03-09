@@ -91,16 +91,14 @@ var contractPushCmd = &cobra.Command{
 }
 
 var contractPullCmd = &cobra.Command{
-	Use:   "pull",
+	Use:   "pull <identifier>",
 	Short: "Pull contract from Soda Cloud to a local file",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dataset, _ := cmd.Flags().GetString("dataset")
-		if dataset == "" {
-			return output.Errorf(2, "--dataset is required")
-		}
-		parts := strings.Split(dataset, "/")
+		identifier := args[0]
+		parts := strings.Split(identifier, "/")
 		outFile := parts[len(parts)-1] + ".yml"
-		fmt.Println(output.Dim.Render("  Pulling contract for " + dataset + "..."))
+		fmt.Println(output.Dim.Render("  Pulling contract for " + identifier + "..."))
 		output.PrintSuccess(fmt.Sprintf("Contract saved to %s", outFile), GCtx)
 		return nil
 	},
@@ -369,8 +367,6 @@ func init() {
 	contractCreateCmd.Flags().String("dataset", "", "Dataset FQN: datasource/db/schema/table")
 	contractCreateCmd.Flags().String("mode", "skeleton", "Generation mode: skeleton|copilot")
 	contractCreateCmd.Flags().String("output", "", "Output file path")
-
-	contractPullCmd.Flags().String("dataset", "", "Dataset FQN (required)")
 
 	contractDiffCmd.Flags().String("dataset", "", "Dataset FQN for cloud comparison")
 

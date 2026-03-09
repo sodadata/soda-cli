@@ -12,19 +12,30 @@ A unified CLI for all things Soda — manage contracts, and interact with the So
 
 ## Install
 
-Uses [uv](https://github.com/astral-sh/uv) for fast installs. (TBD is actual CLI will be build in Python or any other language).
+Requires [Go](https://go.dev/dl/) 1.21 or later.
 
 ```bash
 git clone <repo>
-cd soda-cli
+cd soda-cli/go
 
-uv venv --python 3.11
-source .venv/bin/activate
-
-uv pip install -e .
+go build -o soda .
 ```
 
-The `soda` binary is now available:
+Move the binary somewhere on your `PATH`:
+
+```bash
+mv soda /usr/local/bin/soda
+```
+
+Or run it directly from the build directory:
+
+```bash
+./soda --help
+```
+
+---
+
+## Usage
 
 ```bash
 soda --help
@@ -46,6 +57,8 @@ soda
     --no-interactive           for CI/CD and AI agents
     --version
 
+  version                      print version info
+
   auth
     login   [--api-key] [--profile] [--host]
     logout  [--profile]
@@ -57,20 +70,21 @@ soda
   dashboard                    org overview: datasets, results, incidents, jobs
 
   datasource  (alias: ds)
-    create      [--type] [--name]
-    onboard     --agent <name> --type <t>
-    diagnostics <id>
-    test        [<name-or-file>]
+    create           [--type] [--name]
+    onboard          --agent <name> --type <t>
+    test-connection  [<name-or-file>]
+    diagnostics      <id>
     list
+    delete           <id>
 
   contract
     create    --dataset <fqn>  [--mode skeleton|copilot]
-    lint      [<file>]
+    lint      [<file>]           (alias: validate)
     push      [<file>]
-    pull      --dataset <fqn>
-    diff      [<file>]  --dataset <fqn>
+    pull      <identifier>
+    diff      [<file>]
     copilot   [<file>]  [<prompt>]  [--dataset <fqn>]
-    verify    [<file-or-dir>]  [--push]  [--agent]  [--set key=val]
+    verify    [<file-or-dir>|--dataset <identifier>]  [--datasource <file>]  [--push]  [--agent]  [--set key=val]
     proposal
       list    [--status open|done|all]
       pull    <id>  [--revision <n>]
@@ -85,54 +99,77 @@ soda
     list    [--datasource] [--dataset] [--type] [--status] [--from] [--to]
 
   dataset
-    list         [--filter] [--tag]
-    update       <id>  [--name] [--tag] [--attr key=val]
-    delete       <id>
-    profiling    show   <id>
-    profiling    refresh <id>
-    diagnostics  <id>
+    list             [--filter] [--tag]
+    update           <id>  [--owner] [--tag] [--description]
+    delete           <id>
+    time-partition   <id>  [--column]
+      get            <id>
+    profiling        <id>  [--enable|--disable] [--execution] [--schedule] [--strategy]
+      get            <id>
+      refresh        <id>
+    diagnostics      <id>  [--schema] [--collect-results] [--collect-failed-rows]
+      get            <id>
     permissions
-      list  <id>
-      set   <id>  --role <id>  --user <email>|--group <id>
-    monitor
-      list    <dataset-id>
-      add     <dataset-id>  [--column] [--metric]
-      update  <dataset-id> <monitor-id>
-      delete  <dataset-id> <monitor-id>
+      list    <id>
+      assign  <id>  --role <id>  --user <email>|--group <id>
+      revoke  <id>  --role <id>  --user <email>|--group <id>
 
-  incident
-    list    [--status open|closed|all]  [--dataset]
-    get     <id>
-    update  <id>  [--status]  [--note]
-
-  notification
-    list    [--channel] [--dataset]
-    add     --channel <id>  --trigger <event>  [--dataset]
+  monitor
+    list    [--dataset] [--type] [--status]
+    config  <dataset-id>  [--enable|--disable] [--schedule] [--historical] [--historical-days]
+      get   <dataset-id>
+    add     --dataset <id>  --type dataset|column|group-by|custom  [...]
     update  <id>
     delete  <id>
-    channel
+
+  incident
+    list    [--status reported|investigating|fixing|resolved]  [--dataset]
+    get     <id>
+    update  <id>  [--title] [--severity] [--description] [--assigned-to] [--status]
+
+  notification
+    rule
+      list
+      add     --name <n>  --source check|monitor|all  --alert warn-fail|fail-only|anomaly  --notify <recipient>
+      update  <id>
+      delete  <id>
+    integration
       list
       add     slack|teams|webhook
-      delete  <id>
       test    <id>
+      delete  <id>
 
-  role
-    list    [--scope global|dataset]
-    create  --name <n>  --scope global|dataset
-    delete  <id>
-    show    <id>
-
-  users
-    list
-    assign  <user-id>  --role <role-id>
-    revoke  <user-id>  --role <role-id>
+  iam
+    role
+      list    [--scope global|dataset]
+      create  --name <n>  --scope global|dataset
+      delete  <id>
+      show    <id>
+    user
+      list
+      invite  --email <email>
+      remove  <user-id>
+      assign  <user-id>  --role <role-id>
+      revoke  <user-id>  --role <role-id>
     group
       list
-      create  --name <n>  [--members <emails>]
-      update  <id>
+      create  --name <n>  [--member <email>]
+      update  <id>  [--name] [--add-member] [--remove-member]
       delete  <id>
       assign  <group-id>  --role <role-id>
       revoke  <group-id>  --role <role-id>
+    service-account
+      list
+      create  --name <n>  --email <email>
+      delete  <id>
+
+  agent
+    list
+
+  secret
+    create  --name <n>  --value <v>
+    update  <id>  --value <v>
+    delete  <id>
 
   completion  bash|zsh|fish
 ```
@@ -144,7 +181,7 @@ Exit codes: `0` pass · `1` checks failed · `2` error · `3` auth error
 ## Design principles
 
 - **Noun → verb** — every command follows `soda <resource> <action>`
-- **Auto-detect output** — Rich tables when TTY, JSON when piped; override with `--output`
+- **Auto-detect output** — tables when TTY, JSON when piped; override with `--output`
 - **`--no-interactive` everywhere** — safe to run in CI and from AI agents
 - **One auth system** — `~/.soda/credentials` for both local and cloud API calls
 - **Config precedence** — `--flags` → env vars → `./soda.yml` → `~/.soda/config.yml`

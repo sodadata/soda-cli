@@ -43,18 +43,18 @@ var Incidents = []map[string]string{
 	{"id": "INC-003", "title": "Sessions anomaly resolved", "dataset": "sf_analytics.sessions", "status": "closed", "created": "2026-03-03 14:00"},
 }
 
-// Notifications is mock data for the notification list command.
-var Notifications = []map[string]string{
-	{"id": "notif_001", "channel": "slack-data-alerts", "trigger": "check-failure", "dataset": "pg_prod.orders", "status": "active"},
-	{"id": "notif_002", "channel": "slack-data-alerts", "trigger": "incident-opened", "dataset": "(all)", "status": "active"},
-	{"id": "notif_003", "channel": "webhook-pagerduty", "trigger": "check-failure", "dataset": "pg_prod.users", "status": "active"},
+// NotificationRules is mock data for the notification rule list command.
+var NotificationRules = []map[string]string{
+	{"id": "rule_001", "name": "orders-failures", "source": "check", "alert": "fail-only", "dataset": "pg_prod.orders", "notify": "data-team@acme.com"},
+	{"id": "rule_002", "name": "all-anomalies", "source": "monitor", "alert": "anomaly", "dataset": "(all)", "notify": "role_admin"},
+	{"id": "rule_003", "name": "users-warn-fail", "source": "check", "alert": "warn-fail", "dataset": "pg_prod.users", "notify": "alice@acme.com"},
 }
 
-// Channels is mock data for the notification channel list command.
-var Channels = []map[string]string{
-	{"id": "ch_slack_001", "name": "slack-data-alerts", "type": "slack", "status": "connected"},
-	{"id": "ch_wh_002", "name": "webhook-pagerduty", "type": "webhook", "status": "connected"},
-	{"id": "ch_teams_003", "name": "teams-engineering", "type": "teams", "status": "disconnected"},
+// Integrations is mock data for the notification integration list command.
+var Integrations = []map[string]string{
+	{"id": "int_slack_001", "name": "slack-data-alerts", "type": "slack", "status": "connected"},
+	{"id": "int_wh_002", "name": "webhook-pagerduty", "type": "webhook", "status": "connected"},
+	{"id": "int_teams_003", "name": "teams-engineering", "type": "teams", "status": "disconnected"},
 }
 
 // Roles is mock data for the role list command.
@@ -115,6 +115,27 @@ var LogLines = []string{
 	"2026-03-05 08:12:09  [INFO]   Running check: freshness(created_at) < 24h",
 	"2026-03-05 08:12:10  [WARN]   ✗ freshness(created_at) < 24h [last_value = 31h ago]",
 	"2026-03-05 08:12:11  [INFO]   Verification complete: 4 passing, 2 failing",
+}
+
+// Monitors is mock data for the monitor list command.
+var Monitors = []map[string]string{
+	{"id": "mon_001", "dataset": "pg_prod.orders", "type": "column", "metric": "row-count", "status": "enabled", "last_run": "2026-03-05 08:12"},
+	{"id": "mon_002", "dataset": "pg_prod.users", "type": "column", "metric": "missing-pct(email)", "status": "enabled", "last_run": "2026-03-05 06:45"},
+	{"id": "mon_003", "dataset": "sf_analytics.events", "type": "dataset", "metric": "row-count-change", "status": "disabled", "last_run": "2026-03-04 22:30"},
+	{"id": "mon_004", "dataset": "sf_analytics.sessions", "type": "custom", "metric": "daily_session_duration", "status": "enabled", "last_run": "2026-03-05 01:00"},
+}
+
+// Agents is mock data for the agent list command.
+var Agents = []map[string]string{
+	{"id": "agent_001", "name": "prod-agent", "status": "running", "version": "1.4.2", "last_seen": "2026-03-05 08:10"},
+	{"id": "agent_002", "name": "staging-agent", "status": "running", "version": "1.4.1", "last_seen": "2026-03-05 07:55"},
+	{"id": "agent_003", "name": "legacy-agent", "status": "offline", "version": "1.3.0", "last_seen": "2026-02-28 12:00"},
+}
+
+// ServiceAccounts is mock data for the iam service-account list command.
+var ServiceAccounts = []map[string]string{
+	{"id": "sa_001", "name": "ci-pipeline", "email": "ci@svc.acme.com", "created": "2025-10-01"},
+	{"id": "sa_002", "name": "data-agent", "email": "agent@svc.acme.com", "created": "2025-11-15"},
 }
 
 // DashboardSummary holds mock data for the dashboard command.

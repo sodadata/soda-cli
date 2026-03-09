@@ -76,8 +76,8 @@ var dsOnboardCmd = &cobra.Command{
 	},
 }
 
-var dsTestCmd = &cobra.Command{
-	Use:   "test [name-or-file]",
+var dsTestConnectionCmd = &cobra.Command{
+	Use:   "test-connection [name-or-file]",
 	Short: "Test a datasource connection",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := "default"
@@ -86,6 +86,16 @@ var dsTestCmd = &cobra.Command{
 		}
 		fmt.Printf(output.Dim.Render("  Testing connection to '%s'...\n"), target)
 		output.PrintSuccess("Connection successful.", GCtx)
+		return nil
+	},
+}
+
+var dsDeleteCmd = &cobra.Command{
+	Use:   "delete <id>",
+	Short: "Delete a datasource",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		output.PrintSuccess(fmt.Sprintf("Datasource '%s' deleted.", args[0]), GCtx)
 		return nil
 	},
 }
@@ -109,6 +119,6 @@ func init() {
 	dsOnboardCmd.Flags().String("agent", "", "Soda Agent name (required)")
 	dsOnboardCmd.Flags().String("type", "", "Datasource type (required)")
 
-	datasourceCmd.AddCommand(dsListCmd, dsCreateCmd, dsOnboardCmd, dsTestCmd, dsDiagnosticsCmd)
+	datasourceCmd.AddCommand(dsListCmd, dsCreateCmd, dsOnboardCmd, dsTestConnectionCmd, dsDiagnosticsCmd, dsDeleteCmd)
 	rootCmd.AddCommand(datasourceCmd)
 }
