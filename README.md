@@ -4,9 +4,18 @@ A unified CLI for all things Soda — manage contracts, and interact with the So
 
 ---
 
-## Status
+## Status & how to help
 
-**Walking skeleton.** All commands are wired up with the (WIP) structure, flags, and mock output. The goal is to validate UX — command naming, flag design, output formatting, wizard flows.
+This is a **walking skeleton** — all commands are wired up with mock output so you can feel the UX, but no real API calls happen yet. There is significant API work ahead before this is fully functional, and we are prioritizing in this order:
+
+1. Auth & onboarding
+2. Monitors
+3. Contracts
+
+**We'd love your input.** If you want to help shape this CLI:
+
+- **Review the command tree** — read [`command_tree.txt`](command_tree.txt) and leave comments on naming, structure, or anything that feels off
+- **Try the skeleton** — install it (see below), run some commands, and tell us if the UX feels right
 
 ---
 
