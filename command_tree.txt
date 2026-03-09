@@ -14,7 +14,12 @@ soda
   ├── version                               # print version info
   │
   ├── auth
-  │   ├── login   [--profile <name>]        # wizard → API key → test → save to ~/.soda/credentials
+  │   ├── login   [--host <host>]            # default: cloud.soda.io; use cloud.us.soda.io for US region
+  │   │           [--api-key-id <id>]
+  │   │           [--api-key-secret <secret>]
+  │   │           [--profile <name>]
+  │   │           # wizard → host → API key ID + secret → test → save to ~/.soda/credentials
+  │   │           # generate API keys: https://docs.soda.io/reference/generate-api-keys
   │   ├── logout  [--profile <name>]
   │   ├── status                            # active profile, org, connection health
   │   └── switch  <profile>

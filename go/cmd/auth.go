@@ -17,27 +17,35 @@ var authCmd = &cobra.Command{
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with Soda Cloud",
-	Long:  "Authenticate with Soda Cloud using an API key. Credentials are stored in ~/.soda/credentials.",
+	Long: "Authenticate with Soda Cloud using an API key ID and secret. Credentials are stored in ~/.soda/credentials.\n\nTo generate API keys: https://docs.soda.io/reference/generate-api-keys",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		apiKey, _ := cmd.Flags().GetString("api-key")
 		host, _ := cmd.Flags().GetString("host")
+		apiKeyID, _ := cmd.Flags().GetString("api-key-id")
+		apiKeySecret, _ := cmd.Flags().GetString("api-key-secret")
 
-		if apiKey == "" {
+		if apiKeyID == "" || apiKeySecret == "" {
 			if GCtx.NoInteractive {
-				return output.Errorf(2, "--api-key is required in non-interactive mode")
+				return output.Errorf(2, "--api-key-id and --api-key-secret are required in non-interactive mode")
 			}
 			if host == "" {
 				host = "cloud.soda.io"
 			}
 			form := huh.NewForm(huh.NewGroup(
-				huh.NewInput().
+				huh.NewSelect[string]().
 					Title("Soda Cloud host").
-					Placeholder("cloud.soda.io").
+					Description("Change to cloud.us.soda.io for the US region.").
+					Options(
+						huh.NewOption("cloud.soda.io (EU)", "cloud.soda.io"),
+						huh.NewOption("cloud.us.soda.io (US)", "cloud.us.soda.io"),
+					).
 					Value(&host),
 				huh.NewInput().
-					Title("API key").
+					Title("API key ID").
+					Value(&apiKeyID),
+				huh.NewInput().
+					Title("API key secret").
 					EchoMode(huh.EchoModePassword).
-					Value(&apiKey),
+					Value(&apiKeySecret),
 			))
 			if err := form.Run(); err != nil {
 				return output.Errorf(2, "login cancelled")
@@ -91,8 +99,9 @@ var authSwitchCmd = &cobra.Command{
 }
 
 func init() {
-	authLoginCmd.Flags().String("api-key", "", "Soda Cloud API key")
 	authLoginCmd.Flags().String("host", "", "Soda Cloud host (default: cloud.soda.io)")
+	authLoginCmd.Flags().String("api-key-id", "", "Soda Cloud API key ID")
+	authLoginCmd.Flags().String("api-key-secret", "", "Soda Cloud API key secret")
 
 	authCmd.AddCommand(authLoginCmd, authLogoutCmd, authStatusCmd, authSwitchCmd)
 	rootCmd.AddCommand(authCmd)
