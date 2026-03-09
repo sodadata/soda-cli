@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/soda-data-inc/soda-cli/internal/mock"
@@ -27,64 +26,29 @@ var dsListCmd = &cobra.Command{
 }
 
 var dsCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create a local datasource YAML config",
+	Use:   "create <config-file>",
+	Short: "Register a datasource from a YAML connection config",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dsType, _ := cmd.Flags().GetString("type")
-		name, _ := cmd.Flags().GetString("name")
-
-		if dsType == "" || name == "" {
-			if GCtx.NoInteractive {
-				return output.Errorf(2, "--type and --name are required in non-interactive mode")
-			}
-			types := []huh.Option[string]{
-				huh.NewOption("PostgreSQL", "postgres"),
-				huh.NewOption("Snowflake", "snowflake"),
-				huh.NewOption("BigQuery", "bigquery"),
-				huh.NewOption("DuckDB", "duckdb"),
-			}
-			form := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Datasource name").Placeholder("my_warehouse").Value(&name),
-				huh.NewSelect[string]().Title("Type").Options(types...).Value(&dsType),
-			))
-			if err := form.Run(); err != nil {
-				return output.Errorf(2, "cancelled")
-			}
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Created configs/%s.yml — edit it to add your connection details.", name), GCtx)
-		return nil
-	},
-}
-
-var dsOnboardCmd = &cobra.Command{
-	Use:   "onboard",
-	Short: "Register a cloud datasource via Soda Agent",
-	RunE: func(cmd *cobra.Command, args []string) error {
+		configFile := args[0]
 		agent, _ := cmd.Flags().GetString("agent")
-		dsType, _ := cmd.Flags().GetString("type")
 
-		if agent == "" || dsType == "" {
-			if GCtx.NoInteractive {
-				return output.Errorf(2, "--agent and --type are required in non-interactive mode")
-			}
+		msg := fmt.Sprintf("Datasource registered from %s.", configFile)
+		if agent != "" {
+			fmt.Println(output.Dim.Render("  Registering via agent '" + agent + "'..."))
+			msg = fmt.Sprintf("Datasource registered from %s via agent '%s'.", configFile, agent)
 		}
-
-		fmt.Println(output.Dim.Render("  Registering datasource via agent '" + agent + "'..."))
-		output.PrintSuccess("Datasource onboarded. It will appear in Soda Cloud once the agent confirms the connection.", GCtx)
+		output.PrintSuccess(msg, GCtx)
 		return nil
 	},
 }
 
 var dsTestConnectionCmd = &cobra.Command{
-	Use:   "test-connection [name-or-file]",
-	Short: "Test a datasource connection",
+	Use:   "test-connection <config-file>",
+	Short: "Test the connection defined in a YAML config file",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		target := "default"
-		if len(args) > 0 {
-			target = args[0]
-		}
-		fmt.Printf(output.Dim.Render("  Testing connection to '%s'...\n"), target)
+		fmt.Println(output.Dim.Render("  Testing connection from " + args[0] + "..."))
 		output.PrintSuccess("Connection successful.", GCtx)
 		return nil
 	},
@@ -100,25 +64,91 @@ var dsDeleteCmd = &cobra.Command{
 	},
 }
 
+// ── datasource diagnostics ────────────────────────────────────────────────────
+
 var dsDiagnosticsCmd = &cobra.Command{
 	Use:   "diagnostics <id>",
-	Short: "View or configure diagnostics warehouse for a datasource",
+	Short: "View or configure the diagnostics warehouse for a datasource",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("  %-22s %s\n", output.Bold.Render("Datasource"), args[0])
-		fmt.Printf("  %-22s %s\n", output.Bold.Render("Diagnostics warehouse"), "pg_prod.soda_diagnostics")
-		fmt.Printf("  %-22s %s\n", output.Bold.Render("Schema"), "soda")
-		fmt.Printf("  %-22s %s\n", output.Bold.Render("Retention"), "30 days")
+		enable, _ := cmd.Flags().GetBool("enable")
+		disable, _ := cmd.Flags().GetBool("disable")
+		warehouse, _ := cmd.Flags().GetString("warehouse")
+		schema, _ := cmd.Flags().GetString("schema")
+		collectResults, _ := cmd.Flags().GetBool("collect-results")
+		noCollectResults, _ := cmd.Flags().GetBool("no-collect-results")
+		collectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
+		noCollectFailedRows, _ := cmd.Flags().GetBool("no-collect-failed-rows")
+		tablePrefix, _ := cmd.Flags().GetString("table-prefix")
+		tableSuffix, _ := cmd.Flags().GetString("table-suffix")
+		failedRowsDesc, _ := cmd.Flags().GetString("failed-rows-description")
+		exposeQuery, _ := cmd.Flags().GetBool("expose-failed-rows-query")
+		noExposeQuery, _ := cmd.Flags().GetBool("no-expose-failed-rows-query")
+		cta, _ := cmd.Flags().GetBool("failed-rows-cta")
+		noCta, _ := cmd.Flags().GetBool("no-failed-rows-cta")
+
+		changed := enable || disable || warehouse != "" || schema != "" ||
+			collectResults || noCollectResults ||
+			collectFailedRows || noCollectFailedRows ||
+			tablePrefix != "" || tableSuffix != "" ||
+			failedRowsDesc != "" ||
+			exposeQuery || noExposeQuery ||
+			cta || noCta
+
+		if !changed {
+			// no flags → same as get
+			return runDsDiagnosticsGet(args[0])
+		}
+
+		output.PrintSuccess(fmt.Sprintf("Diagnostics warehouse config updated for datasource '%s'.", args[0]), GCtx)
+		return nil
+	},
+}
+
+
+func runDsDiagnosticsGet(id string) error {
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Datasource"), id)
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Diagnostics warehouse"), output.Green.Render("enabled"))
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Warehouse"), "same connection as datasource")
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Schema"), "soda_diagnostics")
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect results & scans"), "yes")
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect failed rows"), "yes")
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Table prefix"), output.Dim.Render("(none)"))
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Table suffix"), output.Dim.Render("(none)"))
+	return nil
+}
+
+var dsDiagnosticsTestConnectionCmd = &cobra.Command{
+	Use:   "test-connection <id>",
+	Short: "Test the diagnostics warehouse connection",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println(output.Dim.Render("  Testing diagnostics warehouse connection for '" + args[0] + "'..."))
+		output.PrintSuccess("Diagnostics warehouse connection successful.", GCtx)
 		return nil
 	},
 }
 
 func init() {
-	dsCreateCmd.Flags().String("type", "", "Datasource type: postgres|snowflake|bigquery|duckdb")
-	dsCreateCmd.Flags().String("name", "", "Datasource name")
-	dsOnboardCmd.Flags().String("agent", "", "Soda Agent name (required)")
-	dsOnboardCmd.Flags().String("type", "", "Datasource type (required)")
+	dsCreateCmd.Flags().String("agent", "", "Route connection through a Soda Agent")
 
-	datasourceCmd.AddCommand(dsListCmd, dsCreateCmd, dsOnboardCmd, dsTestConnectionCmd, dsDiagnosticsCmd, dsDeleteCmd)
+	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")
+	dsDiagnosticsCmd.Flags().Bool("disable", false, "Disable the diagnostics warehouse")
+	dsDiagnosticsCmd.Flags().String("warehouse", "", "Warehouse connection: same|<config-file>")
+	dsDiagnosticsCmd.Flags().String("schema", "", "Schema for diagnostic tables (default: soda_diagnostics)")
+	dsDiagnosticsCmd.Flags().Bool("collect-results", false, "Store check results and scan history")
+	dsDiagnosticsCmd.Flags().Bool("no-collect-results", false, "Disable storing check results and scan history")
+	dsDiagnosticsCmd.Flags().Bool("collect-failed-rows", false, "Store failed rows")
+	dsDiagnosticsCmd.Flags().Bool("no-collect-failed-rows", false, "Disable storing failed rows")
+	dsDiagnosticsCmd.Flags().String("table-prefix", "", "Prefix for diagnostic table names")
+	dsDiagnosticsCmd.Flags().String("table-suffix", "", "Suffix for diagnostic table names")
+	dsDiagnosticsCmd.Flags().String("failed-rows-description", "", "Description for failed rows storage context")
+	dsDiagnosticsCmd.Flags().Bool("expose-failed-rows-query", false, "Expose the failed rows SQL query in Cloud")
+	dsDiagnosticsCmd.Flags().Bool("no-expose-failed-rows-query", false, "Hide the failed rows SQL query in Cloud")
+	dsDiagnosticsCmd.Flags().Bool("failed-rows-cta", false, "Show a call-to-action link to where failed rows can be found")
+	dsDiagnosticsCmd.Flags().Bool("no-failed-rows-cta", false, "Hide the call-to-action link for failed rows")
+	dsDiagnosticsCmd.AddCommand(dsDiagnosticsTestConnectionCmd)
+
+	datasourceCmd.AddCommand(dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsDeleteCmd, dsDiagnosticsCmd)
 	rootCmd.AddCommand(datasourceCmd)
 }

@@ -24,12 +24,31 @@ soda
   ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs  [NOT YET IMPLEMENTABLE - API work required]
   │
   ├── datasource  (alias: ds)
-  │   ├── create           [--type pg|sf|bq|duck|...]   # local YAML config
-  │   ├── onboard          --agent <name> --type <t>    # cloud-registered connection via Soda Agent
-  │   ├── test-connection  [<name-or-file>]             # test connection
-  │   ├── diagnostics      <id>                         # diagnostics warehouse config (datasource level) # TODO: what is configurable?
+  │   ├── create  <config-file>                         # register datasource from a YAML connection config
+  │   │   [--agent <name>]                              # route through a Soda Agent
+  │   │
+  │   ├── test-connection  <config-file>                # test connection defined in a YAML config file
+  │   │
   │   ├── list                                          # list datasources
-  │   └── delete           <id>
+  │   │
+  │   ├── delete  <id>
+  │   │
+  │   └── diagnostics  <id>                             # view or configure diagnostics warehouse
+  │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
+  │       [--warehouse same|<config-file>]              # reuse datasource connection or provide a separate config
+  │       [--schema <name>]                             # schema for diagnostic tables (default: soda_diagnostics)
+  │       [--collect-results]                            # store check results and scan history
+  │       [--no-collect-results]
+  │       [--collect-failed-rows]                       # store failed rows
+  │       [--no-collect-failed-rows]
+  │       [--table-prefix <prefix>]                     # prefix for diagnostic table names
+  │       [--table-suffix <suffix>]                     # suffix for diagnostic table names
+  │       [--failed-rows-description <text>]            # description shown in Cloud for failed rows storage context
+  │       [--expose-failed-rows-query]                  # expose the failed rows SQL query in Cloud
+  │       [--no-expose-failed-rows-query]
+  │       [--failed-rows-cta]                           # show a call-to-action link to where failed rows can be found
+  │       [--no-failed-rows-cta]
+  │       └── test-connection   <id>                    # test the diagnostics warehouse connection
   │
   ├── contract
   │   ├── create    --dataset <ds/db/schema/table>
@@ -106,11 +125,15 @@ soda
   │   │   ├── get      <id>                           # view cached data + current settings
   │   │   └── refresh  <id>                           # trigger a new profiling run
   │   │
-  │   ├── diagnostics  <id>  [--schema <schema>]
-  │   │                [--collect-results true|false]
-  │   │                [--collect-failed-rows true|false]
-  │   │   # no flags → same as get
-  │   │   └── get  <id>
+  │   ├── diagnostics  <id>                             # configure diagnostics warehouse overrides for a dataset
+  │   │   [--schema <name>]                             # schema override (inherits from datasource if omitted)
+  │   │   [--collect-results|--no-collect-results]      # store check results and scan history
+  │   │   [--collect-failed-rows|--no-collect-failed-rows]
+  │   │   [--table-prefix <prefix>]
+  │   │   [--table-suffix <suffix>]
+  │   │   [--failed-rows-description <text>]
+  │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]
+  │   │   [--failed-rows-cta|--no-failed-rows-cta]
   │   │
   │   └── permissions
   │       ├── list    <id>

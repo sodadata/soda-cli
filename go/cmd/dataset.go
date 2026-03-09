@@ -138,35 +138,36 @@ var datasetProfilingRefreshCmd = &cobra.Command{
 
 var datasetDiagnosticsCmd = &cobra.Command{
 	Use:   "diagnostics <id>",
-	Short: "View or configure diagnostics warehouse overrides for a dataset",
+	Short: "Configure diagnostics warehouse overrides for a dataset",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		schema, _ := cmd.Flags().GetString("schema")
-		collectResults, _ := cmd.Flags().GetString("collect-results")
-		collectFailedRows, _ := cmd.Flags().GetString("collect-failed-rows")
+		collectResults, _ := cmd.Flags().GetBool("collect-results")
+		noCollectResults, _ := cmd.Flags().GetBool("no-collect-results")
+		collectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
+		noCollectFailedRows, _ := cmd.Flags().GetBool("no-collect-failed-rows")
+		tablePrefix, _ := cmd.Flags().GetString("table-prefix")
+		tableSuffix, _ := cmd.Flags().GetString("table-suffix")
+		failedRowsDesc, _ := cmd.Flags().GetString("failed-rows-description")
+		exposeQuery, _ := cmd.Flags().GetBool("expose-failed-rows-query")
+		noExposeQuery, _ := cmd.Flags().GetBool("no-expose-failed-rows-query")
+		cta, _ := cmd.Flags().GetBool("failed-rows-cta")
+		noCta, _ := cmd.Flags().GetBool("no-failed-rows-cta")
 
-		changed := schema != "" || collectResults != "" || collectFailedRows != ""
-		if !changed {
-			return runDatasetDiagnosticsGet(args[0])
+		_ = collectResults || noCollectResults || collectFailedRows || noCollectFailedRows ||
+			exposeQuery || noExposeQuery || cta || noCta
+
+		if schema == "" && tablePrefix == "" && tableSuffix == "" && failedRowsDesc == "" &&
+			!collectResults && !noCollectResults && !collectFailedRows && !noCollectFailedRows &&
+			!exposeQuery && !noExposeQuery && !cta && !noCta {
+			fmt.Printf("  %-26s %s\n", output.Bold.Render("Dataset"), args[0])
+			fmt.Printf("  %-26s %s\n", output.Bold.Render("Diagnostics override"), output.Dim.Render("(none — inherits datasource config)"))
+			return nil
 		}
+
 		output.PrintSuccess(fmt.Sprintf("Diagnostics config updated for dataset '%s'.", args[0]), GCtx)
 		return nil
 	},
-}
-
-var datasetDiagnosticsGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Show current diagnostics settings for a dataset",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runDatasetDiagnosticsGet(args[0])
-	},
-}
-
-func runDatasetDiagnosticsGet(id string) error {
-	fmt.Printf("  %-26s %s\n", output.Bold.Render("Dataset"), id)
-	fmt.Printf("  %-26s %s\n", output.Bold.Render("Diagnostics override"), output.Dim.Render("(none — inherits datasource config)"))
-	return nil
 }
 
 // ── dataset permissions ───────────────────────────────────────────────────────
@@ -265,10 +266,18 @@ func init() {
 	datasetProfilingCmd.AddCommand(datasetProfilingGetCmd, datasetProfilingRefreshCmd)
 
 	// diagnostics
-	datasetDiagnosticsCmd.Flags().String("schema", "", "Diagnostics schema override")
-	datasetDiagnosticsCmd.Flags().String("collect-results", "", "Collect results: true|false")
-	datasetDiagnosticsCmd.Flags().String("collect-failed-rows", "", "Collect failed rows: true|false")
-	datasetDiagnosticsCmd.AddCommand(datasetDiagnosticsGetCmd)
+	datasetDiagnosticsCmd.Flags().String("schema", "", "Schema for diagnostic tables (overrides datasource default)")
+	datasetDiagnosticsCmd.Flags().Bool("collect-results", false, "Store check results and scan history")
+	datasetDiagnosticsCmd.Flags().Bool("no-collect-results", false, "Disable storing check results and scan history")
+	datasetDiagnosticsCmd.Flags().Bool("collect-failed-rows", false, "Store failed rows")
+	datasetDiagnosticsCmd.Flags().Bool("no-collect-failed-rows", false, "Disable storing failed rows")
+	datasetDiagnosticsCmd.Flags().String("table-prefix", "", "Prefix for diagnostic table names")
+	datasetDiagnosticsCmd.Flags().String("table-suffix", "", "Suffix for diagnostic table names")
+	datasetDiagnosticsCmd.Flags().String("failed-rows-description", "", "Description for failed rows storage context")
+	datasetDiagnosticsCmd.Flags().Bool("expose-failed-rows-query", false, "Expose the failed rows SQL query in Cloud")
+	datasetDiagnosticsCmd.Flags().Bool("no-expose-failed-rows-query", false, "Hide the failed rows SQL query in Cloud")
+	datasetDiagnosticsCmd.Flags().Bool("failed-rows-cta", false, "Show a call-to-action link to where failed rows can be found")
+	datasetDiagnosticsCmd.Flags().Bool("no-failed-rows-cta", false, "Hide the call-to-action link for failed rows")
 
 	// permissions
 	datasetPermAssignCmd.Flags().String("role", "", "Role ID (required)")
