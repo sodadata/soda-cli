@@ -87,6 +87,23 @@ func (c *Client) get(path string, params url.Values) (*http.Response, error) {
 	return c.http.Do(req)
 }
 
+// Ping tests the connection by calling a lightweight API endpoint.
+// Returns nil on success, or an exit error on auth failure or network error.
+func (c *Client) Ping() error {
+	resp, err := c.get("/api/v1/users", url.Values{"size": []string{"1"}})
+	if err != nil {
+		return &output.ExitError{Code: 2, Msg: fmt.Sprintf("connection failed: %v", err)}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return &output.ExitError{Code: 3, Msg: "authentication failed — check your API key"}
+	}
+	if resp.StatusCode >= 400 {
+		return &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d", resp.StatusCode)}
+	}
+	return nil
+}
+
 func decode(resp *http.Response, target interface{}) error {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)

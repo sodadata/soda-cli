@@ -20,15 +20,15 @@ soda
   ├── version                               # print version info  🏠
   │
   ├── auth
-  │   ├── login   [--host <host>]            # default: cloud.soda.io; use cloud.us.soda.io for US region  🔌
+  │   ├── login   [--host <host>]            # default: cloud.soda.io; use cloud.us.soda.io for US region  ✅
   │   │           [--api-key-id <id>]
   │   │           [--api-key-secret <secret>]
   │   │           [--profile <name>]
   │   │           # wizard → host → API key ID + secret → test → save to ~/.soda/credentials
   │   │           # generate API keys: https://docs.soda.io/reference/generate-api-keys
   │   ├── logout  [--profile <name>]  🏠
-  │   ├── status                            # active profile, org, connection health  🔌
-  │   └── switch  <profile>  🏠
+  │   ├── status                            # active profile, api key id, connection health  ✅
+  │   └── switch  <profile>  🏠ao
   │
   ├── init                                  # scaffold soda.yml + configs/ + contracts/  🏠
   │
@@ -202,8 +202,8 @@ soda
   │
   ├── notification
   │   ├── rule
-  │   │   ├── list  🔌
-  │   │   ├── add    --name <n>  🔌
+  │   │   ├── list  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   │   ├── add    --name <n>  ❌
   │   │   │          --source check|monitor|all
   │   │   │          --alert warn-fail|fail-only|anomaly
   │   │   │          # scope filters (optional — omit = applies to all of that source):
@@ -221,26 +221,26 @@ soda
   │   │   │          # options:
   │   │   │          [--granular-results]
   │   │   │          [--message <text>]
-  │   │   ├── update <id>  [same flags as add]  🔌
-  │   │   └── delete <id>  🔌
+  │   │   ├── update <id>  [same flags as add]  ❌
+  │   │   └── delete <id>  ❌
   │   │
   │   └── integration
-  │       ├── list  🔌
-  │       ├── add    slack|teams|webhook  [integration-specific flags]  🔌
-  │       ├── test   <id>  🔌
-  │       └── delete <id>  🔌
+  │       ├── list  ❌
+  │       ├── add    slack|teams|webhook  [integration-specific flags]  ❌
+  │       ├── test   <id>  ❌
+  │       └── delete <id>  ❌
   │
   ├── iam
   │   ├── role
-  │   │   ├── list    [--scope global|dataset]  🔌
-  │   │   ├── create  --name <n>  --scope global|dataset  🔌
+  │   │   ├── list    [--scope global|dataset]  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   │   ├── create  --name <n>  --scope global|dataset  ❌
   │   │   │   [--description <text>]
   │   │   │   [--permission <permission>]  (repeatable)
   │   │   │   # permissions: create-api-keys|create-datasets|manage-attributes|
   │   │   │   #              manage-datasources|manage-notification-rules|
   │   │   │   #              manage-org-settings|manage-scan-definitions
-  │   │   ├── delete  <id>  🔌
-  │   │   └── show    <id>                               # list permissions in this role  🔌
+  │   │   ├── delete  <id>  ❌
+  │   │   └── show    <id>                               # list permissions in this role  ❌
   │   │
   │   ├── user
   │   │   ├── list  ✅
@@ -256,20 +256,20 @@ soda
   │   │   │            [--add-member <email>]     (repeatable)
   │   │   │            [--remove-member <email>]  (repeatable)
   │   │   ├── delete  <id>  ✅
-  │   │   ├── assign  <group-id>  --role <role-id>  🔌
-  │   │   └── revoke  <group-id>  --role <role-id>  🔌
+  │   │   ├── assign  <group-id>  --role <role-id>  ❌
+  │   │   └── revoke  <group-id>  --role <role-id>  ❌
   │   │
   │   └── service-account
-  │       ├── list  🔌
-  │       ├── create  --name <n>  --email <email>  🔌
-  │       └── delete  <id>  🔌
+  │       ├── list  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │       ├── create  --name <n>  --email <email>  ❌
+  │       └── delete  <id>  ❌
   │
   ├── agent
-  │   └── list  🔌
+  │   └── list  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │
   ├── secret
-  │   ├── create  --name <n>  --value <v>  🔌
-  │   ├── update  <id>        --value <v>  🔌
-  │   └── delete  <id>  🔌
+  │   ├── create  --name <n>  --value <v>  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   ├── update  <id>        --value <v>  ❌
+  │   └── delete  <id>  ❌
   │
   └── completion  bash|zsh|fish  🏠

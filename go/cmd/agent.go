@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/soda-data-inc/soda-cli/internal/mock"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -16,9 +15,7 @@ var agentListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List registered Soda Agents",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "status", "version", "last_seen"}
-		output.Render(mock.Agents, cols, map[string]bool{"status": true}, GCtx)
-		return nil
+		return output.Errorf(2, "agent list is not yet available in the public API")
 	},
 }
 

@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
-	"github.com/soda-data-inc/soda-cli/internal/mock"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -25,9 +22,7 @@ var notifRuleListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List notification rules",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "source", "alert", "dataset", "notify"}
-		output.Render(mock.NotificationRules, cols, nil, GCtx)
-		return nil
+		return output.Errorf(2, "notification rule list is not yet available in the public API")
 	},
 }
 
@@ -35,16 +30,7 @@ var notifRuleAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Create a notification rule",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name, _ := cmd.Flags().GetString("name")
-		source, _ := cmd.Flags().GetString("source")
-		alert, _ := cmd.Flags().GetString("alert")
-		notify, _ := cmd.Flags().GetStringArray("notify")
-
-		if name == "" || source == "" || alert == "" || len(notify) == 0 {
-			return output.Errorf(2, "--name, --source, --alert, and --notify are required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' created.", name), GCtx)
-		return nil
+		return output.Errorf(2, "notification rule add is not yet available in the public API")
 	},
 }
 
@@ -53,8 +39,7 @@ var notifRuleUpdateCmd = &cobra.Command{
 	Short: "Update a notification rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' updated.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "notification rule update is not yet available in the public API")
 	},
 }
 
@@ -63,8 +48,7 @@ var notifRuleDeleteCmd = &cobra.Command{
 	Short: "Delete a notification rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Notification rule '%s' deleted.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "notification rule delete is not yet available in the public API")
 	},
 }
 
@@ -79,9 +63,7 @@ var notifIntegrationListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List notification integrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "type", "status"}
-		output.Render(mock.Integrations, cols, map[string]bool{"status": true}, GCtx)
-		return nil
+		return output.Errorf(2, "notification integration list is not yet available in the public API")
 	},
 }
 
@@ -91,13 +73,7 @@ var notifIntegrationAddCmd = &cobra.Command{
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"slack", "teams", "webhook"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		intType := args[0]
-		if GCtx.NoInteractive {
-			return output.Errorf(2, "interactive setup required for integration configuration")
-		}
-		fmt.Printf("  Configuring %s integration...\n", intType)
-		output.PrintSuccess(fmt.Sprintf("%s integration added.", intType), GCtx)
-		return nil
+		return output.Errorf(2, "notification integration add is not yet available in the public API")
 	},
 }
 
@@ -106,9 +82,7 @@ var notifIntegrationTestCmd = &cobra.Command{
 	Short: "Send a test message to an integration",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(output.Dim.Render("  Sending test message to integration " + args[0] + "..."))
-		output.PrintSuccess("Test message sent successfully.", GCtx)
-		return nil
+		return output.Errorf(2, "notification integration test is not yet available in the public API")
 	},
 }
 
@@ -117,8 +91,7 @@ var notifIntegrationDeleteCmd = &cobra.Command{
 	Short: "Delete a notification integration",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Integration '%s' deleted.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "notification integration delete is not yet available in the public API")
 	},
 }
 

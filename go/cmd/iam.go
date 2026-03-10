@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/soda-data-inc/soda-cli/internal/api"
-	"github.com/soda-data-inc/soda-cli/internal/mock"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -26,20 +25,7 @@ var iamRoleListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List roles",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		scope, _ := cmd.Flags().GetString("scope")
-		rows := mock.Roles
-		if scope != "" {
-			filtered := []map[string]string{}
-			for _, r := range rows {
-				if r["scope"] == scope {
-					filtered = append(filtered, r)
-				}
-			}
-			rows = filtered
-		}
-		cols := []string{"id", "name", "scope", "members"}
-		output.Render(rows, cols, nil, GCtx)
-		return nil
+		return output.Errorf(2, "iam role list is not yet available in the public API")
 	},
 }
 
@@ -47,13 +33,7 @@ var iamRoleCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new role",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name, _ := cmd.Flags().GetString("name")
-		scope, _ := cmd.Flags().GetString("scope")
-		if name == "" || scope == "" {
-			return output.Errorf(2, "--name and --scope are required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Role '%s' (scope: %s) created.", name, scope), GCtx)
-		return nil
+		return output.Errorf(2, "iam role create is not yet available in the public API")
 	},
 }
 
@@ -62,8 +42,7 @@ var iamRoleDeleteCmd = &cobra.Command{
 	Short: "Delete a role",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Role '%s' deleted.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam role delete is not yet available in the public API")
 	},
 }
 
@@ -72,15 +51,7 @@ var iamRoleShowCmd = &cobra.Command{
 	Short: "Show permissions assigned to a role",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("  Permissions for role %s:\n\n", output.Bold.Render(args[0]))
-		rows := []map[string]string{
-			{"permission": "create-datasets", "granted": "yes"},
-			{"permission": "manage-datasources", "granted": "yes"},
-			{"permission": "manage-notification-rules", "granted": "no"},
-		}
-		cols := []string{"permission", "granted"}
-		output.Render(rows, cols, nil, GCtx)
-		return nil
+		return output.Errorf(2, "iam role show is not yet available in the public API")
 	},
 }
 
@@ -129,12 +100,7 @@ var iamUserInviteCmd = &cobra.Command{
 	Use:   "invite",
 	Short: "Invite a user to the organization",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		email, _ := cmd.Flags().GetString("email")
-		if email == "" {
-			return output.Errorf(2, "--email is required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Invitation sent to %s.", email), GCtx)
-		return nil
+		return output.Errorf(2, "iam user invite is not yet available in the public API")
 	},
 }
 
@@ -143,8 +109,7 @@ var iamUserRemoveCmd = &cobra.Command{
 	Short: "Remove a user from the organization",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("User '%s' removed from organization.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam user remove is not yet available in the public API")
 	},
 }
 
@@ -153,12 +118,7 @@ var iamUserAssignCmd = &cobra.Command{
 	Short: "Assign a role to a user",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
-		if role == "" {
-			return output.Errorf(2, "--role is required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Role '%s' assigned to user '%s'.", role, args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam user assign is not yet available in the public API")
 	},
 }
 
@@ -167,12 +127,7 @@ var iamUserRevokeCmd = &cobra.Command{
 	Short: "Revoke a role from a user",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
-		if role == "" {
-			return output.Errorf(2, "--role is required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Role '%s' revoked from user '%s'.", role, args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam user revoke is not yet available in the public API")
 	},
 }
 
@@ -289,12 +244,7 @@ var iamGroupAssignCmd = &cobra.Command{
 	Short: "Assign a role to a group",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
-		if role == "" {
-			return output.Errorf(2, "--role is required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Role '%s' assigned to group '%s'.", role, args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam group assign is not yet available in the public API")
 	},
 }
 
@@ -303,12 +253,7 @@ var iamGroupRevokeCmd = &cobra.Command{
 	Short: "Revoke a role from a group",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
-		if role == "" {
-			return output.Errorf(2, "--role is required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Role '%s' revoked from group '%s'.", role, args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam group revoke is not yet available in the public API")
 	},
 }
 
@@ -323,9 +268,7 @@ var iamSAListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List service accounts",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "email", "created"}
-		output.Render(mock.ServiceAccounts, cols, nil, GCtx)
-		return nil
+		return output.Errorf(2, "iam service-account list is not yet available in the public API")
 	},
 }
 
@@ -333,13 +276,7 @@ var iamSACreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a service account",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name, _ := cmd.Flags().GetString("name")
-		email, _ := cmd.Flags().GetString("email")
-		if name == "" || email == "" {
-			return output.Errorf(2, "--name and --email are required")
-		}
-		output.PrintSuccess(fmt.Sprintf("Service account '%s' (%s) created.", name, email), GCtx)
-		return nil
+		return output.Errorf(2, "iam service-account create is not yet available in the public API")
 	},
 }
 
@@ -348,8 +285,7 @@ var iamSADeleteCmd = &cobra.Command{
 	Short: "Delete a service account",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Service account '%s' deleted.", args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "iam service-account delete is not yet available in the public API")
 	},
 }
 

@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/config"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
@@ -59,6 +60,12 @@ var authLoginCmd = &cobra.Command{
 
 		fmt.Println(output.Dim.Render("  Testing connection to " + host + "..."))
 
+		// Test connection before saving
+		testProfile := config.Profile{Host: host, APIKeyID: apiKeyID, APIKeySecret: apiKeySecret}
+		if err := api.New(testProfile).Ping(); err != nil {
+			return err
+		}
+
 		// Save credentials
 		creds, err := config.LoadCredentials()
 		if err != nil {
@@ -68,11 +75,7 @@ var authLoginCmd = &cobra.Command{
 		if profileName == "" {
 			profileName = "default"
 		}
-		creds[profileName] = config.Profile{
-			Host:         host,
-			APIKeyID:     apiKeyID,
-			APIKeySecret: apiKeySecret,
-		}
+		creds[profileName] = testProfile
 		if err := config.SaveCredentials(creds); err != nil {
 			return output.Errorf(2, "could not save credentials: %v", err)
 		}
@@ -99,11 +102,35 @@ var authStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show active profile and connection health",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("Profile"), "default")
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("Host"), "cloud.soda.io")
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("Organization"), "acme-corp")
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Green.Render("✓ connected"))
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("User"), "alice@acme.com")
+		profileName := GCtx.Profile
+		if profileName == "" {
+			profileName = "default"
+		}
+		creds, err := config.LoadCredentials()
+		if err != nil {
+			return output.Errorf(2, "could not read credentials: %v", err)
+		}
+		p, ok := creds[profileName]
+		host := p.Host
+		if host == "" {
+			host = "cloud.soda.io"
+		}
+
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("Profile"), profileName)
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("Host"), host)
+
+		if !ok || p.APIKeyID == "" {
+			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Dim.Render("not configured — run `soda auth login`"))
+			return nil
+		}
+
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("API Key ID"), p.APIKeyID)
+
+		if pingErr := api.New(p).Ping(); pingErr != nil {
+			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Red.Render("✗ failed — "+pingErr.Error()))
+		} else {
+			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Green.Render("✓ connected"))
+		}
 		return nil
 	},
 }
