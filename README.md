@@ -1,21 +1,21 @@
 # Soda CLI
 
-A unified CLI for all things Soda — manage contracts, and interact with the Soda Cloud API from one binary.
+A unified CLI for all things Soda — manage contracts, monitors, datasets, and teams from one binary connected to Soda Cloud.
 
 ---
 
-## Status & how to help
+## Status
 
-This is a **walking skeleton** — all commands are wired up with mock output so you can feel the UX, but no real API calls happen yet. There is significant API work ahead before this is fully functional, and we are prioritizing in this order:
+This is a working Go CLI that connects to live Soda Cloud instances. Authentication, contracts, datasets, monitors, and IAM commands all make real API calls.
 
-1. Auth & onboarding
-2. Monitors
-3. Contracts
+Implementation status for every command is tracked in [`command_tree.txt`](command_tree.txt) using this legend:
 
-**We'd love your input.** If you want to help shape this CLI:
-
-- **Review the command tree** — read [`command_tree.txt`](command_tree.txt) and leave comments on naming, structure, or anything that feels off
-- **Try the skeleton** — install it (see below), run some commands, and tell us if the UX feels right
+```
+✅  implemented — real API call wired up
+🔌  API endpoint exists, not yet wired in CLI
+🏠  local operation, no API needed
+❌  no public API endpoint yet
+```
 
 ---
 
@@ -36,27 +36,29 @@ Move the binary somewhere on your `PATH`:
 mv soda /usr/local/bin/soda
 ```
 
-Or run it directly from the build directory:
-
-```bash
-./soda --help
-```
-
 ---
 
-## Usage
+## Quickstart
 
 ```bash
-soda --help
-soda contract --help
-soda contract verify contracts/orders.yml
+# Authenticate (wizard) — or pass flags for CI
+soda auth login
+soda auth status
+
+# Browse your datasets
+soda dataset list
+soda dataset list --datasource snowflakeproduct
+
+# Pull a contract, edit it locally, push it back
+soda contract pull "snowflakeproduct/db/schema/orders"
+soda contract diff orders.yml
+soda contract push orders.yml
+
+# Explore monitors and IAM
+soda monitor list --dataset <id>
+soda iam user list
+soda iam group list
 ```
-
----
-
-## Command tree
-
-The full command tree: all subcommands, flags, and exit codes is documented in [`command_tree.txt`](command_tree.txt). Feel free to review and leave any comments.
 
 ---
 
@@ -67,3 +69,9 @@ The full command tree: all subcommands, flags, and exit codes is documented in [
 - **`--no-interactive` everywhere** — safe to run in CI and from AI agents
 - **One auth system** — `~/.soda/credentials` for both local and cloud API calls
 - **Config precedence** — `--flags` → env vars → `./soda.yml` → `~/.soda/config.yml`
+
+---
+
+## Command reference
+
+Full command tree with all subcommands, flags, and implementation status: [`command_tree.txt`](command_tree.txt).
