@@ -2,3 +2,4 @@
 .venv
 *.pyc
 Soda CLI notes.md
+.DS_Store

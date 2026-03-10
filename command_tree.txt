@@ -119,28 +119,32 @@ soda
   │
   ├── dataset
   │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
-  │   ├── update  <id>  [--owner <email>]  [--tag <tag>]  [--description <text>]  🔌
-  │   │   # label and source are read-only after creation
+  │   ├── update  <id>  [--owner <user-id>]  [--tag <tag>]  ✅
+  │   │   # --tag is repeatable and replaces all existing tags
+  │   │   # --owner takes a user ID (use `soda iam user list` to find it)
   │   ├── delete  <id>  ✅
   │   │
-  │   ├── time-partition  <id>  --column <col>  ❌
+  │   ├── time-partition  <id>  --column <col>  ✅
   │   │   # affects both profiling and metric monitoring (anomaly detection window)
+  │   │   # no --column → view current (requires single-dataset GET, not yet in public API)
   │   │
   │   ├── profiling  <id>  [--enable|--disable]  ✅
-  │   │              [--schedule <cron>]  [--timezone <tz>] ✅
-  │   │              [--sampling-rows <n>] ✅
+  │   │              [--schedule <cron>]  [--timezone <tz>]
+  │   │              [--sampling-rows <n>]
   │   │   # no flags → show current profiling data + column stats
   │   │   └── refresh  <id>                           # trigger a new profiling run  ❌
   │   │
-  │   ├── diagnostics  <id>                             # configure diagnostics warehouse overrides for a dataset  ❌
-  │   │   [--schema <name>]                             # schema override (inherits from datasource if omitted)
-  │   │   [--collect-results|--no-collect-results]      # store check results and scan history
-  │   │   [--collect-failed-rows|--no-collect-failed-rows]
-  │   │   [--table-prefix <prefix>]
-  │   │   [--table-suffix <suffix>]
-  │   │   [--failed-rows-description <text>]
-  │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]
-  │   │   [--failed-rows-cta|--no-failed-rows-cta]
+  │   ├── diagnostics  <id>                             # view or configure diagnostics warehouse overrides  ✅
+  │   │   # no flags → show current settings (GET /api/v1/datasets/{id}/diagnosticsWarehouse)
+  │   │   [--collect-results|--no-collect-results]      # store check results and scan history  ✅
+  │   │   [--collect-failed-rows|--no-collect-failed-rows]  ✅
+  │   │   # flags below accepted but not yet in public API (silently ignored):
+  │   │   [--schema <name>]  ❌
+  │   │   [--table-prefix <prefix>]  ❌
+  │   │   [--table-suffix <suffix>]  ❌
+  │   │   [--failed-rows-description <text>]  ❌
+  │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]  ❌
+  │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
   │   └── permissions  ❌
   │       ├── list    <id>

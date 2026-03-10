@@ -85,7 +85,17 @@ func decode(resp *http.Response, target interface{}) error {
 		return &output.ExitError{Code: 2, Msg: "rate limit exceeded — try again in a moment"}
 	}
 	if resp.StatusCode >= 400 {
+		// try to extract a human-readable message from the JSON error body
+		var apiErr struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
 		return &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+	if len(body) == 0 {
+		return nil
 	}
 	return json.Unmarshal(body, target)
 }

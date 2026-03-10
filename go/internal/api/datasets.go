@@ -95,13 +95,80 @@ type ProfilingSettings struct {
 	ProfilingSamplingStrategy *SamplingStrategy `json:"profilingSamplingStrategy,omitempty"`
 }
 
-type UpdateDatasetRequest struct {
-	Profiling *ProfilingSettings `json:"profiling,omitempty"`
+// ── Owner ─────────────────────────────────────────────────────────────────────
+
+type DatasetOwnerRequest struct {
+	Type        string `json:"type"` // "user" or "userGroup"
+	UserID      string `json:"userId,omitempty"`
+	UserGroupID string `json:"userGroupId,omitempty"`
 }
 
-func (c *Client) UpdateDatasetProfiling(datasetID string, settings ProfilingSettings) (*Dataset, error) {
-	body := UpdateDatasetRequest{Profiling: &settings}
-	resp, err := c.post("/api/v1/datasets/"+datasetID, body)
+// ── Diagnostics warehouse ─────────────────────────────────────────────────────
+
+// GET /api/v1/datasets/{id}/diagnosticsWarehouse response
+type DiagnosticsWarehouseResult struct {
+	FailedRowsConfiguration     *DiagnosticsFailedRowsResult `json:"failedRowsConfiguration"`
+	ScanAndResultsConfiguration *DiagnosticsScanResult       `json:"scanAndResultsConfiguration"`
+}
+
+type DiagnosticsFailedRowsResult struct {
+	Enabled     bool   `json:"enabled"`
+	MaxRowCount int    `json:"maxRowCount"`
+	State       string `json:"state"`
+}
+
+type DiagnosticsScanResult struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (c *Client) GetDatasetDiagnostics(datasetID string) (*DiagnosticsWarehouseResult, error) {
+	resp, err := c.get("/api/v1/datasets/"+datasetID+"/diagnosticsWarehouse", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result DiagnosticsWarehouseResult
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// POST /api/v1/datasets/{id}/diagnosticsWarehouse request
+type DiagnosticsFailedRowsConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type DiagnosticsScanConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type DiagnosticsWarehouseConfig struct {
+	FailedRowsConfiguration     *DiagnosticsFailedRowsConfig `json:"failedRowsConfiguration,omitempty"`
+	ScanAndResultsConfiguration *DiagnosticsScanConfig       `json:"scanAndResultsConfiguration,omitempty"`
+}
+
+func (c *Client) UpdateDatasetDiagnostics(datasetID string, cfg DiagnosticsWarehouseConfig) (*Dataset, error) {
+	return c.UpdateDataset(datasetID, UpdateDatasetRequest{DiagnosticsWarehouse: &cfg})
+}
+
+// ── Time partition ────────────────────────────────────────────────────────────
+
+type TimePartitionRequest struct {
+	PartitionColumn string `json:"partitionColumn,omitempty"`
+}
+
+// ── Update request ────────────────────────────────────────────────────────────
+
+type UpdateDatasetRequest struct {
+	Profiling            *ProfilingSettings          `json:"profiling,omitempty"`
+	Owners               []DatasetOwnerRequest       `json:"owners,omitempty"`
+	Tags                 []string                    `json:"tags,omitempty"`
+	TimePartition        *TimePartitionRequest       `json:"timePartition,omitempty"`
+	DiagnosticsWarehouse *DiagnosticsWarehouseConfig `json:"diagnosticsWarehouse,omitempty"`
+}
+
+func (c *Client) UpdateDataset(datasetID string, req UpdateDatasetRequest) (*Dataset, error) {
+	resp, err := c.post("/api/v1/datasets/"+datasetID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +177,10 @@ func (c *Client) UpdateDatasetProfiling(datasetID string, settings ProfilingSett
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (c *Client) UpdateDatasetProfiling(datasetID string, settings ProfilingSettings) (*Dataset, error) {
+	return c.UpdateDataset(datasetID, UpdateDatasetRequest{Profiling: &settings})
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────

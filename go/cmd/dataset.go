@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -59,9 +60,32 @@ var datasetListCmd = &cobra.Command{
 
 var datasetUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
-	Short: "Update dataset metadata (owner, tags, description)",
+	Short: "Update dataset metadata (owner, tags)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		owner, _ := cmd.Flags().GetString("owner")
+		tags, _ := cmd.Flags().GetStringArray("tag")
+
+		if owner == "" && len(tags) == 0 {
+			return output.Errorf(2, "at least one of --owner or --tag is required")
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		req := api.UpdateDatasetRequest{}
+		if owner != "" {
+			req.Owners = []api.DatasetOwnerRequest{{Type: "user", UserID: owner}}
+		}
+		if len(tags) > 0 {
+			req.Tags = tags
+		}
+
+		if _, err := client.UpdateDataset(args[0], req); err != nil {
+			return err
+		}
 		output.PrintSuccess(fmt.Sprintf("Dataset '%s' updated.", args[0]), GCtx)
 		return nil
 	},
@@ -94,27 +118,24 @@ var datasetTimePartitionCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		column, _ := cmd.Flags().GetString("column")
 		if column == "" {
-			// no flags → same as get
-			return runDatasetTimePartitionGet(args[0])
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Dataset"), args[0])
+			fmt.Println(output.Dim.Render("  Time-partition view requires a single-dataset GET endpoint (not yet in the public API)."))
+			return nil
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		req := api.UpdateDatasetRequest{
+			TimePartition: &api.TimePartitionRequest{PartitionColumn: column},
+		}
+		if _, err := client.UpdateDataset(args[0], req); err != nil {
+			return err
 		}
 		output.PrintSuccess(fmt.Sprintf("Time-partition column set to '%s' for dataset '%s'.", column, args[0]), GCtx)
 		return nil
 	},
-}
-
-var datasetTimePartitionGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Show the current time-partition column",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runDatasetTimePartitionGet(args[0])
-	},
-}
-
-func runDatasetTimePartitionGet(id string) error {
-	fmt.Printf("  %-22s %s\n", output.Bold.Render("Dataset"), id)
-	fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), "created_at")
-	return nil
 }
 
 // ── dataset profiling ─────────────────────────────────────────────────────────
@@ -256,33 +277,81 @@ func runDatasetProfilingGet(id string) error {
 
 var datasetDiagnosticsCmd = &cobra.Command{
 	Use:   "diagnostics <id>",
-	Short: "Configure diagnostics warehouse overrides for a dataset",
+	Short: "View or configure diagnostics warehouse overrides for a dataset",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		schema, _ := cmd.Flags().GetString("schema")
 		collectResults, _ := cmd.Flags().GetBool("collect-results")
 		noCollectResults, _ := cmd.Flags().GetBool("no-collect-results")
 		collectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
 		noCollectFailedRows, _ := cmd.Flags().GetBool("no-collect-failed-rows")
-		tablePrefix, _ := cmd.Flags().GetString("table-prefix")
-		tableSuffix, _ := cmd.Flags().GetString("table-suffix")
-		failedRowsDesc, _ := cmd.Flags().GetString("failed-rows-description")
-		exposeQuery, _ := cmd.Flags().GetBool("expose-failed-rows-query")
-		noExposeQuery, _ := cmd.Flags().GetBool("no-expose-failed-rows-query")
-		cta, _ := cmd.Flags().GetBool("failed-rows-cta")
-		noCta, _ := cmd.Flags().GetBool("no-failed-rows-cta")
+		// flags not yet in the public API — fail fast with a clear message
+		unsupportedFlags := []string{"schema", "table-prefix", "table-suffix", "failed-rows-description",
+			"expose-failed-rows-query", "no-expose-failed-rows-query", "failed-rows-cta", "no-failed-rows-cta"}
+		for _, f := range unsupportedFlags {
+			if cmd.Flags().Changed(f) {
+				return output.Errorf(2, "--%s is not yet available in the public API", f)
+			}
+		}
 
-		_ = collectResults || noCollectResults || collectFailedRows || noCollectFailedRows ||
-			exposeQuery || noExposeQuery || cta || noCta
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
 
-		if schema == "" && tablePrefix == "" && tableSuffix == "" && failedRowsDesc == "" &&
-			!collectResults && !noCollectResults && !collectFailedRows && !noCollectFailedRows &&
-			!exposeQuery && !noExposeQuery && !cta && !noCta {
-			fmt.Printf("  %-26s %s\n", output.Bold.Render("Dataset"), args[0])
-			fmt.Printf("  %-26s %s\n", output.Bold.Render("Diagnostics override"), output.Dim.Render("(none — inherits datasource config)"))
+		// no flags → show current settings
+		if !collectResults && !noCollectResults && !collectFailedRows && !noCollectFailedRows {
+			result, err := client.GetDatasetDiagnostics(args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %-28s %s\n", output.Bold.Render("Dataset"), args[0])
+			if result.ScanAndResultsConfiguration == nil && result.FailedRowsConfiguration == nil {
+				fmt.Printf("  %-28s %s\n", output.Bold.Render("Diagnostics warehouse"), output.Dim.Render("not configured"))
+				fmt.Printf("\n  %s\n", output.Dim.Render("Set it up at the datasource level first:"))
+				fmt.Printf("  %s\n", output.Dim.Render("  soda datasource diagnostics <datasource-id> --enable"))
+				return nil
+			}
+			if result.ScanAndResultsConfiguration != nil {
+				v := output.Red.Render("disabled")
+				if result.ScanAndResultsConfiguration.Enabled {
+					v = output.Green.Render("enabled")
+				}
+				fmt.Printf("  %-28s %s\n", output.Bold.Render("Collect results"), v)
+			}
+			if result.FailedRowsConfiguration != nil {
+				v := output.Red.Render("disabled")
+				if result.FailedRowsConfiguration.Enabled {
+					v = output.Green.Render("enabled")
+				}
+				fmt.Printf("  %-28s %s\n", output.Bold.Render("Collect failed rows"), v)
+				if result.FailedRowsConfiguration.MaxRowCount > 0 {
+					fmt.Printf("  %-28s %d\n", output.Bold.Render("Max row count"), result.FailedRowsConfiguration.MaxRowCount)
+				}
+				if result.FailedRowsConfiguration.State != "" {
+					fmt.Printf("  %-28s %s\n", output.Bold.Render("State"), result.FailedRowsConfiguration.State)
+				}
+			}
 			return nil
 		}
 
+		// flags provided → update
+		cfg := api.DiagnosticsWarehouseConfig{}
+		if collectResults || noCollectResults {
+			enabled := collectResults
+			cfg.ScanAndResultsConfiguration = &api.DiagnosticsScanConfig{Enabled: &enabled}
+		}
+		if collectFailedRows || noCollectFailedRows {
+			enabled := collectFailedRows
+			cfg.FailedRowsConfiguration = &api.DiagnosticsFailedRowsConfig{Enabled: &enabled}
+		}
+
+		if _, err := client.UpdateDatasetDiagnostics(args[0], cfg); err != nil {
+			if isNotEnabledOnDatasource(err) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "\n  %s\n", output.Dim.Render("Set up the diagnostics warehouse on the datasource first:"))
+				fmt.Fprintf(cmd.ErrOrStderr(), "  %s\n\n", output.Dim.Render("  soda datasource diagnostics <datasource-id> --enable"))
+			}
+			return err
+		}
 		output.PrintSuccess(fmt.Sprintf("Diagnostics config updated for dataset '%s'.", args[0]), GCtx)
 		return nil
 	},
@@ -361,18 +430,23 @@ var datasetPermRevokeCmd = &cobra.Command{
 	},
 }
 
+func isNotEnabledOnDatasource(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "not enabled on the datasource")
+}
+
 func init() {
 	datasetListCmd.Flags().String("filter", "", "Fuzzy search on dataset name")
 	datasetListCmd.Flags().String("datasource", "", "Filter by datasource name")
 	datasetListCmd.Flags().String("tag", "", "Filter by tag")
 
-	datasetUpdateCmd.Flags().String("owner", "", "Dataset owner email")
-	datasetUpdateCmd.Flags().String("tag", "", "Add a tag")
-	datasetUpdateCmd.Flags().String("description", "", "Dataset description")
+	datasetUpdateCmd.Flags().String("owner", "", "Dataset owner user ID")
+	datasetUpdateCmd.Flags().StringArray("tag", nil, "Tag to set (repeatable; replaces all existing tags)")
 
 	// time-partition
 	datasetTimePartitionCmd.Flags().String("column", "", "Column to use as time partition")
-	datasetTimePartitionCmd.AddCommand(datasetTimePartitionGetCmd)
 
 	// profiling
 	datasetProfilingCmd.Flags().Bool("enable", false, "Enable profiling")
