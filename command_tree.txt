@@ -91,7 +91,7 @@ soda
   │       └── close  <id>  [--status done|wontdo]
   │
   ├── job  (alias: scan)
-  │   ├── list  🔌
+  │   ├── list  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │   │   [--datasource <id>]
   │   │   [--dataset <id>]
   │   │   [--type contract|monitor|all]
