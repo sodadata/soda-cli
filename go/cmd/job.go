@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -54,17 +53,43 @@ var jobLogsCmd = &cobra.Command{
 	Short: "Stream or display logs for a job",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		follow, _ := cmd.Flags().GetBool("follow")
-
-		for _, line := range mock.LogLines {
-			fmt.Println(line)
-			if follow {
-				time.Sleep(80 * time.Millisecond)
-			}
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.GetScanLogs(args[0])
+		if err != nil {
+			return err
 		}
 
-		if follow {
-			fmt.Println(output.Dim.Render("  (end of logs)"))
+		// API may return logs in Content or Logs field
+		logs := result.Content
+		if len(logs) == 0 {
+			logs = result.Logs
+		}
+
+		if len(logs) == 0 {
+			fmt.Println(output.Dim.Render("  No logs found for scan " + args[0] + "."))
+			return nil
+		}
+
+		for _, entry := range logs {
+			ts := entry.Timestamp
+			if ts != "" {
+				ts = output.Dim.Render(ts) + "  "
+			}
+			level := ""
+			if entry.Level != "" {
+				switch entry.Level {
+				case "ERROR", "error":
+					level = output.Red.Render(entry.Level) + "  "
+				case "WARN", "warn", "WARNING":
+					level = output.Yellow.Render(entry.Level) + "  "
+				default:
+					level = output.Dim.Render(entry.Level) + "  "
+				}
+			}
+			fmt.Printf("  %s%s%s\n", ts, level, entry.Message)
 		}
 		return nil
 	},

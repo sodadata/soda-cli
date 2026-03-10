@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/mock"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
@@ -94,8 +95,32 @@ var iamUserListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List users in the organization",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "email", "name", "role", "status"}
-		output.Render(mock.Users, cols, map[string]bool{"status": true}, GCtx)
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.ListUsers()
+		if err != nil {
+			return err
+		}
+		rows := make([]map[string]string, 0, len(result.Content))
+		for _, u := range result.Content {
+			name := u.FullName
+			if name == "" {
+				name = u.FirstName + " " + u.LastName
+			}
+			rows = append(rows, map[string]string{
+				"id":    u.UserID,
+				"email": u.Email,
+				"name":  name,
+			})
+		}
+		if len(rows) == 0 {
+			fmt.Println(output.Dim.Render("  No users found."))
+			return nil
+		}
+		cols := []string{"id", "email", "name"}
+		output.Render(rows, cols, nil, GCtx)
 		return nil
 	},
 }
@@ -162,8 +187,28 @@ var iamGroupListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List groups",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "members", "role"}
-		output.Render(mock.Groups, cols, nil, GCtx)
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.ListUserGroups()
+		if err != nil {
+			return err
+		}
+		rows := make([]map[string]string, 0, len(result.Content))
+		for _, g := range result.Content {
+			rows = append(rows, map[string]string{
+				"id":      g.UserGroupID,
+				"name":    g.Name,
+				"members": fmt.Sprintf("%d", len(g.Users)),
+			})
+		}
+		if len(rows) == 0 {
+			fmt.Println(output.Dim.Render("  No groups found."))
+			return nil
+		}
+		cols := []string{"id", "name", "members"}
+		output.Render(rows, cols, nil, GCtx)
 		return nil
 	},
 }
@@ -173,10 +218,22 @@ var iamGroupCreateCmd = &cobra.Command{
 	Short: "Create a new group",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
+		members, _ := cmd.Flags().GetStringArray("member")
 		if name == "" {
 			return output.Errorf(2, "--name is required")
 		}
-		output.PrintSuccess(fmt.Sprintf("Group '%s' created.", name), GCtx)
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.CreateUserGroup(api.CreateUserGroupRequest{
+			Name:         name,
+			MemberEmails: members,
+		})
+		if err != nil {
+			return err
+		}
+		output.PrintSuccess(fmt.Sprintf("Group '%s' created (id: %s).", result.Name, result.UserGroupID), GCtx)
 		return nil
 	},
 }
@@ -186,6 +243,25 @@ var iamGroupUpdateCmd = &cobra.Command{
 	Short: "Update a group's name or members",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		newName, _ := cmd.Flags().GetString("name")
+		addMembers, _ := cmd.Flags().GetStringArray("add-member")
+		removeMembers, _ := cmd.Flags().GetStringArray("remove-member")
+
+		req := api.UpdateUserGroupRequest{
+			AddMemberEmails:    addMembers,
+			RemoveMemberEmails: removeMembers,
+		}
+		if cmd.Flags().Changed("name") {
+			req.Name = &newName
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		if _, err := client.UpdateUserGroup(args[0], req); err != nil {
+			return err
+		}
 		output.PrintSuccess(fmt.Sprintf("Group '%s' updated.", args[0]), GCtx)
 		return nil
 	},
@@ -196,6 +272,13 @@ var iamGroupDeleteCmd = &cobra.Command{
 	Short: "Delete a group",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		if err := client.DeleteUserGroup(args[0]); err != nil {
+			return err
+		}
 		output.PrintSuccess(fmt.Sprintf("Group '%s' deleted.", args[0]), GCtx)
 		return nil
 	},

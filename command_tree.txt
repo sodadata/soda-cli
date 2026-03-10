@@ -101,7 +101,7 @@ soda
   │   │   # sc_abc123   pg_prod       orders      contract  ✗ failing  2026-03-05 08:12
   │   │   # sc_def456   pg_prod       users       monitor   ✓ passing  2026-03-05 06:45
   │   │
-  │   └── logs  <id>  [--follow]  🔌
+  │   └── logs  <id>  [--follow]  ✅
   │
   ├── results                              # contract checks + monitor alerts in one place  ❌ [NOT YET IMPLEMENTABLE - API work required; name also TBD]
   │   └── list
@@ -188,9 +188,9 @@ soda
   │       # looks up monitor type from dataset config, then calls appropriate DELETE
   │
   ├── incident
-  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌
-  │   ├── get     <id>  🔌
-  │   └── update  <id>  🔌
+  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   ├── get     <id>  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   └── update  <id>  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │       [--title <text>]
   │       [--severity minor|major|critical]
   │       [--description <text>]
@@ -240,19 +240,19 @@ soda
   │   │   └── show    <id>                               # list permissions in this role  🔌
   │   │
   │   ├── user
-  │   │   ├── list  🔌
+  │   │   ├── list  ✅
   │   │   ├── invite  --email <email>                    # invite user to org  🔌
   │   │   ├── remove  <user-id>                          # remove user from org  🔌
   │   │   ├── assign  <user-id>  --role <role-id>  🔌
   │   │   └── revoke  <user-id>  --role <role-id>  🔌
   │   │
   │   ├── group
-  │   │   ├── list  🔌
-  │   │   ├── create  --name <n>  [--member <email>]  (repeatable)  🔌
-  │   │   ├── update  <id>  [--name <n>]  🔌
+  │   │   ├── list  ✅
+  │   │   ├── create  --name <n>  [--member <email>]  (repeatable)  ✅
+  │   │   ├── update  <id>  [--name <n>]  ✅
   │   │   │            [--add-member <email>]     (repeatable)
   │   │   │            [--remove-member <email>]  (repeatable)
-  │   │   ├── delete  <id>  🔌
+  │   │   ├── delete  <id>  ✅
   │   │   ├── assign  <group-id>  --role <role-id>  🔌
   │   │   └── revoke  <group-id>  --role <role-id>  🔌
   │   │
