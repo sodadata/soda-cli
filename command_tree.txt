@@ -40,9 +40,9 @@ soda
   │   │
   │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
   │   │
-  │   ├── list                                          # list datasources  🔌
+  │   ├── list                                          # list datasources  ❌
   │   │
-  │   ├── delete  <id>  🔌
+  │   ├── delete  <id>  ❌
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
@@ -146,61 +146,43 @@ soda
   │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]  ❌
   │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
-  │   └── permissions  ❌
-  │       ├── list    <id>
-  │       ├── assign  <id>  --role <role-id>  --user <email>|--group <id>
-  │       └── revoke  <id>  --role <role-id>  --user <email>|--group <id>
+  │   └── permissions  ✅
+  │       ├── list    <id>  ✅
+  │       ├── assign  <id>  --role <role-id>  --user <user-id>|--group <group-id>  ✅
+  │       │   # read-modify-write on responsibilities array
+  │       └── revoke  <id>  --role <role-id>  --user <user-id>|--group <group-id>  ✅
+  │           # read-modify-write on responsibilities array
   │
   ├── monitor
-  │   ├── list    [--dataset <id>]  🔌
-  │   │           [--type dataset|column|group-by|custom]
-  │   │           [--status enabled|disabled|all]
+  │   ├── list    --dataset <id>  ✅
+  │   │           [--type column|custom]
+  │   │           # --dataset is required (no global monitor list endpoint in public API)
   │   │
-  │   ├── config  <dataset-id>  [--enable|--disable]  # dataset-level MM settings (not per-monitor)  ❌
-  │   │           [--schedule <cron>]
-  │   │           [--historical true|false]  [--historical-days <n>]
-  │   │   # no flags → show current config
+  │   ├── config  <dataset-id>  [--enable|--disable]  ✅
+  │   │           [--schedule <cron>]  [--timezone <tz>]
+  │   │   # no flags → show current config (enabled, schedule, monitor count)
   │   │
-  │   ├── add     --dataset <id>  --type dataset|column|group-by|custom  🔌
+  │   ├── add     --dataset <id>  --type column|custom  ✅
   │   │
-  │   │     # --type dataset
-  │   │     # --metric row-count|row-count-change|last-modified|schema-changes|
-  │   │     #         partition-row-count|most-recent-timestamp
-  │   │     # [--valid-min <n>]  [--valid-max <n>]
-  │   │     # [--threshold upper|lower|both]
-  │   │     # [--exclude-values <v,...>]
+  │   │     # --type column  ✅
+  │   │     # --column <col>                    (required)
+  │   │     # --metric <metric-type>            (required; tab-completion available)
+  │   │     #   count, missing-pct, duplicate-pct, distinct-count,
+  │   │     #   min, max, avg, sum, std-dev, variance, q1, median, q3,
+  │   │     #   min-length, max-length, avg-length, freshness
   │   │
-  │   │     # --type column
-  │   │     # --column <col>
-  │   │     # --metric <metric>      (repeatable; one add = one column+metric combination)
-  │   │     # available metrics by data type:
-  │   │     #   all types:  count|duplicate-pct|max|min|missing-pct|unique-count
-  │   │     #   timestamp:  most-recent-timestamp
-  │   │     #   numeric:    avg|std-dev|variance|sum|q1|median|q3
-  │   │     #   text:       avg-length|min-length|max-length
-  │   │     # [--valid-min <n>]  [--valid-max <n>]
-  │   │     # [--threshold upper|lower|both]
-  │   │     # [--exclude-values <v,...>]
-  │   │
-  │   │     # --type group-by        (max one per dataset)
-  │   │     # --group-by <col>       (repeatable)
-  │   │     # [--exclude-segments <seg,...>]
-  │   │     # --column <col>         (repeatable)
-  │   │     # --metric <metric>      (repeatable)
-  │   │
-  │   │     # --type custom
-  │   │     # --name <name>
-  │   │     # --sql <query>  |  --sql-file <path>
-  │   │     # --result-metric <col>
-  │   │     # [--schedule <cron>]
+  │   │     # --type custom  ✅
+  │   │     # --name <name>                     (required)
+  │   │     # --sql <query>  |  --sql-file <path>  (required)
+  │   │     # --result-metric <col>             (required)
   │   │     # [--column <col>]
-  │   │     # [--group-by <col,...>]
-  │   │     # [--valid-min <n>]  [--valid-max <n>]
-  │   │     # [--threshold upper|lower|both]
-  │   │     # [--exclude-values <v,...>]
   │   │
-  │   ├── update  <id>               # same flags as add for the given type, minus --type/--dataset  🔌
-  │   └── delete  <id>  🔌
+  │   │     # --type dataset  ❌  (configured via metricMonitoring, not yet wired)
+  │   │     # --type group-by  ❌  (no dedicated endpoint)
+  │   │
+  │   ├── update  <id>  ❌  (not yet implemented)
+  │   └── delete  <id>  --dataset <id>  ✅
+  │       # looks up monitor type from dataset config, then calls appropriate DELETE
   │
   ├── incident
   │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌

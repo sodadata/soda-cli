@@ -369,12 +369,28 @@ var datasetPermListCmd = &cobra.Command{
 	Short: "List permissions for a dataset",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rows := []map[string]string{
-			{"principal": "alice@acme.com", "type": "user", "role": "Dataset Owner"},
-			{"principal": "Data Engineering", "type": "group", "role": "Editor"},
-			{"principal": "Analytics", "type": "group", "role": "Viewer"},
+		client, err := newAPIClient()
+		if err != nil {
+			return err
 		}
-		cols := []string{"principal", "type", "role"}
+		result, err := client.GetDatasetResponsibilities(args[0])
+		if err != nil {
+			return err
+		}
+		rows := make([]map[string]string, 0, len(result.Content))
+		for _, r := range result.Content {
+			principal := r.UserID
+			if r.Type == "userGroup" {
+				principal = r.UserGroupID
+			}
+			rows = append(rows, map[string]string{
+				"principal": principal,
+				"type":      r.Type,
+				"role":      r.Role.Name,
+				"role_id":   r.Role.ID,
+			})
+		}
+		cols := []string{"principal", "type", "role", "role_id"}
 		output.Render(rows, cols, nil, GCtx)
 		return nil
 	},
@@ -385,22 +401,42 @@ var datasetPermAssignCmd = &cobra.Command{
 	Short: "Grant a role to a user or group on a dataset",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
+		roleID, _ := cmd.Flags().GetString("role")
 		user, _ := cmd.Flags().GetString("user")
 		group, _ := cmd.Flags().GetString("group")
 
-		if role == "" {
+		if roleID == "" {
 			return output.Errorf(2, "--role is required")
 		}
 		if user == "" && group == "" {
 			return output.Errorf(2, "--user or --group is required")
 		}
 
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		// read-modify-write: fetch current, append new, post back
+		current, err := client.GetDatasetResponsibilities(args[0])
+		if err != nil {
+			return err
+		}
+		responsibilities := nonManagedResponsibilities(current.Content)
+		newEntry := api.ResponsibilityRequest{RoleID: roleID, Type: "user", UserID: user}
+		if group != "" {
+			newEntry = api.ResponsibilityRequest{RoleID: roleID, Type: "userGroup", UserGroupID: group}
+		}
+		responsibilities = append(responsibilities, newEntry)
+
+		if _, err := client.UpdateDatasetResponsibilities(args[0], api.UpdateResponsibilitiesRequest{Responsibilities: responsibilities}); err != nil {
+			return err
+		}
 		principal := user
 		if group != "" {
-			principal = "group:" + group
+			principal = group
 		}
-		output.PrintSuccess(fmt.Sprintf("Granted role '%s' to '%s' on dataset '%s'.", role, principal, args[0]), GCtx)
+		output.PrintSuccess(fmt.Sprintf("Granted role '%s' to '%s' on dataset '%s'.", roleID, principal, args[0]), GCtx)
 		return nil
 	},
 }
@@ -410,24 +446,63 @@ var datasetPermRevokeCmd = &cobra.Command{
 	Short: "Revoke a role from a user or group on a dataset",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role, _ := cmd.Flags().GetString("role")
+		roleID, _ := cmd.Flags().GetString("role")
 		user, _ := cmd.Flags().GetString("user")
 		group, _ := cmd.Flags().GetString("group")
 
-		if role == "" {
+		if roleID == "" {
 			return output.Errorf(2, "--role is required")
 		}
 		if user == "" && group == "" {
 			return output.Errorf(2, "--user or --group is required")
 		}
 
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		// read-modify-write: fetch current, remove matching entry, post back
+		current, err := client.GetDatasetResponsibilities(args[0])
+		if err != nil {
+			return err
+		}
+		responsibilities := []api.ResponsibilityRequest{}
+		for _, r := range nonManagedResponsibilities(current.Content) {
+			if r.RoleID == roleID && ((user != "" && r.UserID == user) || (group != "" && r.UserGroupID == group)) {
+				continue // drop this one
+			}
+			responsibilities = append(responsibilities, r)
+		}
+
+		if _, err := client.UpdateDatasetResponsibilities(args[0], api.UpdateResponsibilitiesRequest{Responsibilities: responsibilities}); err != nil {
+			return err
+		}
 		principal := user
 		if group != "" {
-			principal = "group:" + group
+			principal = group
 		}
-		output.PrintSuccess(fmt.Sprintf("Revoked role '%s' from '%s' on dataset '%s'.", role, principal, args[0]), GCtx)
+		output.PrintSuccess(fmt.Sprintf("Revoked role '%s' from '%s' on dataset '%s'.", roleID, principal, args[0]), GCtx)
 		return nil
 	},
+}
+
+// nonManagedResponsibilities converts existing responsibilities to request format,
+// excluding system-managed entries that cannot be modified.
+func nonManagedResponsibilities(items []api.DatasetResponsibility) []api.ResponsibilityRequest {
+	out := []api.ResponsibilityRequest{}
+	for _, r := range items {
+		if r.Managed {
+			continue
+		}
+		out = append(out, api.ResponsibilityRequest{
+			RoleID:      r.Role.ID,
+			Type:        r.Type,
+			UserID:      r.UserID,
+			UserGroupID: r.UserGroupID,
+		})
+	}
+	return out
 }
 
 func isNotEnabledOnDatasource(err error) bool {
