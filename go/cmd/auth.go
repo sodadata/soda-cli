@@ -89,11 +89,22 @@ var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Remove stored credentials for the active profile",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		profile := GCtx.Profile
-		if profile == "" {
-			profile = "default"
+		profileName := GCtx.Profile
+		if profileName == "" {
+			profileName = "default"
 		}
-		output.PrintSuccess(fmt.Sprintf("Logged out. Removed profile '%s' from ~/.soda/credentials.", profile), GCtx)
+		creds, err := config.LoadCredentials()
+		if err != nil {
+			return output.Errorf(2, "could not read credentials: %v", err)
+		}
+		if _, ok := creds[profileName]; !ok {
+			return output.Errorf(2, "profile '%s' not found in ~/.soda/credentials", profileName)
+		}
+		delete(creds, profileName)
+		if err := config.SaveCredentials(creds); err != nil {
+			return output.Errorf(2, "could not update credentials: %v", err)
+		}
+		output.PrintSuccess(fmt.Sprintf("Logged out. Removed profile '%s' from ~/.soda/credentials.", profileName), GCtx)
 		return nil
 	},
 }
