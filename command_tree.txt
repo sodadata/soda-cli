@@ -1,5 +1,11 @@
 Full Command Tree (WIP)
 
+Legend:
+  ✅  implemented with real API call
+  🔌  API endpoint exists, not yet wired up in CLI
+  🏠  local operation, no API needed
+  ❌  no public API endpoint (placeholder / future)
+
 soda
   │
   │  Global flags (all commands):
@@ -9,36 +15,36 @@ soda
   │    --quiet
   │    --verbose
   │    --no-interactive           # for CI/CD and AI agents
-  │    --version  
+  │    --version
   │
-  ├── version                               # print version info
+  ├── version                               # print version info  🏠
   │
   ├── auth
-  │   ├── login   [--host <host>]            # default: cloud.soda.io; use cloud.us.soda.io for US region
+  │   ├── login   [--host <host>]            # default: cloud.soda.io; use cloud.us.soda.io for US region  🔌
   │   │           [--api-key-id <id>]
   │   │           [--api-key-secret <secret>]
   │   │           [--profile <name>]
   │   │           # wizard → host → API key ID + secret → test → save to ~/.soda/credentials
   │   │           # generate API keys: https://docs.soda.io/reference/generate-api-keys
-  │   ├── logout  [--profile <name>]
-  │   ├── status                            # active profile, org, connection health
-  │   └── switch  <profile>
+  │   ├── logout  [--profile <name>]  🏠
+  │   ├── status                            # active profile, org, connection health  🔌
+  │   └── switch  <profile>  🏠
   │
-  ├── init                                  # scaffold soda.yml + configs/ + contracts/
+  ├── init                                  # scaffold soda.yml + configs/ + contracts/  🏠
   │
-  ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs  [NOT YET IMPLEMENTABLE - API work required]
+  ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │
   ├── datasource  (alias: ds)
-  │   ├── create  <config-file>                         # register datasource from a YAML connection config
+  │   ├── create  <config-file>                         # register datasource from a YAML connection config  ❌
   │   │   [--agent <name>]                              # route through a Soda Agent
   │   │
-  │   ├── test-connection  <config-file>                # test connection defined in a YAML config file
+  │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
   │   │
-  │   ├── list                                          # list datasources
+  │   ├── list                                          # list datasources  🔌
   │   │
-  │   ├── delete  <id>
+  │   ├── delete  <id>  🔌
   │   │
-  │   └── diagnostics  <id>                             # view or configure diagnostics warehouse
+  │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
   │       [--warehouse same|<config-file>]              # reuse datasource connection or provide a separate config
   │       [--schema <name>]                             # schema for diagnostic tables (default: soda_diagnostics)
@@ -53,39 +59,39 @@ soda
   │       [--no-expose-failed-rows-query]
   │       [--failed-rows-cta]                           # show a call-to-action link to where failed rows can be found
   │       [--no-failed-rows-cta]
-  │       └── test-connection   <id>                    # test the diagnostics warehouse connection
+  │       └── test-connection   <id>                    # test the diagnostics warehouse connection  ❌
   │
   ├── contract
-  │   ├── create    --dataset <ds/db/schema/table>
+  │   ├── create    --dataset <ds/db/schema/table>  ❌
   │   │   --mode skeleton|copilot     # default: skeleton
   │   │   --output <file>
   │   │   # skeleton → bootstrap YAML from live schema (no AI, always works)
   │   │   # copilot  → full AI-generated contract (requires license)
-  │   ├── lint (alias: validate)  [<file>]           # syntax check, no network (previously called validate)
-  │   ├── push      [<file>]                         # push contract definition to cloud
-  │   ├── pull      <identifier>                      # pull contract from cloud → local file
-  │   ├── diff      [<file>]                         # local vs cloud diff (identifier read from file)
-  │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]
+  │   ├── lint (alias: validate)  [<file>]           # syntax check, no network  🏠
+  │   ├── push      [<file>]                         # push contract definition to cloud  🔌
+  │   ├── pull      <identifier>                      # pull contract from cloud → local file  🔌
+  │   ├── diff      [<file>]                         # local vs cloud diff (identifier read from file)  🔌
+  │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]  ❌
   │   │   # no args          → wizard: generate or improve?
   │   │   # file, no prompt  → wizard: what to improve?
   │   │   # --dataset only   → generate from scratch, no prompt needed
   │   │   # file + prompt    → improve existing contract
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud
+  │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud  🏠
   │   │   [--datasource <file>]            # explicit override when no soda.yml
   │   │   [--agent]                        # delegate to Soda Agent
   │   │   [--push]                         # run checks + push results to cloud
   │   │   [--set key=value]               # runtime variable overrides (repeatable)
   │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
-  │   └── proposal                         # PR flow for published contracts
+  │   └── proposal                         # PR flow for published contracts  🔌
   │       ├── list   [--status open|done|all]
   │       ├── pull   <id>  [--revision <n>]         # download a proposal locally
   │       ├── push   <id>  [<file>]  [--message]    # submit changes
   │       └── close  <id>  [--status done|wontdo]
   │
   ├── job  (alias: scan)
-  │   ├── list
+  │   ├── list  🔌
   │   │   [--datasource <id>]
   │   │   [--dataset <id>]
   │   │   [--type contract|monitor|all]
@@ -95,9 +101,9 @@ soda
   │   │   # sc_abc123   pg_prod       orders      contract  ✗ failing  2026-03-05 08:12
   │   │   # sc_def456   pg_prod       users       monitor   ✓ passing  2026-03-05 06:45
   │   │
-  │   └── logs  <id>  [--follow]
+  │   └── logs  <id>  [--follow]  🔌
   │
-  ├── results                              # contract checks + monitor alerts in one place  [NOT YET IMPLEMENTABLE - API work required; name also TBD]
+  ├── results                              # contract checks + monitor alerts in one place  ❌ [NOT YET IMPLEMENTABLE - API work required; name also TBD]
   │   └── list
   │       [--datasource <id>]
   │       [--dataset <id>]
@@ -112,25 +118,21 @@ soda
   │       # pg/prod/users        monitor  daily_signups anomaly  ⚠ alert    2026-03-05 06:45
   │
   ├── dataset
-  │   ├── list    [--filter <query>] [--tag <tag>] 🟡
-  │   ├── update  <id>  [--owner <email>]  [--tag <tag>]  [--description <text>]
+  │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
+  │   ├── update  <id>  [--owner <email>]  [--tag <tag>]  [--description <text>]  🔌
   │   │   # label and source are read-only after creation
-  │   ├── delete  <id> 🟡
+  │   ├── delete  <id>  ✅
   │   │
-  │   ├── time-partition  <id>  --column <col>
+  │   ├── time-partition  <id>  --column <col>  ❌
   │   │   # affects both profiling and metric monitoring (anomaly detection window)
-  │   │   # no flags → same as get
-  │   │   └── get  <id>
   │   │
-  │   ├── profiling  <id>  [--enable|--disable]
-  │   │              [--execution manual|scheduled]  [--schedule <cron>]
-  │   │              [--strategy sampling|time-window]
-  │   │              [--sampling-rows <n>]  [--time-window-days <n>]
-  │   │   # no flags → same as get
-  │   │   ├── get      <id>                           # view cached data + current settings
-  │   │   └── refresh  <id>                           # trigger a new profiling run
+  │   ├── profiling  <id>  [--enable|--disable]  ✅
+  │   │              [--schedule <cron>]  [--timezone <tz>] ✅
+  │   │              [--sampling-rows <n>] ✅
+  │   │   # no flags → show current profiling data + column stats
+  │   │   └── refresh  <id>                           # trigger a new profiling run  ❌
   │   │
-  │   ├── diagnostics  <id>                             # configure diagnostics warehouse overrides for a dataset
+  │   ├── diagnostics  <id>                             # configure diagnostics warehouse overrides for a dataset  ❌
   │   │   [--schema <name>]                             # schema override (inherits from datasource if omitted)
   │   │   [--collect-results|--no-collect-results]      # store check results and scan history
   │   │   [--collect-failed-rows|--no-collect-failed-rows]
@@ -140,23 +142,22 @@ soda
   │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]
   │   │   [--failed-rows-cta|--no-failed-rows-cta]
   │   │
-  │   └── permissions
+  │   └── permissions  ❌
   │       ├── list    <id>
   │       ├── assign  <id>  --role <role-id>  --user <email>|--group <id>
   │       └── revoke  <id>  --role <role-id>  --user <email>|--group <id>
   │
   ├── monitor
-  │   ├── list    [--dataset <id>]
+  │   ├── list    [--dataset <id>]  🔌
   │   │           [--type dataset|column|group-by|custom]
   │   │           [--status enabled|disabled|all]
   │   │
-  │   ├── config  <dataset-id>  [--enable|--disable]  # dataset-level MM settings (not per-monitor)
+  │   ├── config  <dataset-id>  [--enable|--disable]  # dataset-level MM settings (not per-monitor)  ❌
   │   │           [--schedule <cron>]
   │   │           [--historical true|false]  [--historical-days <n>]
-  │   │   # no flags → same as get
-  │   │   └── get  <dataset-id>
+  │   │   # no flags → show current config
   │   │
-  │   ├── add     --dataset <id>  --type dataset|column|group-by|custom
+  │   ├── add     --dataset <id>  --type dataset|column|group-by|custom  🔌
   │   │
   │   │     # --type dataset
   │   │     # --metric row-count|row-count-change|last-modified|schema-changes|
@@ -194,13 +195,13 @@ soda
   │   │     # [--threshold upper|lower|both]
   │   │     # [--exclude-values <v,...>]
   │   │
-  │   ├── update  <id>               # same flags as add for the given type, minus --type/--dataset
-  │   └── delete  <id>
+  │   ├── update  <id>               # same flags as add for the given type, minus --type/--dataset  🔌
+  │   └── delete  <id>  🔌
   │
   ├── incident
-  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]
-  │   ├── get     <id>
-  │   └── update  <id>
+  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌
+  │   ├── get     <id>  🔌
+  │   └── update  <id>  🔌
   │       [--title <text>]
   │       [--severity minor|major|critical]
   │       [--description <text>]
@@ -209,8 +210,8 @@ soda
   │
   ├── notification
   │   ├── rule
-  │   │   ├── list
-  │   │   ├── add    --name <n>
+  │   │   ├── list  🔌
+  │   │   ├── add    --name <n>  🔌
   │   │   │          --source check|monitor|all
   │   │   │          --alert warn-fail|fail-only|anomaly
   │   │   │          # scope filters (optional — omit = applies to all of that source):
@@ -228,55 +229,55 @@ soda
   │   │   │          # options:
   │   │   │          [--granular-results]
   │   │   │          [--message <text>]
-  │   │   ├── update <id>  [same flags as add]
-  │   │   └── delete <id>
+  │   │   ├── update <id>  [same flags as add]  🔌
+  │   │   └── delete <id>  🔌
   │   │
   │   └── integration
-  │       ├── list
-  │       ├── add    slack|teams|webhook  [integration-specific flags]
-  │       ├── test   <id>
-  │       └── delete <id>
+  │       ├── list  🔌
+  │       ├── add    slack|teams|webhook  [integration-specific flags]  🔌
+  │       ├── test   <id>  🔌
+  │       └── delete <id>  🔌
   │
   ├── iam
   │   ├── role
-  │   │   ├── list    [--scope global|dataset]
-  │   │   ├── create  --name <n>  --scope global|dataset
+  │   │   ├── list    [--scope global|dataset]  🔌
+  │   │   ├── create  --name <n>  --scope global|dataset  🔌
   │   │   │   [--description <text>]
   │   │   │   [--permission <permission>]  (repeatable)
   │   │   │   # permissions: create-api-keys|create-datasets|manage-attributes|
   │   │   │   #              manage-datasources|manage-notification-rules|
   │   │   │   #              manage-org-settings|manage-scan-definitions
-  │   │   ├── delete  <id>
-  │   │   └── show    <id>                               # list permissions in this role
+  │   │   ├── delete  <id>  🔌
+  │   │   └── show    <id>                               # list permissions in this role  🔌
   │   │
   │   ├── user
-  │   │   ├── list
-  │   │   ├── invite  --email <email>                    # invite user to org
-  │   │   ├── remove  <user-id>                          # remove user from org
-  │   │   ├── assign  <user-id>  --role <role-id>
-  │   │   └── revoke  <user-id>  --role <role-id>
+  │   │   ├── list  🔌
+  │   │   ├── invite  --email <email>                    # invite user to org  🔌
+  │   │   ├── remove  <user-id>                          # remove user from org  🔌
+  │   │   ├── assign  <user-id>  --role <role-id>  🔌
+  │   │   └── revoke  <user-id>  --role <role-id>  🔌
   │   │
   │   ├── group
-  │   │   ├── list
-  │   │   ├── create  --name <n>  [--member <email>]  (repeatable)
-  │   │   ├── update  <id>  [--name <n>]
+  │   │   ├── list  🔌
+  │   │   ├── create  --name <n>  [--member <email>]  (repeatable)  🔌
+  │   │   ├── update  <id>  [--name <n>]  🔌
   │   │   │            [--add-member <email>]     (repeatable)
   │   │   │            [--remove-member <email>]  (repeatable)
-  │   │   ├── delete  <id>
-  │   │   ├── assign  <group-id>  --role <role-id>
-  │   │   └── revoke  <group-id>  --role <role-id>
+  │   │   ├── delete  <id>  🔌
+  │   │   ├── assign  <group-id>  --role <role-id>  🔌
+  │   │   └── revoke  <group-id>  --role <role-id>  🔌
   │   │
   │   └── service-account
-  │       ├── list
-  │       ├── create  --name <n>  --email <email>
-  │       └── delete  <id>
+  │       ├── list  🔌
+  │       ├── create  --name <n>  --email <email>  🔌
+  │       └── delete  <id>  🔌
   │
   ├── agent
-  │   └── list
+  │   └── list  🔌
   │
   ├── secret
-  │   ├── create  --name <n>  --value <v>
-  │   ├── update  <id>        --value <v>
-  │   └── delete  <id>
+  │   ├── create  --name <n>  --value <v>  🔌
+  │   ├── update  <id>        --value <v>  🔌
+  │   └── delete  <id>  🔌
   │
-  └── completion  bash|zsh|fish
+  └── completion  bash|zsh|fish  🏠
