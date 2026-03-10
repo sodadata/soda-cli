@@ -155,14 +155,14 @@ soda
   │
   ├── monitor
   │   ├── list    --dataset <id>  ✅
-  │   │           [--type column|custom]
+  │   │           [--type column|custom|dataset]
   │   │           # --dataset is required (no global monitor list endpoint in public API)
   │   │
   │   ├── config  <dataset-id>  [--enable|--disable]  ✅
   │   │           [--schedule <cron>]  [--timezone <tz>]
   │   │   # no flags → show current config (enabled, schedule, monitor count)
   │   │
-  │   ├── add     --dataset <id>  --type column|custom  ✅
+  │   ├── add     --dataset <id>  --type column|custom|dataset  ✅
   │   │
   │   │     # --type column  ✅
   │   │     # --column <col>                    (required)
@@ -170,15 +170,18 @@ soda
   │   │     #   count, missing-pct, duplicate-pct, distinct-count,
   │   │     #   min, max, avg, sum, std-dev, variance, q1, median, q3,
   │   │     #   min-length, max-length, avg-length, freshness
+  │   │     # [--group-by <col>]               (repeatable; partitions monitor by column values)
+  │   │
+  │   │     # --type dataset  ✅
+  │   │     # --metric <metric-type>            (required; tab-completion available)
+  │   │     #   row-count, freshness, schema, rows-inserted, row-count-change, timeliness
+  │   │     # read-modify-write on datasetMetricMonitorsConfiguration
   │   │
   │   │     # --type custom  ✅
   │   │     # --name <name>                     (required)
   │   │     # --sql <query>  |  --sql-file <path>  (required)
   │   │     # --result-metric <col>             (required)
   │   │     # [--column <col>]
-  │   │
-  │   │     # --type dataset  ❌  (configured via metricMonitoring, not yet wired)
-  │   │     # --type group-by  ❌  (no dedicated endpoint)
   │   │
   │   ├── update  <id>  ❌  (not yet implemented)
   │   └── delete  <id>  --dataset <id>  ✅

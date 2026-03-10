@@ -60,7 +60,39 @@ func columnMetricCLIName(apiValue string) string {
 	return apiValue // fall back to raw API value for unknown metrics
 }
 
-var monitorTypes = []string{"column", "custom"}
+var datasetMetricToAPI = map[string]string{
+	"row-count":        "rowCount",
+	"freshness":        "freshness",
+	"schema":           "schema",
+	"rows-inserted":    "rowsInserted",
+	"row-count-change": "totalRowCountChange",
+	"timeliness":       "timeliness",
+}
+
+var datasetMetricFromAPI = func() map[string]string {
+	m := map[string]string{}
+	for k, v := range datasetMetricToAPI {
+		m[v] = k
+	}
+	return m
+}()
+
+var datasetMetricNames = func() []string {
+	names := make([]string, 0, len(datasetMetricToAPI))
+	for k := range datasetMetricToAPI {
+		names = append(names, k)
+	}
+	return names
+}()
+
+func datasetMetricCLIName(apiValue string) string {
+	if cli, ok := datasetMetricFromAPI[apiValue]; ok {
+		return cli
+	}
+	return apiValue
+}
+
+var monitorTypes = []string{"column", "custom", "dataset"}
 
 // ── monitor ───────────────────────────────────────────────────────────────────
 
@@ -93,16 +125,43 @@ var monitorListCmd = &cobra.Command{
 
 		rows := []map[string]string{}
 
+		if monType == "" || monType == "dataset" {
+			for _, m := range cfg.DatasetMetricMonitorsConfiguration {
+				enabled := "disabled"
+				if m.Configuration.IsEnabled {
+					enabled = "enabled"
+				}
+				rows = append(rows, map[string]string{
+					"id":      "-",
+					"type":    "dataset",
+					"column":  "-",
+					"metric":  datasetMetricCLIName(m.MetricType),
+					"enabled": enabled,
+				})
+			}
+		}
+
 		if monType == "" || monType == "column" {
 			for _, m := range cfg.ColumnMetricMonitors {
 				enabled := "disabled"
 				if m.Configuration.IsEnabled {
 					enabled = "enabled"
 				}
+				groupBy := ""
+				for i, g := range m.Configuration.GroupByColumns {
+					if i > 0 {
+						groupBy += ","
+					}
+					groupBy += g.ColumnName
+				}
+				col := m.ColumnName
+				if groupBy != "" {
+					col = m.ColumnName + " (group-by: " + groupBy + ")"
+				}
 				rows = append(rows, map[string]string{
 					"id":      m.CheckID,
 					"type":    "column",
-					"column":  m.ColumnName,
+					"column":  col,
 					"metric":  columnMetricCLIName(m.MetricType),
 					"enabled": enabled,
 				})
@@ -225,8 +284,10 @@ var monitorAddCmd = &cobra.Command{
 			return runMonitorAddColumn(cmd, client, datasetID)
 		case "custom":
 			return runMonitorAddCustom(cmd, client, datasetID)
+		case "dataset":
+			return runMonitorAddDataset(cmd, client, datasetID)
 		default:
-			return output.Errorf(2, "unsupported type '%s' — use column or custom (dataset and group-by types are not yet available in the public API)", monType)
+			return output.Errorf(2, "unsupported type '%s' — use column, custom, or dataset", monType)
 		}
 	},
 }
@@ -234,6 +295,7 @@ var monitorAddCmd = &cobra.Command{
 func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID string) error {
 	column, _ := cmd.Flags().GetString("column")
 	metric, _ := cmd.Flags().GetString("metric")
+	groupByCols, _ := cmd.Flags().GetStringArray("group-by")
 
 	if column == "" {
 		return output.Errorf(2, "--column is required for type column")
@@ -247,11 +309,16 @@ func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID strin
 		return output.Errorf(2, "unknown metric '%s'\n\n  Valid values: %s", metric, columnMetricHelpList())
 	}
 
+	cfg := api.ColumnMonitorConfig{IsEnabled: true}
+	for _, col := range groupByCols {
+		cfg.GroupByColumns = append(cfg.GroupByColumns, api.GroupByColumn{ColumnName: col})
+	}
+
 	req := api.CreateColumnMonitorRequest{
 		ColumnName: column,
 		ColumnMetricMonitorConfiguration: api.ColumnMetricMonitorCfg{
 			MetricType:    apiMetric,
-			Configuration: api.ColumnMonitorConfig{IsEnabled: true},
+			Configuration: cfg,
 		},
 	}
 	result, err := client.CreateColumnMonitor(datasetID, req)
@@ -259,6 +326,37 @@ func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID strin
 		return err
 	}
 	output.PrintSuccess(fmt.Sprintf("Column monitor created (id: %s).", result.CheckID), GCtx)
+	return nil
+}
+
+func runMonitorAddDataset(cmd *cobra.Command, client *api.Client, datasetID string) error {
+	metric, _ := cmd.Flags().GetString("metric")
+	if metric == "" {
+		return output.Errorf(2, "--metric is required for type dataset\n\n  Valid values: %s", datasetMetricHelpList())
+	}
+
+	apiMetric, ok := datasetMetricToAPI[metric]
+	if !ok {
+		return output.Errorf(2, "unknown metric '%s'\n\n  Valid values: %s", metric, datasetMetricHelpList())
+	}
+
+	// read-modify-write: fetch current dataset monitors, append, post back
+	current, err := client.GetMetricMonitoring(datasetID)
+	if err != nil {
+		return err
+	}
+
+	monitors := append(current.DatasetMetricMonitorsConfiguration, api.DatasetMetricMonitorCfg{
+		MetricType:    apiMetric,
+		Configuration: api.DatasetMonitorConfig{IsEnabled: true},
+	})
+
+	if _, err := client.UpdateMetricMonitoring(datasetID, api.UpdateMetricMonitoringRequest{
+		DatasetMetricMonitorsConfiguration: monitors,
+	}); err != nil {
+		return err
+	}
+	output.PrintSuccess(fmt.Sprintf("Dataset monitor '%s' added to dataset '%s'.", metric, datasetID), GCtx)
 	return nil
 }
 
@@ -380,6 +478,18 @@ func columnMetricHelpList() string {
 	return out
 }
 
+func datasetMetricHelpList() string {
+	ordered := []string{"row-count", "freshness", "schema", "rows-inserted", "row-count-change", "timeliness"}
+	out := ""
+	for i, v := range ordered {
+		if i > 0 {
+			out += ", "
+		}
+		out += v
+	}
+	return out
+}
+
 func init() {
 	monitorListCmd.Flags().String("dataset", "", "Dataset ID (required — no global monitor list endpoint exists)")
 	monitorListCmd.Flags().String("type", "", "Filter by type: column|custom")
@@ -393,11 +503,13 @@ func init() {
 	monitorConfigCmd.Flags().String("timezone", "", "Timezone for schedule (default: UTC)")
 
 	monitorAddCmd.Flags().String("dataset", "", "Dataset ID (required)")
-	monitorAddCmd.Flags().String("type", "", "Monitor type: column|custom (required)")
+	monitorAddCmd.Flags().String("type", "", "Monitor type: column|custom|dataset (required)")
 	monitorAddCmd.Flags().String("column", "", "Column name (required for type column)")
 	monitorAddCmd.Flags().String("metric", "", fmt.Sprintf(
-		"Metric type for column monitor (required). Valid values: %s", columnMetricHelpList(),
+		"Metric type (required). Column: %s — Dataset: %s",
+		columnMetricHelpList(), datasetMetricHelpList(),
 	))
+	monitorAddCmd.Flags().StringArray("group-by", nil, "Group-by column (repeatable, for type column)")
 	monitorAddCmd.Flags().String("name", "", "Monitor name (required for type custom)")
 	monitorAddCmd.Flags().String("sql", "", "SQL query (required for type custom, unless --sql-file)")
 	monitorAddCmd.Flags().String("sql-file", "", "Path to SQL file (for type custom)")
@@ -407,6 +519,10 @@ func init() {
 		return monitorTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 	_ = monitorAddCmd.RegisterFlagCompletionFunc("metric", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// suggest column or dataset metrics depending on --type flag value
+		if t, _ := cmd.Flags().GetString("type"); t == "dataset" {
+			return datasetMetricNames, cobra.ShellCompDirectiveNoFileComp
+		}
 		return columnMetricNames, cobra.ShellCompDirectiveNoFileComp
 	})
 

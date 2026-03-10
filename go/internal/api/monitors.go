@@ -2,32 +2,37 @@ package api
 
 // ── Metric monitoring config ───────────────────────────────────────────────────
 
-type MetricMonitoringConfig struct {
-	DatasetID                              string            `json:"datasetId"`
-	Enabled                                bool              `json:"enabled"`
-	ScanSchedule                           *ScanSchedule     `json:"scanSchedule"`
-	HistoricalMetricCollectionScanStartDate string           `json:"historicalMetricCollectionScanStartDate"`
-	ColumnMetricMonitors                   []ColumnMonitor   `json:"columnMetricMonitors"`
-	CustomSqlMetricMonitors                []CustomSqlMonitor `json:"customSqlMetricMonitors"`
-}
+// ── Dataset metric monitors ───────────────────────────────────────────────────
 
-type ColumnMonitor struct {
-	CheckID       string            `json:"checkId"`
-	ColumnName    string            `json:"columnName"`
-	MetricType    string            `json:"metricType"`
-	Configuration ColumnMonitorConfig `json:"configuration"`
-}
-
-type ColumnMonitorConfig struct {
+type DatasetMonitorConfig struct {
 	IsEnabled bool `json:"isEnabled"`
 }
 
-type CustomSqlMonitor struct {
-	CheckID       string               `json:"checkId"`
-	MonitorName   string               `json:"monitorName"`
-	ColumnName    string               `json:"columnName"`
-	Configuration CustomSqlMonitorConfig `json:"configuration"`
+type DatasetMetricMonitorCfg struct {
+	MetricType    string               `json:"metricType"`
+	Configuration DatasetMonitorConfig `json:"configuration"`
 }
+
+// ── Column metric monitors ─────────────────────────────────────────────────────
+
+type GroupByColumn struct {
+	ColumnName     string   `json:"columnName"`
+	ExcludedValues []string `json:"excludedValues,omitempty"`
+}
+
+type ColumnMonitorConfig struct {
+	IsEnabled    bool            `json:"isEnabled"`
+	GroupByColumns []GroupByColumn `json:"groupByColumns,omitempty"`
+}
+
+type ColumnMonitor struct {
+	CheckID       string             `json:"checkId"`
+	ColumnName    string             `json:"columnName"`
+	MetricType    string             `json:"metricType"`
+	Configuration ColumnMonitorConfig `json:"configuration"`
+}
+
+// ── Custom SQL monitors ───────────────────────────────────────────────────────
 
 type CustomSqlMonitorConfig struct {
 	SQLQuery     string `json:"sqlQuery"`
@@ -35,9 +40,29 @@ type CustomSqlMonitorConfig struct {
 	IsEnabled    bool   `json:"isEnabled"`
 }
 
+type CustomSqlMonitor struct {
+	CheckID       string                `json:"checkId"`
+	MonitorName   string                `json:"monitorName"`
+	ColumnName    string                `json:"columnName"`
+	Configuration CustomSqlMonitorConfig `json:"configuration"`
+}
+
+// ── Metric monitoring config (GET response + POST request) ────────────────────
+
+type MetricMonitoringConfig struct {
+	DatasetID                              string                    `json:"datasetId"`
+	Enabled                                bool                      `json:"enabled"`
+	ScanSchedule                           *ScanSchedule             `json:"scanSchedule"`
+	HistoricalMetricCollectionScanStartDate string                   `json:"historicalMetricCollectionScanStartDate"`
+	DatasetMetricMonitorsConfiguration     []DatasetMetricMonitorCfg `json:"datasetMetricMonitorsConfiguration"`
+	ColumnMetricMonitors                   []ColumnMonitor           `json:"columnMetricMonitors"`
+	CustomSqlMetricMonitors                []CustomSqlMonitor        `json:"customSqlMetricMonitors"`
+}
+
 type UpdateMetricMonitoringRequest struct {
-	Enabled      *bool         `json:"enabled,omitempty"`
-	ScanSchedule *ScanSchedule `json:"scanSchedule,omitempty"`
+	Enabled                            *bool                     `json:"enabled,omitempty"`
+	ScanSchedule                       *ScanSchedule             `json:"scanSchedule,omitempty"`
+	DatasetMetricMonitorsConfiguration []DatasetMetricMonitorCfg `json:"datasetMetricMonitorsConfiguration,omitempty"`
 }
 
 func (c *Client) GetMetricMonitoring(datasetID string) (*MetricMonitoringConfig, error) {
@@ -67,7 +92,7 @@ func (c *Client) UpdateMetricMonitoring(datasetID string, req UpdateMetricMonito
 // ── Column metric monitors ─────────────────────────────────────────────────────
 
 type ColumnMetricMonitorCfg struct {
-	MetricType    string            `json:"metricType"`
+	MetricType    string             `json:"metricType"`
 	Configuration ColumnMonitorConfig `json:"configuration"`
 }
 
