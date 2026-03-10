@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
+	"github.com/soda-data-inc/soda-cli/internal/config"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -57,7 +58,26 @@ var authLoginCmd = &cobra.Command{
 		}
 
 		fmt.Println(output.Dim.Render("  Testing connection to " + host + "..."))
-		output.PrintSuccess("Authenticated. Profile 'default' saved to ~/.soda/credentials.", GCtx)
+
+		// Save credentials
+		creds, err := config.LoadCredentials()
+		if err != nil {
+			creds = config.Credentials{}
+		}
+		profileName := GCtx.Profile
+		if profileName == "" {
+			profileName = "default"
+		}
+		creds[profileName] = config.Profile{
+			Host:         host,
+			APIKeyID:     apiKeyID,
+			APIKeySecret: apiKeySecret,
+		}
+		if err := config.SaveCredentials(creds); err != nil {
+			return output.Errorf(2, "could not save credentials: %v", err)
+		}
+
+		output.PrintSuccess(fmt.Sprintf("Authenticated. Profile '%s' saved to ~/.soda/credentials.", profileName), GCtx)
 		return nil
 	},
 }

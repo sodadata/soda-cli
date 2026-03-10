@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soda-data-inc/soda-cli/internal/mock"
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -18,8 +18,41 @@ var datasetListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List datasets",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "datasource", "schema", "status", "checks", "updated"}
-		output.Render(mock.Datasets, cols, map[string]bool{"status": true}, GCtx)
+		filter, _ := cmd.Flags().GetString("filter")
+		datasource, _ := cmd.Flags().GetString("datasource")
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		result, err := client.ListDatasets(api.ListDatasetsParams{
+			Search:         filter,
+			DatasourceName: datasource,
+			Size:           100,
+		})
+		if err != nil {
+			return err
+		}
+
+		rows := make([]map[string]string, len(result.Content))
+		for i, d := range result.Content {
+			rows[i] = map[string]string{
+				"id":         d.ID,
+				"name":       d.Name,
+				"datasource": d.Datasource.Name,
+				"status":     d.DataQualityStatus,
+				"checks":     fmt.Sprintf("%.0f", d.Checks),
+				"updated":    d.LastUpdated,
+			}
+		}
+
+		cols := []string{"id", "name", "datasource", "status", "checks", "updated"}
+		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
+
+		if !result.Last {
+			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d datasets.\n"), len(result.Content), result.TotalElements)
+		}
 		return nil
 	},
 }
@@ -39,7 +72,15 @@ var datasetDeleteCmd = &cobra.Command{
 	Short: "Delete a dataset from Soda Cloud",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Dataset '%s' deleted.", args[0]), GCtx)
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.DeleteDataset(args[0])
+		if err != nil {
+			return err
+		}
+		output.PrintSuccess(result.Message, GCtx)
 		return nil
 	},
 }
@@ -244,7 +285,8 @@ var datasetPermRevokeCmd = &cobra.Command{
 }
 
 func init() {
-	datasetListCmd.Flags().String("filter", "", "Filter datasets by query string")
+	datasetListCmd.Flags().String("filter", "", "Fuzzy search on dataset name")
+	datasetListCmd.Flags().String("datasource", "", "Filter by datasource name")
 	datasetListCmd.Flags().String("tag", "", "Filter by tag")
 
 	datasetUpdateCmd.Flags().String("owner", "", "Dataset owner email")

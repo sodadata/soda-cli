@@ -112,10 +112,10 @@ soda
   │       # pg/prod/users        monitor  daily_signups anomaly  ⚠ alert    2026-03-05 06:45
   │
   ├── dataset
-  │   ├── list    [--filter <query>] [--tag <tag>]
+  │   ├── list    [--filter <query>] [--tag <tag>] 🟡
   │   ├── update  <id>  [--owner <email>]  [--tag <tag>]  [--description <text>]
   │   │   # label and source are read-only after creation
-  │   ├── delete  <id>
+  │   ├── delete  <id> 🟡
   │   │
   │   ├── time-partition  <id>  --column <col>
   │   │   # affects both profiling and metric monitoring (anomaly detection window)
