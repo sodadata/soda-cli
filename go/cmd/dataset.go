@@ -126,53 +126,130 @@ var datasetProfilingCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		enable, _ := cmd.Flags().GetBool("enable")
 		disable, _ := cmd.Flags().GetBool("disable")
-		execution, _ := cmd.Flags().GetString("execution")
 		schedule, _ := cmd.Flags().GetString("schedule")
-		strategy, _ := cmd.Flags().GetString("strategy")
+		timezone, _ := cmd.Flags().GetString("timezone")
 		samplingRows, _ := cmd.Flags().GetInt("sampling-rows")
-		timeWindowDays, _ := cmd.Flags().GetInt("time-window-days")
 
-		changed := enable || disable || execution != "" || schedule != "" || strategy != "" || samplingRows != 0 || timeWindowDays != 0
-		if !changed {
-			// no flags → same as get
+		if !enable && !disable && schedule == "" && samplingRows == 0 {
+			// no flags → show current profiling data
 			return runDatasetProfilingGet(args[0])
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		settings := api.ProfilingSettings{}
+		if enable {
+			t := true
+			settings.Enabled = &t
+		} else if disable {
+			f := false
+			settings.Enabled = &f
+		}
+		if schedule != "" {
+			tz := timezone
+			if tz == "" {
+				tz = "UTC"
+			}
+			settings.ScanSchedule = &api.ScanSchedule{
+				CronExpression: schedule,
+				Timezone:       tz,
+			}
+		}
+		if samplingRows > 0 {
+			settings.ProfilingSamplingStrategy = &api.SamplingStrategy{
+				NumberOfRows: samplingRows,
+			}
+		}
+
+		if _, err := client.UpdateDatasetProfiling(args[0], settings); err != nil {
+			return err
 		}
 		output.PrintSuccess(fmt.Sprintf("Profiling config updated for dataset '%s'.", args[0]), GCtx)
 		return nil
 	},
 }
 
-var datasetProfilingGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "View cached profiling data and current settings",
+var datasetProfilingRefreshCmd = &cobra.Command{
+	Use:   "refresh <id>",
+	Short: "Trigger a new profiling run (not yet available in the public API)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runDatasetProfilingGet(args[0])
+		return output.Errorf(2, "profiling refresh is not yet available in the public API")
 	},
 }
 
 func runDatasetProfilingGet(id string) error {
-	fmt.Printf("  Profiling data for %s\n\n", output.Bold.Render(id))
-	rows := []map[string]string{
-		{"column": "order_id", "type": "bigint", "nulls": "0%", "distinct": "100%", "min": "1", "max": "48231"},
-		{"column": "customer_id", "type": "bigint", "nulls": "0.29%", "distinct": "34%", "min": "1001", "max": "9999"},
-		{"column": "order_value", "type": "numeric", "nulls": "0%", "distinct": "72%", "min": "4.99", "max": "1249.00"},
-		{"column": "created_at", "type": "timestamp", "nulls": "0%", "distinct": "100%", "min": "2025-01-01", "max": "2026-03-04"},
+	client, err := newAPIClient()
+	if err != nil {
+		return err
 	}
-	cols := []string{"column", "type", "nulls", "distinct", "min", "max"}
+	result, err := client.GetProfiling(id)
+	if err != nil {
+		return err
+	}
+
+	// Settings summary
+	enabled := output.Red.Render("disabled")
+	if result.Enabled {
+		enabled = output.Green.Render("enabled")
+	}
+	fmt.Printf("  %-24s %s\n", output.Bold.Render("Profiling"), enabled)
+	if result.ProfilingTime != "" {
+		fmt.Printf("  %-24s %s\n", output.Bold.Render("Last run"), result.ProfilingTime)
+	}
+	if result.RowCount != nil {
+		fmt.Printf("  %-24s %.0f\n", output.Bold.Render("Row count"), *result.RowCount)
+	}
+	if result.ScanSchedule != nil {
+		fmt.Printf("  %-24s %s (%s)\n", output.Bold.Render("Schedule"), result.ScanSchedule.CronExpression, result.ScanSchedule.Timezone)
+	}
+	if result.SamplingStrategyConfig != nil && result.SamplingStrategyConfig.NumberOfRows > 0 {
+		fmt.Printf("  %-24s %d rows\n", output.Bold.Render("Sampling"), result.SamplingStrategyConfig.NumberOfRows)
+	}
+
+	if len(result.Columns) == 0 {
+		fmt.Println()
+		fmt.Println(output.Dim.Render("  No profiling data available yet."))
+		return nil
+	}
+
+	// Column stats table
+	fmt.Println()
+	rows := make([]map[string]string, len(result.Columns))
+	for i, col := range result.Columns {
+		row := map[string]string{
+			"column": col.Name,
+			"type":   col.Type,
+		}
+		if col.Metrics.MissingCount != nil && result.RowCount != nil && *result.RowCount > 0 {
+			pct := (*col.Metrics.MissingCount / *result.RowCount) * 100
+			row["missing"] = fmt.Sprintf("%.2f%%", pct)
+		} else {
+			row["missing"] = "-"
+		}
+		if col.Metrics.DistinctCount != nil {
+			row["distinct"] = fmt.Sprintf("%.0f", *col.Metrics.DistinctCount)
+		} else {
+			row["distinct"] = "-"
+		}
+		if col.Metrics.Minimum != nil {
+			row["min"] = fmt.Sprintf("%g", *col.Metrics.Minimum)
+		} else {
+			row["min"] = "-"
+		}
+		if col.Metrics.Maximum != nil {
+			row["max"] = fmt.Sprintf("%g", *col.Metrics.Maximum)
+		} else {
+			row["max"] = "-"
+		}
+		rows[i] = row
+	}
+	cols := []string{"column", "type", "missing", "distinct", "min", "max"}
 	output.Render(rows, cols, nil, GCtx)
 	return nil
-}
-
-var datasetProfilingRefreshCmd = &cobra.Command{
-	Use:   "refresh <id>",
-	Short: "Trigger a new profiling run",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(output.Dim.Render("  Triggering profiling run for " + args[0] + "..."))
-		output.PrintSuccess("Profiling job queued. Results will be available in ~2 minutes.", GCtx)
-		return nil
-	},
 }
 
 // ── dataset diagnostics ───────────────────────────────────────────────────────
@@ -300,12 +377,10 @@ func init() {
 	// profiling
 	datasetProfilingCmd.Flags().Bool("enable", false, "Enable profiling")
 	datasetProfilingCmd.Flags().Bool("disable", false, "Disable profiling")
-	datasetProfilingCmd.Flags().String("execution", "", "Execution mode: manual|scheduled")
-	datasetProfilingCmd.Flags().String("schedule", "", "Cron schedule expression")
-	datasetProfilingCmd.Flags().String("strategy", "", "Sampling strategy: sampling|time-window")
+	datasetProfilingCmd.Flags().String("schedule", "", "Cron schedule expression (e.g. '0 6 * * *')")
+	datasetProfilingCmd.Flags().String("timezone", "", "Timezone for schedule (default: UTC)")
 	datasetProfilingCmd.Flags().Int("sampling-rows", 0, "Number of rows to sample")
-	datasetProfilingCmd.Flags().Int("time-window-days", 0, "Number of days in time window")
-	datasetProfilingCmd.AddCommand(datasetProfilingGetCmd, datasetProfilingRefreshCmd)
+	datasetProfilingCmd.AddCommand(datasetProfilingRefreshCmd)
 
 	// diagnostics
 	datasetDiagnosticsCmd.Flags().String("schema", "", "Schema for diagnostic tables (overrides datasource default)")

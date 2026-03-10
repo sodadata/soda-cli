@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,21 @@ func New(p config.Profile) *Client {
 		apiKeySecret: p.APIKeySecret,
 		http:         &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+func (c *Client) post(path string, body interface{}) (*http.Response, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("POST", c.baseURL+path, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(c.apiKeyID, c.apiKeySecret)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	return c.http.Do(req)
 }
 
 func (c *Client) delete(path string) (*http.Response, error) {
