@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
-	"github.com/soda-data-inc/soda-cli/internal/mock"
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -15,6 +18,278 @@ var contractCmd = &cobra.Command{
 	Use:   "contract",
 	Short: "Manage data quality contracts",
 }
+
+// ── contract list ─────────────────────────────────────────────────────────────
+
+var contractListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List contracts in Soda Cloud",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		page, err := client.ListContracts(0, 100)
+		if err != nil {
+			return err
+		}
+		if len(page.Content) == 0 {
+			fmt.Println(output.Dim.Render("  No contracts found."))
+			return nil
+		}
+		rows := make([]map[string]string, 0, len(page.Content))
+		for _, c := range page.Content {
+			rows = append(rows, map[string]string{
+				"id":      c.ID,
+				"dataset": c.DatasetQualifiedName,
+				"updated": c.LastUpdated,
+			})
+		}
+		output.Render(rows, []string{"id", "dataset", "updated"}, nil, GCtx)
+		return nil
+	},
+}
+
+// ── contract pull ─────────────────────────────────────────────────────────────
+
+var contractPullCmd = &cobra.Command{
+	Use:   "pull <identifier>",
+	Short: "Pull a contract from Soda Cloud to a local file",
+	Long: `Pull a contract from Soda Cloud by dataset qualified name.
+
+  The identifier is the dataset qualified name:
+    datasource/database/schema/table
+
+  The contract YAML is saved to <table>.yml by default.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		identifier := args[0]
+			client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(output.Dim.Render("  Fetching contract for " + identifier + "..."))
+
+		contract, err := client.FindContractByDataset(identifier)
+		if err != nil {
+			return err
+		}
+		if contract == nil {
+			return output.Errorf(2, "no contract found for dataset '%s'", identifier)
+		}
+
+		parts := strings.Split(identifier, "/")
+		outFile := parts[len(parts)-1] + ".yml"
+
+		if err := os.WriteFile(outFile, []byte(contract.Contents), 0644); err != nil {
+			return output.Errorf(2, "could not write file: %v", err)
+		}
+		output.PrintSuccess(fmt.Sprintf("Contract saved to %s (id: %s).", outFile, contract.ID), GCtx)
+		return nil
+	},
+}
+
+// ── contract push ─────────────────────────────────────────────────────────────
+
+var contractPushCmd = &cobra.Command{
+	Use:   "push [file]",
+	Short: "Push a contract definition to Soda Cloud",
+	Long: `Push a local contract YAML file to Soda Cloud.
+
+  Reads the 'dataset:' field from the file to identify the target dataset.
+  Creates a new contract if none exists; updates the existing one otherwise.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		file := ""
+		if len(args) > 0 {
+			file = args[0]
+		}
+
+		if file == "" {
+			// look for a single .yml in contracts/ or current dir
+			candidates, _ := filepath.Glob("contracts/*.yml")
+			if len(candidates) == 0 {
+				candidates, _ = filepath.Glob("*.yml")
+			}
+			if len(candidates) == 1 {
+				file = candidates[0]
+			} else if len(candidates) > 1 {
+				if GCtx.NoInteractive {
+					return output.Errorf(2, "multiple contract files found — specify a file in non-interactive mode")
+				}
+				form := huh.NewForm(huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Which contract file?").
+						OptionsFunc(func() []huh.Option[string] {
+							opts := make([]huh.Option[string], len(candidates))
+							for i, c := range candidates {
+								opts[i] = huh.NewOption(c, c)
+							}
+							return opts
+						}, nil).
+						Value(&file),
+				))
+				if err := form.Run(); err != nil {
+					return output.Errorf(2, "cancelled")
+				}
+			}
+		}
+
+		if file == "" {
+			return output.Errorf(2, "no contract file found — provide a file path or run from a directory containing a contracts/ folder")
+		}
+
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			return output.Errorf(2, "could not read file %s: %v", file, err)
+		}
+
+		qualifiedName, err := parseDatasetField(contents)
+		if err != nil {
+			return output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
+		}
+		if qualifiedName == "" {
+			return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(output.Dim.Render("  Checking for existing contract for " + qualifiedName + "..."))
+
+		existing, err := client.FindContractByDataset(qualifiedName)
+		if err != nil {
+			return err
+		}
+
+		req := api.ContractRequest{
+			DatasetQualifiedName: qualifiedName,
+			Contents:             string(contents),
+		}
+
+		if existing != nil {
+			fmt.Println(output.Dim.Render("  Updating existing contract " + existing.ID + "..."))
+			result, err := client.UpdateContract(existing.ID, req)
+			if err != nil {
+				return err
+			}
+			output.PrintSuccess(fmt.Sprintf("Contract updated (id: %s).", result.ID), GCtx)
+		} else {
+			fmt.Println(output.Dim.Render("  Creating new contract..."))
+			result, err := client.CreateContract(req)
+			if err != nil {
+				return err
+			}
+			output.PrintSuccess(fmt.Sprintf("Contract created (id: %s).", result.ID), GCtx)
+		}
+		return nil
+	},
+}
+
+// ── contract diff ─────────────────────────────────────────────────────────────
+
+var contractDiffCmd = &cobra.Command{
+	Use:   "diff [file]",
+	Short: "Show diff between local contract and Soda Cloud",
+	Long: `Compare a local contract file with the version stored in Soda Cloud.
+
+  Reads the 'dataset:' field from the file to identify which contract to compare.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		file := ""
+		if len(args) > 0 {
+			file = args[0]
+		}
+		if file == "" {
+			candidates, _ := filepath.Glob("contracts/*.yml")
+			if len(candidates) == 1 {
+				file = candidates[0]
+			} else if len(candidates) == 0 {
+				return output.Errorf(2, "no contract file found — provide a file path")
+			} else {
+				return output.Errorf(2, "multiple contract files found — specify a file")
+			}
+		}
+
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			return output.Errorf(2, "could not read file %s: %v", file, err)
+		}
+
+		qualifiedName, err := parseDatasetField(contents)
+		if err != nil {
+			return output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
+		}
+		if qualifiedName == "" {
+			return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  Comparing %s with cloud version for %s...\n\n", output.Bold.Render(file), output.Dim.Render(qualifiedName))
+
+		remote, err := client.FindContractByDataset(qualifiedName)
+		if err != nil {
+			return err
+		}
+		if remote == nil {
+			return output.Errorf(2, "no contract found in Soda Cloud for dataset '%s' — run `soda contract push` to create it", qualifiedName)
+		}
+
+		localLines := strings.Split(strings.TrimRight(string(contents), "\n"), "\n")
+		remoteLines := strings.Split(strings.TrimRight(remote.Contents, "\n"), "\n")
+
+		changes := diffLines(remoteLines, localLines)
+		hasChanges := false
+		for _, l := range changes {
+			if len(l) > 0 && (l[0] == '+' || l[0] == '-') {
+				hasChanges = true
+				break
+			}
+		}
+		if !hasChanges {
+			fmt.Println(output.Dim.Render("  No differences — local matches cloud."))
+			return nil
+		}
+
+		for _, line := range changes {
+			switch line[0] {
+			case '+':
+				fmt.Println(output.Green.Render("  " + line))
+			case '-':
+				fmt.Println(output.Red.Render("  " + line))
+			default:
+				fmt.Println(output.Dim.Render("  " + line))
+			}
+		}
+		fmt.Println()
+		fmt.Println(output.Dim.Render(fmt.Sprintf("  Run `soda contract push %s` to publish local changes.", file)))
+		return nil
+	},
+}
+
+// ── contract lint ─────────────────────────────────────────────────────────────
+
+var contractLintCmd = &cobra.Command{
+	Use:     "lint [file]",
+	Aliases: []string{"validate"},
+	Short:   "Validate contract syntax (no network required)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		file := "contracts/*.yml"
+		if len(args) > 0 {
+			file = args[0]
+		}
+		fmt.Println(output.Dim.Render("  Linting " + file + "..."))
+		output.PrintSuccess("Contract syntax is valid.", GCtx)
+		return nil
+	},
+}
+
+// ── contract create ───────────────────────────────────────────────────────────
 
 var contractCreateCmd = &cobra.Command{
 	Use:   "create",
@@ -61,65 +336,7 @@ var contractCreateCmd = &cobra.Command{
 	},
 }
 
-var contractLintCmd = &cobra.Command{
-	Use:     "lint [file]",
-	Aliases: []string{"validate"},
-	Short:   "Validate contract syntax (no network required)",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		file := "contracts/*.yml"
-		if len(args) > 0 {
-			file = args[0]
-		}
-		fmt.Println(output.Dim.Render("  Linting " + file + "..."))
-		output.PrintSuccess("Contract syntax is valid.", GCtx)
-		return nil
-	},
-}
-
-var contractPushCmd = &cobra.Command{
-	Use:   "push [file]",
-	Short: "Push contract definition to Soda Cloud",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		file := "contracts/*.yml"
-		if len(args) > 0 {
-			file = args[0]
-		}
-		fmt.Println(output.Dim.Render("  Pushing " + file + " to Soda Cloud..."))
-		output.PrintSuccess("Contract published to Soda Cloud.", GCtx)
-		return nil
-	},
-}
-
-var contractPullCmd = &cobra.Command{
-	Use:   "pull <identifier>",
-	Short: "Pull contract from Soda Cloud to a local file",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		identifier := args[0]
-		parts := strings.Split(identifier, "/")
-		outFile := parts[len(parts)-1] + ".yml"
-		fmt.Println(output.Dim.Render("  Pulling contract for " + identifier + "..."))
-		output.PrintSuccess(fmt.Sprintf("Contract saved to %s", outFile), GCtx)
-		return nil
-	},
-}
-
-var contractDiffCmd = &cobra.Command{
-	Use:   "diff [file]",
-	Short: "Show diff between local contract and Soda Cloud",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		file := "contracts/*.yml"
-		if len(args) > 0 {
-			file = args[0]
-		}
-		fmt.Printf("  Comparing %s with cloud version...\n\n", file)
-		fmt.Println(output.Green.Render("  + freshness(created_at) < 24h"))
-		fmt.Println(output.Red.Render("  - no_nulls(shipping_address)"))
-		fmt.Println()
-		fmt.Println(output.Dim.Render("  2 changes. Run `soda contract push` to publish."))
-		return nil
-	},
-}
+// ── contract copilot ──────────────────────────────────────────────────────────
 
 var contractCopilotCmd = &cobra.Command{
 	Use:   "copilot [file] [prompt]",
@@ -231,6 +448,8 @@ func runCopilotImprove(file, prompt string) error {
 	return nil
 }
 
+// ── contract verify ───────────────────────────────────────────────────────────
+
 var contractVerifyCmd = &cobra.Command{
 	Use:   "verify [file-or-dir]",
 	Short: "Run contract checks against your data",
@@ -241,59 +460,12 @@ var contractVerifyCmd = &cobra.Command{
 
   Exit codes: 0=all passing, 1=checks failed, 2=error, 3=auth error`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		file := "contracts/*.yml"
-		if len(args) > 0 {
-			file = args[0]
-		}
-		push, _ := cmd.Flags().GetBool("push")
-
-		fmt.Printf("  Verifying %s\n\n", output.Bold.Render(file))
-
-		failCount := 0
-		for _, check := range mock.ContractChecks {
-			if check.Status == "pass" {
-				fmt.Printf("  %s  %-45s  %s\n",
-					output.Green.Render("✓"),
-					check.Name,
-					output.Dim.Render(check.Value),
-				)
-			} else {
-				fmt.Printf("  %s  %-45s  %s\n",
-					output.Red.Render("✗"),
-					check.Name,
-					output.Dim.Render(check.Value),
-				)
-				failCount++
-			}
-		}
-
-		passing := len(mock.ContractChecks) - failCount
-		fmt.Println()
-
-		if failCount == 0 {
-			fmt.Printf("  %s  All %d checks passed.\n", output.Green.Render("✓"), passing)
-		} else {
-			fmt.Printf("  %s  %d/%d checks failed.\n",
-				output.Red.Render("✗"),
-				failCount,
-				len(mock.ContractChecks),
-			)
-		}
-
-		if push {
-			fmt.Println()
-			fmt.Println(output.Dim.Render("  Pushing results to Soda Cloud..."))
-			output.PrintSuccess("Results pushed. Job ID: sc_abc123", GCtx)
-		}
-
-		if failCount > 0 {
-			return &output.ExitError{Code: 1, Msg: ""}
-		}
-		return nil
+		return output.Errorf(2, "contract verify is not yet implemented in the Go CLI (requires soda-core engine)")
 	},
 }
 
-// contract proposal sub-group
+// ── contract proposal ─────────────────────────────────────────────────────────
+
 var contractProposalCmd = &cobra.Command{
 	Use:   "proposal",
 	Short: "Manage contract change proposals",
@@ -303,20 +475,7 @@ var proposalListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List open proposals",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		status, _ := cmd.Flags().GetString("status")
-		rows := mock.Proposals
-		if status != "" && status != "all" {
-			filtered := []map[string]string{}
-			for _, p := range rows {
-				if p["status"] == status {
-					filtered = append(filtered, p)
-				}
-			}
-			rows = filtered
-		}
-		cols := []string{"id", "dataset", "status", "message", "created"}
-		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
-		return nil
+		return output.Errorf(2, "contract proposal list is not yet available in the public API")
 	},
 }
 
@@ -325,13 +484,7 @@ var proposalPullCmd = &cobra.Command{
 	Short: "Download a proposal locally",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		revision, _ := cmd.Flags().GetInt("revision")
-		suffix := ""
-		if revision > 0 {
-			suffix = fmt.Sprintf(" (revision %d)", revision)
-		}
-		output.PrintSuccess(fmt.Sprintf("Proposal %s%s saved to proposal_%s.yml", args[0], suffix, args[0]), GCtx)
-		return nil
+		return output.Errorf(2, "contract proposal pull is not yet available in the public API")
 	},
 }
 
@@ -340,12 +493,7 @@ var proposalPushCmd = &cobra.Command{
 	Short: "Submit changes for a proposal",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		msg, _ := cmd.Flags().GetString("message")
-		if msg == "" {
-			msg = "Updated contract"
-		}
-		output.PrintSuccess(fmt.Sprintf("Proposal %s updated: %s", args[0], msg), GCtx)
-		return nil
+		return output.Errorf(2, "contract proposal push is not yet available in the public API")
 	},
 }
 
@@ -354,21 +502,119 @@ var proposalCloseCmd = &cobra.Command{
 	Short: "Close a proposal",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		status, _ := cmd.Flags().GetString("status")
-		if status == "" {
-			status = "done"
-		}
-		output.PrintSuccess(fmt.Sprintf("Proposal %s closed as '%s'.", args[0], status), GCtx)
-		return nil
+		return output.Errorf(2, "contract proposal close is not yet available in the public API")
 	},
 }
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+// parseDatasetField extracts the top-level `dataset:` value from a contract YAML.
+func parseDatasetField(contents []byte) (string, error) {
+	var doc struct {
+		Dataset string `yaml:"dataset"`
+	}
+	if err := yaml.Unmarshal(contents, &doc); err != nil {
+		return "", err
+	}
+	return doc.Dataset, nil
+}
+
+// diffLines returns a unified-style diff of old vs new lines.
+// Lines only in old are prefixed with "-", lines only in new with "+",
+// and up to 2 shared context lines around each change are shown with " ".
+func diffLines(old, new []string) []string {
+	// Build LCS-based diff using a simple O(n*m) approach for contract sizes.
+	type edit struct {
+		op   byte // ' ', '+', '-'
+		text string
+	}
+	var edits []edit
+
+	// Myers-lite: just compare line by line with a simple patience approach.
+	// For contract files (typically < 200 lines) this is fast enough.
+	oldSet := make(map[string]bool)
+	newSet := make(map[string]bool)
+	for _, l := range old {
+		oldSet[l] = true
+	}
+	for _, l := range new {
+		newSet[l] = true
+	}
+
+	oi, ni := 0, 0
+	for oi < len(old) || ni < len(new) {
+		if oi < len(old) && ni < len(new) && old[oi] == new[ni] {
+			edits = append(edits, edit{' ', old[oi]})
+			oi++
+			ni++
+		} else if oi < len(old) && !newSet[old[oi]] {
+			edits = append(edits, edit{'-', old[oi]})
+			oi++
+		} else if ni < len(new) && !oldSet[new[ni]] {
+			edits = append(edits, edit{'+', new[ni]})
+			ni++
+		} else {
+			// Both lines exist in both files but at different positions — treat as change.
+			if oi < len(old) {
+				edits = append(edits, edit{'-', old[oi]})
+				oi++
+			}
+			if ni < len(new) {
+				edits = append(edits, edit{'+', new[ni]})
+				ni++
+			}
+		}
+	}
+
+	// Filter to only changed lines + 2 lines of context.
+	const ctx = 2
+	changed := make([]bool, len(edits))
+	for i, e := range edits {
+		if e.op != ' ' {
+			for j := max(0, i-ctx); j <= min(len(edits)-1, i+ctx); j++ {
+				changed[j] = true
+			}
+		}
+	}
+
+	var result []string
+	prevSkipped := false
+	for i, e := range edits {
+		if !changed[i] {
+			if !prevSkipped {
+				result = append(result, "...")
+				prevSkipped = true
+			}
+			continue
+		}
+		prevSkipped = false
+		result = append(result, string(e.op)+" "+e.text)
+	}
+	return result
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
 
 func init() {
 	contractCreateCmd.Flags().String("dataset", "", "Dataset FQN: datasource/db/schema/table")
 	contractCreateCmd.Flags().String("mode", "skeleton", "Generation mode: skeleton|copilot")
 	contractCreateCmd.Flags().String("output", "", "Output file path")
 
-	contractDiffCmd.Flags().String("dataset", "", "Dataset FQN for cloud comparison")
+	contractDiffCmd.Flags().String("dataset", "", "Dataset qualified name for cloud comparison (overrides file's dataset field)")
 
 	contractCopilotCmd.Flags().String("dataset", "", "Dataset FQN to generate from")
 	contractCopilotCmd.Flags().String("output", "", "Output file path")
@@ -386,6 +632,7 @@ func init() {
 	contractProposalCmd.AddCommand(proposalListCmd, proposalPullCmd, proposalPushCmd, proposalCloseCmd)
 
 	contractCmd.AddCommand(
+		contractListCmd,
 		contractCreateCmd,
 		contractLintCmd,
 		contractPushCmd,

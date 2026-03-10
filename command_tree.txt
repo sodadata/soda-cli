@@ -62,15 +62,18 @@ soda
   │       └── test-connection   <id>                    # test the diagnostics warehouse connection  ❌
   │
   ├── contract
+  │   ├── list                                        # list all contracts in Soda Cloud  ✅
   │   ├── create    --dataset <ds/db/schema/table>  ❌
   │   │   --mode skeleton|copilot     # default: skeleton
   │   │   --output <file>
   │   │   # skeleton → bootstrap YAML from live schema (no AI, always works)
   │   │   # copilot  → full AI-generated contract (requires license)
   │   ├── lint (alias: validate)  [<file>]           # syntax check, no network  🏠
-  │   ├── push      [<file>]                         # push contract definition to cloud  🔌
-  │   ├── pull      <identifier>                      # pull contract from cloud → local file  🔌
-  │   ├── diff      [<file>]                         # local vs cloud diff (identifier read from file)  🔌
+  │   ├── push      [<file>]                         # push contract definition to cloud (upsert)  ✅
+  │   │   # reads 'dataset:' field from file to find/create the contract
+  │   ├── pull      <identifier>                      # pull contract from cloud → <table>.yml  ✅
+  │   │   # identifier is the dataset qualified name: datasource/db/schema/table
+  │   ├── diff      [<file>]                         # local vs cloud diff (dataset read from file)  ✅
   │   ├── copilot   [<file>]  [<prompt>]  [--dataset <fqn>]  ❌
   │   │   # no args          → wizard: generate or improve?
   │   │   # file, no prompt  → wizard: what to improve?
@@ -78,13 +81,13 @@ soda
   │   │   # file + prompt    → improve existing contract
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud  🏠
+  │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud  ❌ [requires soda-core engine]
   │   │   [--datasource <file>]            # explicit override when no soda.yml
   │   │   [--agent]                        # delegate to Soda Agent
   │   │   [--push]                         # run checks + push results to cloud
   │   │   [--set key=value]               # runtime variable overrides (repeatable)
   │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
-  │   └── proposal                         # PR flow for published contracts  🔌
+  │   └── proposal                         # PR flow for published contracts  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │       ├── list   [--status open|done|all]
   │       ├── pull   <id>  [--revision <n>]         # download a proposal locally
   │       ├── push   <id>  [<file>]  [--message]    # submit changes
