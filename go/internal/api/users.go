@@ -1,5 +1,9 @@
 package api
 
+import (
+	"path"
+)
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 type User struct {
@@ -66,15 +70,19 @@ func (c *Client) CreateUserGroup(req CreateUserGroupRequest) (*UserGroup, error)
 	if err != nil {
 		return nil, err
 	}
-	var result UserGroup
-	if err := decode(resp, &result); err != nil {
-		return nil, err
+	// API returns 201 + Location header, empty body — extract ID from Location
+	loc := resp.Header.Get("Location")
+	if decodeErr := decode(resp, &struct{}{}); decodeErr != nil {
+		return nil, decodeErr
 	}
-	return &result, nil
+	return &UserGroup{
+		UserGroupID: path.Base(loc),
+		Name:        req.Name,
+	}, nil
 }
 
 func (c *Client) UpdateUserGroup(groupID string, req UpdateUserGroupRequest) (*UserGroup, error) {
-	resp, err := c.patch("/api/v1/userGroups/"+groupID, req)
+	resp, err := c.post("/api/v1/userGroups/"+groupID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -90,5 +98,6 @@ func (c *Client) DeleteUserGroup(groupID string) error {
 	if err != nil {
 		return err
 	}
-	return decode(resp, &struct{}{})
+	var result struct{}
+	return decode(resp, &result)
 }

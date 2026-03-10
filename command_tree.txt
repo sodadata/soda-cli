@@ -241,10 +241,10 @@ soda
   │   │
   │   ├── user
   │   │   ├── list  ✅
-  │   │   ├── invite  --email <email>                    # invite user to org  🔌
-  │   │   ├── remove  <user-id>                          # remove user from org  🔌
-  │   │   ├── assign  <user-id>  --role <role-id>  🔌
-  │   │   └── revoke  <user-id>  --role <role-id>  🔌
+  │   │   ├── invite  --email <email>                    # invite user to org  ❌
+  │   │   ├── remove  <user-id>                          # remove user from org  ❌
+  │   │   ├── assign  <user-id>  --role <role-id>  ❌
+  │   │   └── revoke  <user-id>  --role <role-id>  ❌
   │   │
   │   ├── group
   │   │   ├── list  ✅
