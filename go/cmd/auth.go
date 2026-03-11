@@ -25,7 +25,54 @@ var authLoginCmd = &cobra.Command{
 		apiKeyID, _ := cmd.Flags().GetString("api-key-id")
 		apiKeySecret, _ := cmd.Flags().GetString("api-key-secret")
 
-		if apiKeyID == "" || apiKeySecret == "" {
+		anyFlagSet := cmd.Flags().Changed("host") || cmd.Flags().Changed("api-key-id") || cmd.Flags().Changed("api-key-secret")
+
+		if anyFlagSet {
+			// Non-interactive: flags were explicitly provided
+			if host == "" {
+				host = "cloud.soda.io"
+			}
+
+			if apiKeyID == "" || apiKeySecret == "" {
+				profileName := GCtx.Profile
+				if profileName == "" {
+					profileName = "default"
+				}
+
+				// Only --host was provided, save it but remind to complete setup
+				if cmd.Flags().Changed("host") {
+					creds, err := config.LoadCredentials()
+					if err != nil {
+						creds = config.Credentials{}
+					}
+					p := creds[profileName]
+					p.Host = host
+					creds[profileName] = p
+					if err := config.SaveCredentials(creds); err != nil {
+						return output.Errorf(2, "could not save credentials: %v", err)
+					}
+					fmt.Printf("  Host set to %s for profile '%s'.\n\n", output.Bold.Render(host), profileName)
+					fmt.Printf("  Complete setup by running:\n\n")
+					fmt.Printf("    soda auth login --api-key-id <your-key-id> --api-key-secret <your-secret>\n\n")
+					fmt.Printf("  Generate API keys: https://docs.soda.io/reference/generate-api-keys\n")
+					return nil
+				}
+
+				// Partial key flags — tell the user what's missing
+				missing := ""
+				if apiKeyID == "" {
+					missing = "--api-key-id"
+				}
+				if apiKeySecret == "" {
+					if missing != "" {
+						missing += " and "
+					}
+					missing += "--api-key-secret"
+				}
+				return output.Errorf(2, "%s required. Example:\n\n  soda auth login --api-key-id <id> --api-key-secret <secret>\n\nGenerate keys: https://docs.soda.io/reference/generate-api-keys", missing)
+			}
+		} else {
+			// No flags: interactive wizard
 			if GCtx.NoInteractive {
 				return output.Errorf(2, "--api-key-id and --api-key-secret are required in non-interactive mode")
 			}
