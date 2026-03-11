@@ -44,6 +44,14 @@ soda
   │   │
   │   ├── delete  <id>  ❌
   │   │
+  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ❌ [requires datasource create API]
+  │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
+  │   │   [--monitoring]                                # enable default metric monitors for all datasets
+  │   │   [--no-monitoring]                             # skip monitoring setup
+  │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)
+  │   │   # interactive wizard: agent → monitoring → contracts
+  │   │   # goal: eliminate blank state after datasource creation
+  │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
   │       [--warehouse same|<config-file>]              # reuse datasource connection or provide a separate config
@@ -148,6 +156,15 @@ soda
   │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]  ❌
   │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
+  │   ├── onboard  <id>                                  # guided setup for an existing dataset  🔌
+  │   │   [--monitoring]                                # enable default metric monitors  ❌ [no write endpoint for dataset monitors]
+  │   │   [--no-monitoring]                             # skip monitoring setup
+  │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  ❌ [copilot API pending]
+  │   │   # interactive wizard: monitoring → contracts
+  │   │   # works with datasets already in Soda Cloud
+  │   │   # default monitors: row count, row count change, freshness, schema changes,
+  │   │   #   partition row count, most recent timestamp
+  │   │
   │   └── permissions  ✅
   │       ├── list    <id>  ✅
   │       ├── assign  <id>  --role <role-id>  --user <user-id>|--group <group-id>  ✅
@@ -160,11 +177,12 @@ soda
   │   │           [--type column|custom|dataset]
   │   │           # --dataset is required (no global monitor list endpoint in public API)
   │   │
-  │   ├── config  <dataset-id>  [--enable|--disable]  ✅
+  │   ├── config  <dataset-id>  [--enable|--disable]  ❌ [no write endpoint in public API]
   │   │           [--schedule <cron>]  [--timezone <tz>]
-  │   │   # no flags → show current config (enabled, schedule, monitor count)
+  │   │   # no flags → show current config (enabled, schedule, monitor count)  ✅ (read-only)
+  │   │   # --enable/--disable/--schedule require POST /metricMonitoring which does not exist
   │   │
-  │   ├── add     --dataset <id>  --type column|custom|dataset  ✅
+  │   ├── add     --dataset <id>  --type column|custom|dataset
   │   │
   │   │     # --type column  ✅
   │   │     # --column <col>                    (required)
@@ -174,10 +192,10 @@ soda
   │   │     #   min-length, max-length, avg-length, freshness
   │   │     # [--group-by <col>]               (repeatable; partitions monitor by column values)
   │   │
-  │   │     # --type dataset  ✅
-  │   │     # --metric <metric-type>            (required; tab-completion available)
+  │   │     # --type dataset  ❌ [no write endpoint in public API]
+  │   │     # --metric <metric-type>
   │   │     #   row-count, freshness, schema, rows-inserted, row-count-change, timeliness
-  │   │     # read-modify-write on datasetMetricMonitorsConfiguration
+  │   │     # dataset monitors exist by default but enabling them requires a write endpoint
   │   │
   │   │     # --type custom  ✅
   │   │     # --name <name>                     (required)

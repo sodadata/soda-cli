@@ -205,7 +205,6 @@ var monitorConfigCmd = &cobra.Command{
 		enable, _ := cmd.Flags().GetBool("enable")
 		disable, _ := cmd.Flags().GetBool("disable")
 		schedule, _ := cmd.Flags().GetString("schedule")
-		timezone, _ := cmd.Flags().GetString("timezone")
 
 		client, err := newAPIClient()
 		if err != nil {
@@ -234,27 +233,8 @@ var monitorConfigCmd = &cobra.Command{
 			return nil
 		}
 
-		req := api.UpdateMetricMonitoringRequest{}
-		if enable {
-			t := true
-			req.Enabled = &t
-		} else if disable {
-			f := false
-			req.Enabled = &f
-		}
-		if schedule != "" {
-			tz := timezone
-			if tz == "" {
-				tz = "UTC"
-			}
-			req.ScanSchedule = &api.ScanSchedule{CronExpression: schedule, Timezone: tz}
-		}
-
-		if _, err := client.UpdateMetricMonitoring(args[0], req); err != nil {
-			return err
-		}
-		output.PrintSuccess(fmt.Sprintf("Monitor config updated for dataset '%s'.", args[0]), GCtx)
-		return nil
+		// The public API only supports GET for metricMonitoring — no write endpoint exists.
+		return output.Errorf(2, "updating monitor config (enable/disable/schedule) is not yet available in the public API.\n\n  View current config:  soda monitor config %s\n  Enable monitoring from the Soda Cloud UI.", args[0])
 	},
 }
 
@@ -329,35 +309,11 @@ func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID strin
 	return nil
 }
 
-func runMonitorAddDataset(cmd *cobra.Command, client *api.Client, datasetID string) error {
-	metric, _ := cmd.Flags().GetString("metric")
-	if metric == "" {
-		return output.Errorf(2, "--metric is required for type dataset\n\n  Valid values: %s", datasetMetricHelpList())
-	}
-
-	apiMetric, ok := datasetMetricToAPI[metric]
-	if !ok {
-		return output.Errorf(2, "unknown metric '%s'\n\n  Valid values: %s", metric, datasetMetricHelpList())
-	}
-
-	// read-modify-write: fetch current dataset monitors, append, post back
-	current, err := client.GetMetricMonitoring(datasetID)
-	if err != nil {
-		return err
-	}
-
-	monitors := append(current.DatasetMetricMonitorsConfiguration, api.DatasetMetricMonitorCfg{
-		MetricType:    apiMetric,
-		Configuration: api.DatasetMonitorConfig{IsEnabled: true},
-	})
-
-	if _, err := client.UpdateMetricMonitoring(datasetID, api.UpdateMetricMonitoringRequest{
-		DatasetMetricMonitorsConfiguration: monitors,
-	}); err != nil {
-		return err
-	}
-	output.PrintSuccess(fmt.Sprintf("Dataset monitor '%s' added to dataset '%s'.", metric, datasetID), GCtx)
-	return nil
+func runMonitorAddDataset(_ *cobra.Command, _ *api.Client, datasetID string) error {
+	// The public API only supports GET for dataset-level monitors — no write endpoint exists.
+	// Dataset monitors (row count, freshness, schema, etc.) exist by default but must be
+	// enabled/disabled from the Soda Cloud UI.
+	return output.Errorf(2, "adding/enabling dataset-level monitors is not yet available in the public API.\n\n  Dataset monitors exist by default — enable them from the Soda Cloud UI.\n  To add column monitors:  soda monitor add --dataset %s --type column --column <col> --metric <metric>", datasetID)
 }
 
 func runMonitorAddCustom(cmd *cobra.Command, client *api.Client, datasetID string) error {
