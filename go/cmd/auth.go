@@ -76,17 +76,31 @@ var authLoginCmd = &cobra.Command{
 			if GCtx.NoInteractive {
 				return output.Errorf(2, "--api-key-id and --api-key-secret are required in non-interactive mode")
 			}
+
+			// Load existing profile to pre-fill values
+			profileName := GCtx.Profile
+			if profileName == "" {
+				profileName = "default"
+			}
+			if creds, err := config.LoadCredentials(); err == nil {
+				if p, ok := creds[profileName]; ok {
+					if host == "" && p.Host != "" {
+						host = p.Host
+					}
+					if apiKeyID == "" && p.APIKeyID != "" {
+						apiKeyID = p.APIKeyID
+					}
+				}
+			}
+
 			if host == "" {
 				host = "cloud.soda.io"
 			}
+
 			form := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().
+				huh.NewInput().
 					Title("Soda Cloud host").
-					Description("Change to cloud.us.soda.io for the US region.").
-					Options(
-						huh.NewOption("cloud.soda.io (EU)", "cloud.soda.io"),
-						huh.NewOption("cloud.us.soda.io (US)", "cloud.us.soda.io"),
-					).
+					Description("EU: cloud.soda.io · US: cloud.us.soda.io").
 					Value(&host),
 				huh.NewInput().
 					Title("API key ID").
