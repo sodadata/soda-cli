@@ -3,8 +3,17 @@ package api
 // ── Dataset roles ──────────────────────────────────────────────────────────────
 
 type DatasetRole struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID                      string `json:"id"`
+	Name                    string `json:"name"`
+	ViewProfilingAndSamples bool   `json:"viewProfilingAndSamples"`
+	ViewFailedRows          bool   `json:"viewFailedRows"`
+	ManageChecks            bool   `json:"manageChecks"`
+	ConfigureDataset        bool   `json:"configureDataset"`
+	ManagePermissions       bool   `json:"managePermissions"`
+	ManageIncidents         bool   `json:"manageIncidents"`
+	DeleteDataset           bool   `json:"deleteDataset"`
+	PublishContracts        bool   `json:"publishContracts"`
+	ManageContracts         bool   `json:"manageContracts"`
 }
 
 type DatasetRolesResponse struct {

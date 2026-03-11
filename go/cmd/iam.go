@@ -23,9 +23,35 @@ var iamRoleCmd = &cobra.Command{
 
 var iamRoleListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List roles",
+	Short: "List dataset roles",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return output.Errorf(2, "iam role list is not yet available in the public API")
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.ListDatasetRoles()
+		if err != nil {
+			return err
+		}
+		rows := make([]map[string]string, 0, len(result.Content))
+		for _, r := range result.Content {
+			rows = append(rows, map[string]string{
+				"id":                r.ID,
+				"name":              r.Name,
+				"manage checks":     fmt.Sprintf("%v", r.ManageChecks),
+				"manage contracts":  fmt.Sprintf("%v", r.ManageContracts),
+				"manage incidents":  fmt.Sprintf("%v", r.ManageIncidents),
+				"manage permissions": fmt.Sprintf("%v", r.ManagePermissions),
+				"delete dataset":    fmt.Sprintf("%v", r.DeleteDataset),
+			})
+		}
+		if len(rows) == 0 {
+			fmt.Println(output.Dim.Render("  No roles found."))
+			return nil
+		}
+		cols := []string{"id", "name", "manage checks", "manage contracts", "manage incidents", "manage permissions", "delete dataset"}
+		output.Render(rows, cols, nil, GCtx)
+		return nil
 	},
 }
 

@@ -45,8 +45,12 @@ func FmtStatus(s string) string {
 		return Green.Render("✓") + " " + s
 	case "failing":
 		return Red.Render("✗") + " " + s
+	case "error":
+		return Yellow.Render("⚠") + " " + s
 	case "alert":
 		return Yellow.Render("⚠") + " " + s
+	case "n/a":
+		return Dim.Render("- n/a")
 	case "running":
 		return Dim.Render("⟳") + " " + s
 	case "connected":

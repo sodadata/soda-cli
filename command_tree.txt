@@ -106,19 +106,18 @@ soda
   │   │
   │   └── logs  <id>  [--follow]  ✅
   │
-  ├── results                              # contract checks + monitor alerts in one place  ❌ [NOT YET IMPLEMENTABLE - API work required; name also TBD]
-  │   └── list
-  │       [--datasource <id>]
-  │       [--dataset <id>]
-  │       [--type check|monitor|all]
-  │       [--status passing|failing|all]
-  │       [--from <date>]
-  │       [--to <date>]
+  ├── results                              # contract checks + monitor alerts in one place  ✅ (checks only; monitors pending API)
+  │   └── list  ✅
+  │       [--dataset <id>]                # filter by dataset ID (server-side)
+  │       [--dataset-name <pattern>]      # filter by qualified name substring, case-insensitive (client-side)
+  │       [--status passing|failing|error]  # client-side filter (API does not support server-side filtering)
+  │       [--type check|monitor|all]      # monitor returns graceful "not available" message
+  │       [--limit <n>]                   # default: 10
   │
-  │       # DATASET              TYPE     NAME                   STATUS     DATE
-  │       # pg/prod/orders       check    row_count > 0          ✓ passing  2026-03-05 08:12
-  │       # pg/prod/orders       check    no_nulls(order_id)     ✗ failing  2026-03-05 08:12
-  │       # pg/prod/users        monitor  daily_signups anomaly  ⚠ alert    2026-03-05 06:45
+  │       # DATASET                                            TYPE   NAME                          COLUMN    STATUS     DATE
+  │       # snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  row_count > 0                 dataset   ✓ passing  2026-03-05 08:12
+  │       # snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  no_nulls                      order_id  ✗ failing  2026-03-05 08:12
+  │       # pg/prod/users                                      check  No missing values             email     ✓ passing  2026-03-05 06:45
   │
   ├── dataset
   │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
@@ -232,7 +231,7 @@ soda
   │
   ├── iam
   │   ├── role
-  │   │   ├── list    [--scope global|dataset]  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   │   ├── list    [--scope global|dataset]  ✅ (dataset-scoped roles only; global roles not in public API)
   │   │   ├── create  --name <n>  --scope global|dataset  ❌
   │   │   │   [--description <text>]
   │   │   │   [--permission <permission>]  (repeatable)
