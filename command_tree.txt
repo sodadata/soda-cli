@@ -46,13 +46,17 @@ soda
   │   │
   │   ├── delete  <id>  ✅
   │   │
-  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ❌ [requires datasource create API]
+  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ❌ [blocked: no discovered datasets API, no dataset monitor write API]
   │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
   │   │   [--monitoring]                                # enable default metric monitors for all datasets
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)
   │   │   # interactive wizard: agent → monitoring → contracts
   │   │   # goal: eliminate blank state after datasource creation
+  │   │   # blockers: datasource create works (✅), but after creation:
+  │   │   #   1. no API to list discovered datasets from a discovery scan
+  │   │   #   2. no write API for dataset-level monitors (enable/disable)
+  │   │   #   3. contract skeleton generation API unreliable (backend may not persist)
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
