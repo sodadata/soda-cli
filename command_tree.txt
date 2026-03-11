@@ -282,7 +282,8 @@ soda
   │       └── delete  <id>  ❌
   │
   ├── agent
-  │   └── list  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   ├── list  ✅
+  │   └── get   <agent-id>  ✅
   │
   ├── secret
   │   ├── create  --name <n>  --value <v>  ❌ [NOT YET IMPLEMENTABLE - API work required]
