@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
-	"github.com/soda-data-inc/soda-cli/internal/mock"
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -19,26 +21,97 @@ var dsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all datasources",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cols := []string{"id", "name", "type", "status", "datasets", "created"}
-		output.Render(mock.Datasources, cols, map[string]bool{"status": true}, GCtx)
-		return nil
+		return output.Errorf(2, "datasource list is not yet available in the public API")
 	},
 }
 
 var dsCreateCmd = &cobra.Command{
 	Use:   "create <config-file>",
 	Short: "Register a datasource from a YAML connection config",
-	Args:  cobra.ExactArgs(1),
+	Long: `Register a new datasource in Soda Cloud from a YAML config file.
+
+The config file must contain at minimum: type, name, and connection details.
+An agent is required to route the connection through.
+
+Example config:
+  type: postgres
+  name: my_warehouse
+  connection:
+    host: db.example.com
+    port: 5432
+    database: analytics
+    user: soda
+    password: secret`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configFile := args[0]
-		agent, _ := cmd.Flags().GetString("agent")
+		agentID, _ := cmd.Flags().GetString("agent")
 
-		msg := fmt.Sprintf("Datasource registered from %s.", configFile)
-		if agent != "" {
-			fmt.Println(output.Dim.Render("  Registering via agent '" + agent + "'..."))
-			msg = fmt.Sprintf("Datasource registered from %s via agent '%s'.", configFile, agent)
+		// Read config file
+		configBytes, err := os.ReadFile(configFile)
+		if err != nil {
+			return output.Errorf(2, "could not read config file: %v", err)
 		}
-		output.PrintSuccess(msg, GCtx)
+
+		// Parse name from config if not overridden
+		var configMap map[string]interface{}
+		if err := yaml.Unmarshal(configBytes, &configMap); err != nil {
+			return output.Errorf(2, "invalid YAML in %s: %v", configFile, err)
+		}
+		name, _ := configMap["name"].(string)
+		if name == "" {
+			return output.Errorf(2, "'name' field is required in the config file")
+		}
+
+		// Agent is required
+		if agentID == "" {
+			// Try to auto-detect if there's only one agent
+			client, err := newAPIClient()
+			if err != nil {
+				return err
+			}
+			agents, err := client.ListAgents(100)
+			if err != nil {
+				return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+			}
+			if len(agents.Content) == 0 {
+				return output.Errorf(2, "--agent is required. No agents found — set up an agent in Soda Cloud first.")
+			}
+			if len(agents.Content) == 1 {
+				agentID = agents.Content[0].ID
+				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+			} else {
+				fmt.Println("  Available agents:")
+				for _, a := range agents.Content {
+					fmt.Printf("    %s  %s\n", a.ID, a.Name)
+				}
+				return output.Errorf(2, "--agent is required (multiple agents found)")
+			}
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
+
+		result, err := client.CreateDatasource(api.CreateDatasourceRequest{
+			Name:                      name,
+			AgentID:                   agentID,
+			ConfigurationFileContents: string(configBytes),
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  ID:             %s\n", result.Datasource.ID)
+		fmt.Printf("  Type:           %s\n", result.Datasource.Type)
+		if result.DiscoveryScanID != "" {
+			fmt.Printf("  Discovery scan: %s\n", result.DiscoveryScanID)
+		}
+		fmt.Println()
+		output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
 		return nil
 	},
 }
@@ -59,7 +132,16 @@ var dsDeleteCmd = &cobra.Command{
 	Short: "Delete a datasource",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output.PrintSuccess(fmt.Sprintf("Datasource '%s' deleted.", args[0]), GCtx)
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(output.Dim.Render("  Deleting datasource '" + args[0] + "'..."))
+		if _, err := client.DeleteDatasource(args[0]); err != nil {
+			return err
+		}
+		output.PrintSuccess(fmt.Sprintf("Datasource '%s' scheduled for deletion.", args[0]), GCtx)
 		return nil
 	},
 }

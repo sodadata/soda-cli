@@ -35,14 +35,16 @@ soda
   ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │
   ├── datasource  (alias: ds)
-  │   ├── create  <config-file>                         # register datasource from a YAML connection config  ❌
-  │   │   [--agent <name>]                              # route through a Soda Agent
+  │   ├── create  <config-file>                         # register datasource from a YAML connection config  ✅
+  │   │   [--agent <agent-id>]                          # route through a Soda Agent (auto-detects if only one)
+  │   │   # config file must have: type, name, connection details
+  │   │   # returns datasource ID + discovery scan ID
   │   │
   │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
   │   │
-  │   ├── list                                          # list datasources  ❌
+  │   ├── list                                          # list datasources  ❌ [no GET /datasources endpoint]
   │   │
-  │   ├── delete  <id>  ❌
+  │   ├── delete  <id>  ✅
   │   │
   │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ❌ [requires datasource create API]
   │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
