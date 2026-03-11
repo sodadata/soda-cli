@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
@@ -98,6 +100,114 @@ func (c *Client) DeleteContract(contractID string) error {
 	}
 	var result struct{}
 	return decode(resp, &result)
+}
+
+// ── Skeleton / AI generation (async) ─────────────────────────────────────────
+
+type CreateSkeletonRequest struct {
+	DatasetID            string `json:"datasetId,omitempty"`
+	DatasetQualifiedName string `json:"datasetQualifiedName,omitempty"`
+}
+
+type SkeletonStatus struct {
+	OperationID          string `json:"operationId"`
+	State                string `json:"state"` // ongoing, completed, failed, canceled
+	DatasetID            string `json:"datasetId"`
+	DatasetQualifiedName string `json:"datasetQualifiedName"`
+	Created              string `json:"created"`
+}
+
+type GenerateContractRequest struct {
+	DatasetIDs            []string `json:"datasetIds,omitempty"`
+	DatasetQualifiedNames []string `json:"datasetQualifiedNames,omitempty"`
+}
+
+type GenerateDatasetStatus struct {
+	DatasetID            string `json:"datasetId"`
+	DatasetQualifiedName string `json:"datasetQualifiedName"`
+	ScanID               string `json:"scanId"`
+	ScanCloudURL         string `json:"scanCloudUrl"`
+	ScanState            string `json:"scanState"`
+}
+
+type GenerateStatus struct {
+	OperationID string                  `json:"operationId"`
+	State       string                  `json:"state"` // ongoing, completed, failed, canceled
+	Created     string                  `json:"created"`
+	Datasets    []GenerateDatasetStatus `json:"datasets"`
+}
+
+func (c *Client) CreateSkeleton(req CreateSkeletonRequest) (string, error) {
+	resp, err := c.post("/api/v1/contracts/actions/createSkeleton", req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		var apiErr struct{ Message string `json:"message"` }
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+	return extractOperationID(resp.Header.Get("Location")), nil
+}
+
+func (c *Client) GetSkeletonStatus(operationID string) (*SkeletonStatus, error) {
+	resp, err := c.get("/api/v1/contracts/actions/createSkeleton/"+operationID, nil)
+	if err != nil {
+		return nil, err
+	}
+	var result SkeletonStatus
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) GenerateContract(req GenerateContractRequest) (string, error) {
+	resp, err := c.post("/api/v1/contracts/actions/generate", req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		var apiErr struct{ Message string `json:"message"` }
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+	return extractOperationID(resp.Header.Get("Location")), nil
+}
+
+// extractOperationID gets the last path segment from a Location URL.
+func extractOperationID(location string) string {
+	if location == "" {
+		return ""
+	}
+	parts := strings.Split(strings.TrimRight(location, "/"), "/")
+	return parts[len(parts)-1]
+}
+
+func (c *Client) GetGenerateStatus(operationID string) (*GenerateStatus, error) {
+	resp, err := c.get("/api/v1/contracts/actions/generate/"+operationID, nil)
+	if err != nil {
+		return nil, err
+	}
+	var result GenerateStatus
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // decodeContractResponse handles two response shapes from the contract API:

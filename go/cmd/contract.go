@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -296,8 +297,10 @@ var contractCreateCmd = &cobra.Command{
 	Short: "Create a contract YAML from a live schema",
 	Long: `Bootstrap a contract from a live dataset schema.
 
-  --mode skeleton  (default) generates basic structure checks with no AI.
-  --mode copilot   uses AI to generate meaningful checks (requires license).`,
+  --mode skeleton  (default) generates basic structure from live schema (no AI).
+  --mode copilot   uses AI to generate meaningful checks (requires license).
+
+The contract is created in Soda Cloud and its YAML is saved locally.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dataset, _ := cmd.Flags().GetString("dataset")
 		mode, _ := cmd.Flags().GetString("mode")
@@ -318,22 +321,115 @@ var contractCreateCmd = &cobra.Command{
 			}
 		}
 
+		if dataset == "" {
+			return output.Errorf(2, "--dataset is required")
+		}
+
 		if outFile == "" {
 			parts := strings.Split(dataset, "/")
 			outFile = parts[len(parts)-1] + ".yml"
 		}
 
-		if mode == "copilot" {
-			fmt.Println(output.Dim.Render("  Connecting to Soda Copilot..."))
-			fmt.Println(output.Dim.Render("  Analyzing schema for " + dataset + "..."))
-			fmt.Println(output.Dim.Render("  Generating AI-powered checks..."))
-		} else {
-			fmt.Println(output.Dim.Render("  Reading schema for " + dataset + "..."))
+		client, err := newAPIClient()
+		if err != nil {
+			return err
 		}
 
-		output.PrintSuccess(fmt.Sprintf("Contract written to %s", outFile), GCtx)
-		return nil
+		switch mode {
+		case "skeleton":
+			return runContractCreateSkeleton(client, dataset, outFile)
+		case "copilot":
+			return runContractCreateCopilot(client, dataset, outFile)
+		default:
+			return output.Errorf(2, "unknown mode '%s' — use skeleton or copilot", mode)
+		}
 	},
+}
+
+func runContractCreateSkeleton(client *api.Client, dataset, outFile string) error {
+	fmt.Println(output.Dim.Render("  Generating skeleton contract for " + dataset + "..."))
+
+	opID, err := client.CreateSkeleton(api.CreateSkeletonRequest{
+		DatasetQualifiedName: dataset,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Poll until done
+	for {
+		time.Sleep(2 * time.Second)
+		status, err := client.GetSkeletonStatus(opID)
+		if err != nil {
+			return err
+		}
+		if status.State == "completed" {
+			break
+		}
+		if status.State == "failed" || status.State == "canceled" {
+			return output.Errorf(2, "skeleton generation %s", status.State)
+		}
+		fmt.Println(output.Dim.Render("  Waiting for generation to complete..."))
+	}
+
+	// Fetch the created contract
+	contract, err := client.FindContractByDataset(dataset)
+	if err != nil {
+		return err
+	}
+	if contract == nil {
+		return output.Errorf(2, "skeleton generation completed but contract was not persisted by the API.\n  This may be a backend issue — try creating the contract from the Soda Cloud UI.")
+	}
+
+	if err := os.WriteFile(outFile, []byte(contract.Contents), 0644); err != nil {
+		return output.Errorf(2, "could not write file: %v", err)
+	}
+
+	output.PrintSuccess(fmt.Sprintf("Skeleton contract written to %s", outFile), GCtx)
+	return nil
+}
+
+func runContractCreateCopilot(client *api.Client, dataset, outFile string) error {
+	fmt.Println(output.Dim.Render("  Generating AI-powered contract for " + dataset + "..."))
+
+	opID, err := client.GenerateContract(api.GenerateContractRequest{
+		DatasetQualifiedNames: []string{dataset},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Poll until done
+	for {
+		time.Sleep(3 * time.Second)
+		status, err := client.GetGenerateStatus(opID)
+		if err != nil {
+			return err
+		}
+		if status.State == "completed" {
+			break
+		}
+		if status.State == "failed" || status.State == "canceled" {
+			return output.Errorf(2, "AI generation %s", status.State)
+		}
+		fmt.Println(output.Dim.Render("  Waiting for AI generation to complete..."))
+	}
+
+	// Fetch the created contract
+	contract, err := client.FindContractByDataset(dataset)
+	if err != nil {
+		return err
+	}
+	if contract == nil {
+		return output.Errorf(2, "AI generation completed but contract was not persisted by the API.\n  This may be a backend issue — try creating the contract from the Soda Cloud UI.")
+	}
+
+	if err := os.WriteFile(outFile, []byte(contract.Contents), 0644); err != nil {
+		return output.Errorf(2, "could not write file: %v", err)
+	}
+
+	output.PrintSuccess(fmt.Sprintf("AI-generated contract written to %s", outFile), GCtx)
+	return nil
 }
 
 // ── contract copilot ──────────────────────────────────────────────────────────

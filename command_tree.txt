@@ -71,11 +71,11 @@ soda
   │
   ├── contract
   │   ├── list                                        # list all contracts in Soda Cloud  ✅
-  │   ├── create    --dataset <ds/db/schema/table>  ❌
+  │   ├── create    --dataset <ds/db/schema/table>  🔌 [API wired, backend may not persist yet]
   │   │   --mode skeleton|copilot     # default: skeleton
   │   │   --output <file>
-  │   │   # skeleton → bootstrap YAML from live schema (no AI, always works)
-  │   │   # copilot  → full AI-generated contract (requires license)
+  │   │   # skeleton → async: POST /contracts/actions/createSkeleton → poll status → fetch contract
+  │   │   # copilot  → async: POST /contracts/actions/generate → poll status → fetch contract (requires license)
   │   ├── lint (alias: validate)  [<file>]           # syntax check, no network  🏠
   │   ├── push      [<file>]                         # push contract definition to cloud (upsert)  ✅
   │   │   # reads 'dataset:' field from file to find/create the contract
