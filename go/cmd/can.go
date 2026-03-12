@@ -378,5 +378,4 @@ func playCan() error {
 }
 
 func init() {
-	rootCmd.AddCommand(canCmd)
 }

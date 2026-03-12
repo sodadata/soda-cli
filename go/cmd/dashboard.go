@@ -39,6 +39,4 @@ var dashboardCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(dashboardCmd)
-}
+func init() {}

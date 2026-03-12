@@ -269,5 +269,4 @@ func init() {
 	resultsListCmd.Flags().String("until", "", "Show results on or before this date (YYYY-MM-DD or ISO8601)")
 
 	resultsCmd.AddCommand(resultsListCmd)
-	rootCmd.AddCommand(resultsCmd)
 }

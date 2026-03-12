@@ -223,5 +223,4 @@ func init() {
 	authLoginCmd.Flags().String("api-key-secret", "", "Soda Cloud API key secret")
 
 	authCmd.AddCommand(authLoginCmd, authLogoutCmd, authStatusCmd, authSwitchCmd)
-	rootCmd.AddCommand(authCmd)
 }

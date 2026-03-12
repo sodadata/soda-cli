@@ -346,5 +346,4 @@ func init() {
 	iamServiceAccountCmd.AddCommand(iamSAListCmd, iamSACreateCmd, iamSADeleteCmd)
 
 	iamCmd.AddCommand(iamRoleCmd, iamUserCmd, iamGroupCmd, iamServiceAccountCmd)
-	rootCmd.AddCommand(iamCmd)
 }

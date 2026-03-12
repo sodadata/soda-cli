@@ -676,5 +676,4 @@ func init() {
 		datasetDiagnosticsCmd,
 		datasetPermissionsCmd,
 	)
-	rootCmd.AddCommand(datasetCmd)
 }

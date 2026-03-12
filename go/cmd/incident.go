@@ -48,5 +48,4 @@ func init() {
 	incidentUpdateCmd.Flags().String("status", "", "Status: reported|investigating|fixing|resolved")
 
 	incidentCmd.AddCommand(incidentListCmd, incidentGetCmd, incidentUpdateCmd)
-	rootCmd.AddCommand(incidentCmd)
 }

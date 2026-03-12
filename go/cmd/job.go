@@ -104,5 +104,4 @@ func init() {
 	jobLogsCmd.Flags().Bool("follow", false, "Stream logs as they arrive")
 
 	jobCmd.AddCommand(jobListCmd, jobLogsCmd)
-	rootCmd.AddCommand(jobCmd)
 }

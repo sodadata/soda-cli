@@ -338,6 +338,5 @@ func init() {
 	dsDiagnosticsCmd.Flags().Bool("no-failed-rows-cta", false, "Hide the call-to-action link for failed rows")
 	dsDiagnosticsCmd.AddCommand(dsDiagnosticsTestConnectionCmd)
 
-	datasourceCmd.AddCommand(dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsDeleteCmd, dsDiagnosticsCmd)
-	rootCmd.AddCommand(datasourceCmd)
+	datasourceCmd.AddCommand(dsOnboardCmd, dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsDiagnosticsCmd, dsDeleteCmd)
 }

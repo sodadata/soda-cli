@@ -632,5 +632,4 @@ func init() {
 	monitorDeleteCmd.Flags().String("dataset", "", "Dataset ID (required)")
 
 	monitorCmd.AddCommand(monitorListCmd, monitorConfigCmd, monitorAddCmd, monitorUpdateCmd, monitorDeleteCmd)
-	rootCmd.AddCommand(monitorCmd)
 }

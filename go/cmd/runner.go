@@ -114,5 +114,4 @@ func fmtRunnerTime(s string) string {
 
 func init() {
 	runnerCmd.AddCommand(runnerListCmd, runnerGetCmd)
-	rootCmd.AddCommand(runnerCmd)
 }

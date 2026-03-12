@@ -19,6 +19,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	cobra.EnableCommandSorting = false
+
 	rootCmd.PersistentFlags().StringVarP(&GCtx.Output, "output", "o", "auto", "Output format: table|json|csv")
 	rootCmd.PersistentFlags().StringVar(&GCtx.Profile, "profile", "", "Override active auth profile")
 	rootCmd.PersistentFlags().BoolVar(&GCtx.NoColor, "no-color", false, "Disable color output")
@@ -26,6 +28,27 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&GCtx.Verbose, "verbose", "v", false, "Show detailed output")
 	rootCmd.PersistentFlags().BoolVar(&GCtx.NoInteractive, "no-interactive", false, "Never prompt; fail with clear error if input missing")
 	rootCmd.Version = "0.1.0-dev"
+
+	// Register top-level commands in display order.
+	rootCmd.AddCommand(
+		authCmd,
+		datasourceCmd,
+		datasetCmd,
+		contractCmd,
+		monitorCmd,
+		resultsCmd,
+		jobCmd,
+		dashboardCmd,
+		incidentCmd,
+		notificationCmd,
+		iamCmd,
+		runnerCmd,
+		secretCmd,
+		initCmd,
+		completionCmd,
+		versionCmd,
+		canCmd,
+	)
 }
 
 // Execute runs the root command.

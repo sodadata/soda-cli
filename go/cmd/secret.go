@@ -43,5 +43,4 @@ func init() {
 	secretUpdateCmd.Flags().String("value", "", "New secret value (required)")
 
 	secretCmd.AddCommand(secretCreateCmd, secretUpdateCmd, secretDeleteCmd)
-	rootCmd.AddCommand(secretCmd)
 }

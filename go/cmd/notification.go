@@ -130,5 +130,4 @@ func init() {
 	notifIntegrationCmd.AddCommand(notifIntegrationListCmd, notifIntegrationAddCmd, notifIntegrationTestCmd, notifIntegrationDeleteCmd)
 
 	notificationCmd.AddCommand(notifRuleCmd, notifIntegrationCmd)
-	rootCmd.AddCommand(notificationCmd)
 }

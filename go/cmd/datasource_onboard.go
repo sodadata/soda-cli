@@ -459,5 +459,4 @@ func init() {
 	dsOnboardCmd.Flags().Bool("no-profiling", false, "Skip profiling setup")
 	dsOnboardCmd.Flags().String("contracts", "", "Generate contracts: ai|skeleton|none")
 
-	datasourceCmd.AddCommand(dsOnboardCmd)
 }

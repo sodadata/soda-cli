@@ -758,5 +758,4 @@ func init() {
 		contractVerifyCmd,
 		contractProposalCmd,
 	)
-	rootCmd.AddCommand(contractCmd)
 }
