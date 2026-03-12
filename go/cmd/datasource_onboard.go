@@ -20,15 +20,22 @@ var dsOnboardCmd = &cobra.Command{
 	Use:   "onboard <config-file>",
 	Short: "Guided setup: create datasource + configure all datasets",
 	Long: `Create a datasource from a YAML config file, wait for dataset discovery,
-then onboard discovered datasets with optional monitoring and contracts.
+then onboard discovered datasets with optional monitoring, profiling and contracts.
 
-Interactive mode walks through each step. Use flags for CI/CD or AI agents:
+When all action flags are provided the command runs fully non-interactively,
+selecting all discovered datasets and applying the requested settings.
 
-  soda datasource onboard config.yml --no-interactive --no-monitoring --contracts none`,
+  soda datasource onboard config.yml --monitoring --profiling --contracts ai`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configFile := args[0]
 		agentID, _ := cmd.Flags().GetString("agent")
+
+		// Infer non-interactive when all action flags are explicitly provided.
+		hasMonitoring := cmd.Flags().Changed("monitoring") || cmd.Flags().Changed("no-monitoring")
+		hasProfiling := cmd.Flags().Changed("profiling") || cmd.Flags().Changed("no-profiling")
+		hasContracts := cmd.Flags().Changed("contracts")
+		noInteractive := GCtx.NoInteractive || (hasMonitoring && hasProfiling && hasContracts)
 
 		// ── Read config file ─────────────────────────────────────────────
 		configBytes, err := os.ReadFile(configFile)
@@ -61,7 +68,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			if len(agents.Content) == 1 {
 				agentID = agents.Content[0].ID
 				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
-			} else if GCtx.NoInteractive {
+			} else if noInteractive {
 				fmt.Println("  Available agents:")
 				for _, a := range agents.Content {
 					fmt.Printf("    %s  %s\n", a.ID, a.Name)
@@ -142,7 +149,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		}
 
 		var selectedNames []string
-		if GCtx.NoInteractive {
+		if noInteractive {
 			for _, d := range candidates {
 				selectedNames = append(selectedNames, d.QualifiedName)
 			}
@@ -195,7 +202,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			enableMonitoring, _ = cmd.Flags().GetBool("monitoring")
 		} else if cmd.Flags().Changed("no-monitoring") {
 			enableMonitoring = false
-		} else if GCtx.NoInteractive {
+		} else if noInteractive {
 			return output.Errorf(2, "--monitoring or --no-monitoring is required in non-interactive mode")
 		} else {
 			choice := "yes"
@@ -215,11 +222,37 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			enableMonitoring = choice == "yes"
 		}
 
-		// ── Step 7: Contracts ────────────────────────────────────────────
+		// ── Step 7: Profiling ─────────────────────────────────────────────
+		enableProfiling := false
+		if cmd.Flags().Changed("profiling") {
+			enableProfiling, _ = cmd.Flags().GetBool("profiling")
+		} else if cmd.Flags().Changed("no-profiling") {
+			enableProfiling = false
+		} else if noInteractive {
+			return output.Errorf(2, "--profiling or --no-profiling is required in non-interactive mode")
+		} else {
+			choice := "yes"
+			form := huh.NewForm(huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Enable dataset profiling?").
+					Description("Column stats, row counts, and data type distribution.").
+					Options(
+						huh.NewOption("Yes", "yes"),
+						huh.NewOption("No", "no"),
+					).
+					Value(&choice),
+			))
+			if err := form.Run(); err != nil {
+				return output.Errorf(2, "cancelled")
+			}
+			enableProfiling = choice == "yes"
+		}
+
+		// ── Step 8: Contracts ────────────────────────────────────────────
 		contractsMode := ""
 		if cmd.Flags().Changed("contracts") {
 			contractsMode, _ = cmd.Flags().GetString("contracts")
-		} else if GCtx.NoInteractive {
+		} else if noInteractive {
 			return output.Errorf(2, "--contracts is required in non-interactive mode (ai|skeleton|none)")
 		} else {
 			form := huh.NewForm(huh.NewGroup(
@@ -237,8 +270,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}
 		}
 
-		// ── Step 8: Execute monitoring + contracts ───────────────────────
-		// Fetch cloud dataset IDs so we can call monitoring/contract APIs
+		// ── Step 9: Execute monitoring + profiling + contracts ────────────
 		cloudDatasets, err := client.ListDatasets(api.ListDatasetsParams{
 			DatasourceName: name,
 			Size:           500,
@@ -247,9 +279,8 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			fmt.Fprintf(os.Stderr, "  %s Could not list datasets: %v\n", output.Yellow.Render("⚠"), err)
 		}
 
-		// Map: discovered qualifiedName → cloud dataset ID + contract-style QN
 		type cloudInfo struct {
-			ID        string
+			ID         string
 			ContractQN string
 		}
 		cloud := map[string]cloudInfo{}
@@ -264,8 +295,17 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		var hadErrors bool
 
-		if enableMonitoring {
-			fmt.Println(output.Dim.Render("  Enabling monitoring..."))
+		if enableMonitoring || enableProfiling {
+			label := ""
+			switch {
+			case enableMonitoring && enableProfiling:
+				label = "Enabling monitoring and profiling..."
+			case enableMonitoring:
+				label = "Enabling monitoring..."
+			default:
+				label = "Enabling profiling..."
+			}
+			fmt.Println(output.Dim.Render("  " + label))
 			for _, qn := range selectedNames {
 				ci, ok := cloud[qn]
 				if !ok {
@@ -273,13 +313,13 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 					hadErrors = true
 					continue
 				}
-				if err := client.EnableDefaultMonitoring(ci.ID); err != nil {
-					fmt.Fprintf(os.Stderr, "  %s Monitoring for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
+				if err := client.EnableDatasetDefaults(ci.ID, enableMonitoring, enableProfiling); err != nil {
+					fmt.Fprintf(os.Stderr, "  %s Setup for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
 					hadErrors = true
 				}
 			}
 			if !hadErrors {
-				fmt.Println(output.Green.Render("  ✓") + " Monitoring enabled.")
+				fmt.Println(output.Green.Render("  ✓") + " " + label[:len(label)-3] + "d.")
 			}
 		}
 
@@ -338,7 +378,6 @@ func pollDiscoveredDatasets(client *api.Client, datasourceID string, spinner *ou
 	deadline := time.Now().Add(5 * time.Minute)
 	elapsed := 0
 	for {
-		// Quick check: just fetch the first page to see if anything exists yet.
 		first, err := client.ListDiscoveredDatasets(datasourceID, 0, 100)
 		if err != nil {
 			return nil, fmt.Errorf("could not list discovered datasets: %w", err)
@@ -353,7 +392,6 @@ func pollDiscoveredDatasets(client *api.Client, datasourceID string, spinner *ou
 			continue
 		}
 
-		// Results exist — fetch remaining pages.
 		spinner.SetMessage("Loading discovered datasets...")
 		all := first.Content
 		if !first.Last {
@@ -390,6 +428,8 @@ func init() {
 	dsOnboardCmd.Flags().String("agent", "", "Route connection through a Soda Agent")
 	dsOnboardCmd.Flags().Bool("monitoring", false, "Enable default metric monitors for all datasets")
 	dsOnboardCmd.Flags().Bool("no-monitoring", false, "Skip monitoring setup")
+	dsOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling for all datasets")
+	dsOnboardCmd.Flags().Bool("no-profiling", false, "Skip profiling setup")
 	dsOnboardCmd.Flags().String("contracts", "", "Generate contracts: ai|skeleton|none")
 
 	datasourceCmd.AddCommand(dsOnboardCmd)

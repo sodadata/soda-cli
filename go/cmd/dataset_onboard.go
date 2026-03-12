@@ -14,20 +14,24 @@ import (
 
 var datasetOnboardCmd = &cobra.Command{
 	Use:   "onboard <dataset-id>",
-	Short: "Guided setup: enable monitors and contracts for a dataset",
-	Long: `Set up a dataset with default monitors and optionally generate a contract.
+	Short: "Guided setup: enable monitors, profiling and contracts for a dataset",
+	Long: `Set up a dataset with default monitors, profiling and optionally generate a contract.
 
 Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
-  soda dataset onboard <id> --monitoring --contracts skeleton`,
+  soda dataset onboard <id> --monitoring --profiling --contracts skeleton`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID := args[0]
-		monitoringFlag := cmd.Flags().Changed("monitoring") || cmd.Flags().Changed("no-monitoring")
-		contractsFlag := cmd.Flags().Changed("contracts")
+		hasMonitoring := cmd.Flags().Changed("monitoring") || cmd.Flags().Changed("no-monitoring")
+		hasProfiling := cmd.Flags().Changed("profiling") || cmd.Flags().Changed("no-profiling")
+		hasContracts := cmd.Flags().Changed("contracts")
+		noInteractive := GCtx.NoInteractive || (hasMonitoring && hasProfiling && hasContracts)
 
 		enableMonitoring, _ := cmd.Flags().GetBool("monitoring")
 		noMonitoring, _ := cmd.Flags().GetBool("no-monitoring")
+		enableProfiling, _ := cmd.Flags().GetBool("profiling")
+		noProfiling, _ := cmd.Flags().GetBool("no-profiling")
 		contractsMode, _ := cmd.Flags().GetString("contracts")
 
 		client, err := newAPIClient()
@@ -46,7 +50,6 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		for _, d := range datasets.Content {
 			if d.ID == datasetID {
 				datasetName = d.Name
-				// Build contract-style qualified name: datasource/db/schema/table
 				qualifiedName = d.Datasource.Name + "/" + strings.ReplaceAll(d.QualifiedName, ".", "/")
 				break
 			}
@@ -58,27 +61,34 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		// ── Determine settings ──────────────────────────────────────────────
 
-		if !monitoringFlag && !contractsFlag {
-			// Interactive mode
-			if GCtx.NoInteractive {
-				return output.Errorf(2, "flags required in non-interactive mode: --monitoring/--no-monitoring and --contracts ai|skeleton|none")
+		if !hasMonitoring && !hasProfiling && !hasContracts {
+			if noInteractive {
+				return output.Errorf(2, "flags required in non-interactive mode: --monitoring/--no-monitoring, --profiling/--no-profiling, --contracts ai|skeleton|none")
 			}
 
 			monitoringChoice := "yes"
+			profilingChoice := "yes"
 			contractChoice := "none"
 
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
 					Title("Enable default metric monitoring?").
-					Description("Row count, row count change, freshness, schema changes,\npartition row count, most recent timestamp.\nYou can always add or remove monitors afterwards.").
+					Description("Row count, row count change, freshness, schema changes,\npartition row count, most recent timestamp.").
 					Options(
 						huh.NewOption("Yes", "yes"),
 						huh.NewOption("No", "no"),
 					).
 					Value(&monitoringChoice),
 				huh.NewSelect[string]().
+					Title("Enable dataset profiling?").
+					Description("Column stats, row counts, and data type distribution.").
+					Options(
+						huh.NewOption("Yes", "yes"),
+						huh.NewOption("No", "no"),
+					).
+					Value(&profilingChoice),
+				huh.NewSelect[string]().
 					Title("Set up a data contract?").
-					Description("You can always add, remove or modify contracts afterwards.").
 					Options(
 						huh.NewOption("AI-generated contract (Copilot)", "ai"),
 						huh.NewOption("Skeleton contract (empty template)", "skeleton"),
@@ -90,11 +100,14 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				return output.Errorf(2, "onboarding cancelled")
 			}
 			enableMonitoring = monitoringChoice == "yes"
+			enableProfiling = profilingChoice == "yes"
 			contractsMode = contractChoice
 		} else {
-			// Flags mode
 			if noMonitoring {
 				enableMonitoring = false
+			}
+			if noProfiling {
+				enableProfiling = false
 			}
 			if contractsMode == "" {
 				contractsMode = "none"
@@ -103,16 +116,25 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		// ── Execute ─────────────────────────────────────────────────────────
 
-		// Step 1: Monitoring
-		if enableMonitoring {
-			fmt.Println(output.Dim.Render("  Enabling default metric monitoring..."))
-			if err := client.EnableDefaultMonitoring(datasetID); err != nil {
-				fmt.Fprintf(os.Stderr, "  %s Could not enable monitoring: %v\n", output.Yellow.Render("⚠"), err)
+		// Step 1: Monitoring + Profiling
+		if enableMonitoring || enableProfiling {
+			label := ""
+			switch {
+			case enableMonitoring && enableProfiling:
+				label = "Enabling monitoring and profiling..."
+			case enableMonitoring:
+				label = "Enabling default metric monitoring..."
+			default:
+				label = "Enabling dataset profiling..."
+			}
+			fmt.Println(output.Dim.Render("  " + label))
+			if err := client.EnableDatasetDefaults(datasetID, enableMonitoring, enableProfiling); err != nil {
+				fmt.Fprintf(os.Stderr, "  %s Could not enable settings: %v\n", output.Yellow.Render("⚠"), err)
 			} else {
-				fmt.Println(output.Green.Render("  ✓") + " Metric monitoring enabled.")
+				fmt.Println(output.Green.Render("  ✓") + " " + label[:len(label)-3] + "d.")
 			}
 		} else {
-			fmt.Println(output.Dim.Render("  Skipping monitoring setup."))
+			fmt.Println(output.Dim.Render("  Skipping monitoring and profiling setup."))
 		}
 
 		// Step 2: Contracts
@@ -160,6 +182,8 @@ func datasetFileName(qualifiedName string) string {
 func init() {
 	datasetOnboardCmd.Flags().Bool("monitoring", false, "Enable default metric monitors")
 	datasetOnboardCmd.Flags().Bool("no-monitoring", false, "Skip monitoring setup")
+	datasetOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling")
+	datasetOnboardCmd.Flags().Bool("no-profiling", false, "Skip profiling setup")
 	datasetOnboardCmd.Flags().String("contracts", "", "Generate contract: ai|skeleton|none")
 
 	datasetCmd.AddCommand(datasetOnboardCmd)

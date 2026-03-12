@@ -98,33 +98,46 @@ var defaultDatasetMonitorTypes = []string{
 	"rowCount", "freshness", "schema", "rowsInserted", "totalRowCountChange", "timeliness",
 }
 
-func (c *Client) EnableDefaultMonitoring(datasetID string) error {
-	monitors := make([]DatasetMetricMonitorCfg, len(defaultDatasetMonitorTypes))
-	for i, t := range defaultDatasetMonitorTypes {
-		monitors[i] = DatasetMetricMonitorCfg{
-			MetricType:    t,
-			Configuration: DatasetMonitorConfig{IsEnabled: true},
-		}
+// EnableDatasetDefaults enables metric monitoring and/or profiling for a dataset
+// in a single POST /api/v1/datasets/{id} call.
+func (c *Client) EnableDatasetDefaults(datasetID string, monitoring, profiling bool) error {
+	if !monitoring && !profiling {
+		return nil
 	}
 
-	enabled := true
-	_, err := c.UpdateDataset(datasetID, UpdateDatasetRequest{
-		Profiling: &ProfilingSettings{
-			Enabled: &enabled,
+	req := UpdateDatasetRequest{}
+
+	if profiling {
+		t := true
+		req.Profiling = &ProfilingSettings{
+			Enabled: &t,
 			ProfilingSamplingStrategy: &SamplingStrategy{
 				NumberOfRows: 1000000,
 			},
-		},
-		MetricMonitoring: &MetricMonitoringSettings{
-			Enabled: &enabled,
+		}
+	}
+
+	if monitoring {
+		t := true
+		monitors := make([]DatasetMetricMonitorCfg, len(defaultDatasetMonitorTypes))
+		for i, mt := range defaultDatasetMonitorTypes {
+			monitors[i] = DatasetMetricMonitorCfg{
+				MetricType:    mt,
+				Configuration: DatasetMonitorConfig{IsEnabled: true},
+			}
+		}
+		req.MetricMonitoring = &MetricMonitoringSettings{
+			Enabled: &t,
 			ScanSchedule: &ScanSchedule{
 				CronExpression: "0 6 * * *",
 				Timezone:       "UTC",
 			},
 			DatasetMetricMonitorsConfiguration:      monitors,
 			HistoricalMetricCollectionScanStartDate: time.Now().AddDate(0, 0, -30).UTC().Format(time.RFC3339),
-		},
-	})
+		}
+	}
+
+	_, err := c.UpdateDataset(datasetID, req)
 	return err
 }
 
