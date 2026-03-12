@@ -36,19 +36,60 @@ var datasetListCmd = &cobra.Command{
 			return err
 		}
 
-		rows := make([]map[string]string, len(result.Content))
-		for i, d := range result.Content {
-			rows[i] = map[string]string{
+		rows := make([]map[string]string, 0, len(result.Content))
+		for _, d := range result.Content {
+			rows = append(rows, map[string]string{
 				"id":         d.ID,
 				"name":       d.Name,
 				"datasource": d.Datasource.Name,
-				"status":     d.DataQualityStatus,
+				"status":     "onboarded",
 				"checks":     fmt.Sprintf("%.0f", d.Checks),
+				"monitors":   "-",
 				"updated":    d.LastUpdated,
+			})
+		}
+
+		// Append discovered-not-yet-onboarded datasets.
+		dsPage, dsErr := client.ListDatasources(0, 500)
+		if dsErr != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  %s Could not fetch datasources: %v\n", output.Yellow.Render("⚠"), dsErr)
+		} else {
+			dsNameByID := map[string]string{}
+			var dsIDs []string
+			for _, ds := range dsPage.Content {
+				dsNameByID[ds.ID] = ds.Name
+				if datasource == "" || strings.EqualFold(ds.Name, datasource) {
+					dsIDs = append(dsIDs, ds.ID)
+				}
+			}
+			for _, dsID := range dsIDs {
+				discPage, discErr := client.ListDiscoveredDatasets(dsID, 0, 500)
+				if discErr != nil {
+					continue
+				}
+				for _, d := range discPage.Content {
+					if d.Onboarded || isInternalDataset(d.Name, d.QualifiedName) {
+						continue
+					}
+					rows = append(rows, map[string]string{
+						"id":         d.ID,
+						"name":       d.Name,
+						"datasource": dsNameByID[dsID],
+						"status":     "not onboarded",
+						"checks":     "-",
+						"monitors":   "-",
+						"updated":    d.CreatedAt,
+					})
+				}
 			}
 		}
 
-		cols := []string{"id", "name", "datasource", "status", "checks", "updated"}
+		if len(rows) == 0 {
+			fmt.Println(output.Dim.Render("  No datasets found."))
+			return nil
+		}
+
+		cols := []string{"id", "name", "datasource", "status", "checks", "monitors", "updated"}
 		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
 
 		if !result.Last {

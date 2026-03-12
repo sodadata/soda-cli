@@ -50,8 +50,11 @@ soda
   │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
   │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
+  │   │   [--profiling]                                 # enable dataset profiling  ✅
+  │   │   [--no-profiling]                              # skip profiling setup
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
-  │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → contracts
+  │   │   # when all action flags provided: fully non-interactive, onboards all datasets automatically
+  │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → profiling → contracts
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
@@ -160,11 +163,12 @@ soda
   │   ├── onboard  <id>                                  # guided setup for an existing dataset  ✅
   │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
+  │   │   [--profiling]                                 # enable dataset profiling  ✅
+  │   │   [--no-profiling]                              # skip profiling setup
   │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  🔌 [API wired, backend may not persist]
-  │   │   # interactive wizard: monitoring → contracts
+  │   │   # when all action flags provided: fully non-interactive
+  │   │   # interactive wizard: monitoring → profiling → contracts
   │   │   # works with datasets already in Soda Cloud
-  │   │   # default monitors: row count, row count change, freshness, schema changes,
-  │   │   #   partition row count, most recent timestamp
   │   │
   │   └── permissions  ✅
   │       ├── list    <id>  ✅

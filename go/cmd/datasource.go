@@ -140,6 +140,10 @@ Example config:
 		}
 		fmt.Println()
 		output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
+		fmt.Println()
+		fmt.Println(output.Dim.Render("  Next steps:"))
+		fmt.Printf("    Onboard all datasets:     soda datasource onboard %s\n", result.Datasource.ID)
+		fmt.Printf("    Onboard a single dataset: soda dataset onboard <dataset-id>\n")
 		return nil
 	},
 }

@@ -17,18 +17,22 @@ import (
 func boolPtr(b bool) *bool { return &b }
 
 var dsOnboardCmd = &cobra.Command{
-	Use:   "onboard <config-file>",
+	Use:   "onboard <config-file-or-datasource-id>",
 	Short: "Guided setup: create datasource + configure all datasets",
-	Long: `Create a datasource from a YAML config file, wait for dataset discovery,
+	Long: `Create or connect to a datasource, wait for dataset discovery,
 then onboard discovered datasets with optional monitoring, profiling and contracts.
+
+Pass a YAML config file to create a new datasource, or pass an existing
+datasource ID to run the onboarding flow on an already-registered datasource.
 
 When all action flags are provided the command runs fully non-interactively,
 selecting all discovered datasets and applying the requested settings.
 
-  soda datasource onboard config.yml --monitoring --profiling --contracts ai`,
+  soda datasource onboard config.yml --monitoring --profiling --contracts ai
+  soda datasource onboard <datasource-id> --no-monitoring --no-profiling --contracts none`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		configFile := args[0]
+		arg := args[0]
 		agentID, _ := cmd.Flags().GetString("agent")
 
 		// Infer non-interactive when all action flags are explicitly provided.
@@ -37,76 +41,99 @@ selecting all discovered datasets and applying the requested settings.
 		hasContracts := cmd.Flags().Changed("contracts")
 		noInteractive := GCtx.NoInteractive || (hasMonitoring && hasProfiling && hasContracts)
 
-		// ── Read config file ─────────────────────────────────────────────
-		configBytes, err := os.ReadFile(configFile)
-		if err != nil {
-			return output.Errorf(2, "could not read config file: %v", err)
-		}
-		var configMap map[string]interface{}
-		if err := yaml.Unmarshal(configBytes, &configMap); err != nil {
-			return output.Errorf(2, "invalid YAML in %s: %v", configFile, err)
-		}
-		name, _ := configMap["name"].(string)
-		if name == "" {
-			return output.Errorf(2, "'name' field is required in the config file")
-		}
-
 		client, err := newAPIClient()
 		if err != nil {
 			return err
 		}
 
-		// ── Step 1: Resolve agent ────────────────────────────────────────
-		if agentID == "" {
-			agents, err := client.ListAgents(100)
-			if err != nil {
-				return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
-			}
-			if len(agents.Content) == 0 {
-				return output.Errorf(2, "--agent is required. No agents found — set up an agent in Soda Cloud first.")
-			}
-			if len(agents.Content) == 1 {
-				agentID = agents.Content[0].ID
-				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
-			} else if noInteractive {
-				fmt.Println("  Available agents:")
-				for _, a := range agents.Content {
-					fmt.Printf("    %s  %s\n", a.ID, a.Name)
-				}
-				return output.Errorf(2, "--agent is required (multiple agents found)")
-			} else {
-				options := make([]huh.Option[string], len(agents.Content))
-				for i, a := range agents.Content {
-					label := a.Name
-					if a.Label != "" {
-						label = a.Label + " (" + a.Name + ")"
-					}
-					options[i] = huh.NewOption(label, a.ID)
-				}
-				form := huh.NewForm(huh.NewGroup(
-					huh.NewSelect[string]().
-						Title("Which agent should route this connection?").
-						Options(options...).
-						Value(&agentID),
-				))
-				if err := form.Run(); err != nil {
-					return output.Errorf(2, "cancelled")
-				}
-			}
-		}
+		var datasourceID, name string
 
-		// ── Step 2: Create datasource ────────────────────────────────────
-		fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
-		createResult, err := client.CreateDatasource(api.CreateDatasourceRequest{
-			Name:                      name,
-			AgentID:                   agentID,
-			ConfigurationFileContents: string(configBytes),
-		})
-		if err != nil {
-			return err
+		if _, statErr := os.Stat(arg); statErr == nil {
+			// ── arg is a config file: create a new datasource ────────────────
+
+			configBytes, err := os.ReadFile(arg)
+			if err != nil {
+				return output.Errorf(2, "could not read config file: %v", err)
+			}
+			var configMap map[string]interface{}
+			if err := yaml.Unmarshal(configBytes, &configMap); err != nil {
+				return output.Errorf(2, "invalid YAML in %s: %v", arg, err)
+			}
+			name, _ = configMap["name"].(string)
+			if name == "" {
+				return output.Errorf(2, "'name' field is required in the config file")
+			}
+
+			// ── Step 1: Resolve agent ─────────────────────────────────────────
+			if agentID == "" {
+				agents, err := client.ListAgents(100)
+				if err != nil {
+					return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+				}
+				if len(agents.Content) == 0 {
+					return output.Errorf(2, "--agent is required. No agents found — set up an agent in Soda Cloud first.")
+				}
+				if len(agents.Content) == 1 {
+					agentID = agents.Content[0].ID
+					fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+				} else if noInteractive {
+					fmt.Println("  Available agents:")
+					for _, a := range agents.Content {
+						fmt.Printf("    %s  %s\n", a.ID, a.Name)
+					}
+					return output.Errorf(2, "--agent is required (multiple agents found)")
+				} else {
+					options := make([]huh.Option[string], len(agents.Content))
+					for i, a := range agents.Content {
+						label := a.Name
+						if a.Label != "" {
+							label = a.Label + " (" + a.Name + ")"
+						}
+						options[i] = huh.NewOption(label, a.ID)
+					}
+					form := huh.NewForm(huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("Which agent should route this connection?").
+							Options(options...).
+							Value(&agentID),
+					))
+					if err := form.Run(); err != nil {
+						return output.Errorf(2, "cancelled")
+					}
+				}
+			}
+
+			// ── Step 2: Create datasource ─────────────────────────────────────
+			fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
+			createResult, err := client.CreateDatasource(api.CreateDatasourceRequest{
+				Name:                      name,
+				AgentID:                   agentID,
+				ConfigurationFileContents: string(configBytes),
+			})
+			if err != nil {
+				return err
+			}
+			datasourceID = createResult.Datasource.ID
+			fmt.Printf("  Datasource ID: %s\n", datasourceID)
+
+		} else {
+			// ── arg is a datasource ID: use existing datasource ───────────────
+			datasourceID = arg
+			page, err := client.ListDatasources(0, 500)
+			if err != nil {
+				return output.Errorf(2, "could not look up datasource: %v", err)
+			}
+			for _, ds := range page.Content {
+				if ds.ID == datasourceID {
+					name = ds.Name
+					break
+				}
+			}
+			if name == "" {
+				return output.Errorf(2, "datasource '%s' not found", datasourceID)
+			}
+			fmt.Printf("  Datasource: %s (%s)\n", output.Bold.Render(name), datasourceID)
 		}
-		datasourceID := createResult.Datasource.ID
-		fmt.Printf("  Datasource ID: %s\n", datasourceID)
 
 		// ── Step 3: Discover datasets ────────────────────────────────────
 		spinner := output.NewSpinner("Waiting for dataset discovery...")
@@ -117,7 +144,7 @@ selecting all discovered datasets and applying the requested settings.
 			fmt.Fprintf(os.Stderr, "  %s %v\n", output.Yellow.Render("⚠"), err)
 			fmt.Println(output.Dim.Render("  Check with: soda dataset list --datasource " + name))
 			fmt.Println()
-			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
+			output.PrintSuccess(fmt.Sprintf("Datasource '%s' ready.", name), GCtx)
 			return nil
 		}
 
@@ -138,7 +165,7 @@ selecting all discovered datasets and applying the requested settings.
 		}
 
 		if len(candidates) == 0 {
-			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created. No new datasets to onboard.", name), GCtx)
+			output.PrintSuccess(fmt.Sprintf("Datasource '%s' ready. No new datasets to onboard.", name), GCtx)
 			return nil
 		}
 
@@ -176,7 +203,7 @@ selecting all discovered datasets and applying the requested settings.
 
 		if len(selectedNames) == 0 {
 			fmt.Println(output.Dim.Render("  No datasets selected."))
-			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
+			output.PrintSuccess(fmt.Sprintf("Datasource '%s' ready.", name), GCtx)
 			return nil
 		}
 
@@ -425,7 +452,7 @@ func isInternalDataset(name, qualifiedName string) bool {
 }
 
 func init() {
-	dsOnboardCmd.Flags().String("agent", "", "Route connection through a Soda Agent")
+	dsOnboardCmd.Flags().String("agent", "", "Route connection through a Soda Agent (only used when creating a new datasource)")
 	dsOnboardCmd.Flags().Bool("monitoring", false, "Enable default metric monitors for all datasets")
 	dsOnboardCmd.Flags().Bool("no-monitoring", false, "Skip monitoring setup")
 	dsOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling for all datasets")

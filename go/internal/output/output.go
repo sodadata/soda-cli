@@ -61,6 +61,10 @@ func FmtStatus(s string) string {
 		return Red.Render("●") + " " + s
 	case "closed":
 		return Dim.Render("●") + " " + s
+	case "onboarded":
+		return Green.Render("✓") + " " + s
+	case "not onboarded":
+		return Dim.Render("○") + " " + s
 	default:
 		return s
 	}
