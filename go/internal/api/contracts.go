@@ -142,19 +142,7 @@ func (c *Client) CreateSkeleton(req CreateSkeletonRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
-	}
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		var apiErr struct{ Message string `json:"message"` }
-		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
-			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
-		}
-		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
-	}
-	return extractOperationID(resp.Header.Get("Location")), nil
+	return decodeAsyncOperation(resp)
 }
 
 func (c *Client) GetSkeletonStatus(operationID string) (*SkeletonStatus, error) {
@@ -174,15 +162,27 @@ func (c *Client) GenerateContract(req GenerateContractRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
-	}
+	return decodeAsyncOperation(resp)
+}
+
+// decodeAsyncOperation handles async API responses that return 202 + Location header.
+// On error it returns the API's message field rather than a generic auth error.
+func decodeAsyncOperation(resp *http.Response) (string, error) {
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		var apiErr struct{ Message string `json:"message"` }
+		var apiErr struct {
+			Message string `json:"message"`
+		}
 		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
-			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
+			code := 2
+			if resp.StatusCode == 401 {
+				code = 3
+			}
+			return "", &output.ExitError{Code: code, Msg: apiErr.Message}
+		}
+		if resp.StatusCode == 401 {
+			return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
 		}
 		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
 	}

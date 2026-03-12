@@ -29,26 +29,6 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configFile := args[0]
 		agentID, _ := cmd.Flags().GetString("agent")
-		enableMonitoring, _ := cmd.Flags().GetBool("monitoring")
-		noMonitoring, _ := cmd.Flags().GetBool("no-monitoring")
-		contractsMode, _ := cmd.Flags().GetString("contracts")
-
-		// Non-interactive validation
-		if GCtx.NoInteractive {
-			if !cmd.Flags().Changed("monitoring") && !cmd.Flags().Changed("no-monitoring") {
-				return output.Errorf(2, "--monitoring or --no-monitoring is required in non-interactive mode")
-			}
-			if !cmd.Flags().Changed("contracts") {
-				return output.Errorf(2, "--contracts is required in non-interactive mode (ai|skeleton|none)")
-			}
-		}
-
-		if noMonitoring {
-			enableMonitoring = false
-		}
-		if contractsMode == "" {
-			contractsMode = "none"
-		}
 
 		// ── Read config file ─────────────────────────────────────────────
 		configBytes, err := os.ReadFile(configFile)
@@ -69,7 +49,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			return err
 		}
 
-		// ── Resolve agent ────────────────────────────────────────────────
+		// ── Step 1: Resolve agent ────────────────────────────────────────
 		if agentID == "" {
 			agents, err := client.ListAgents(100)
 			if err != nil {
@@ -108,7 +88,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}
 		}
 
-		// ── Create datasource ────────────────────────────────────────────
+		// ── Step 2: Create datasource ────────────────────────────────────
 		fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
 		createResult, err := client.CreateDatasource(api.CreateDatasourceRequest{
 			Name:                      name,
@@ -118,66 +98,65 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		if err != nil {
 			return err
 		}
-		fmt.Printf("  Datasource ID: %s\n", createResult.Datasource.ID)
 		datasourceID := createResult.Datasource.ID
+		fmt.Printf("  Datasource ID: %s\n", datasourceID)
 
-		// ── Poll for discovered datasets ─────────────────────────────────
+		// ── Step 3: Discover datasets ────────────────────────────────────
 		fmt.Println(output.Dim.Render("  Waiting for dataset discovery..."))
-		var discovered []api.DiscoveredDataset
-		deadline := time.Now().Add(5 * time.Minute)
-		for {
-			page, err := client.ListDiscoveredDatasets(datasourceID, 0, 500)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "  %s Could not list discovered datasets: %v\n", output.Yellow.Render("⚠"), err)
-				break
-			}
-			if len(page.Content) > 0 {
-				discovered = page.Content
-				break
-			}
-			if time.Now().After(deadline) {
-				fmt.Fprintf(os.Stderr, "  %s Discovery timed out after 5 minutes. Datasets may still appear later.\n", output.Yellow.Render("⚠"))
-				fmt.Println(output.Dim.Render("  Check with: soda dataset list --datasource " + name))
-				fmt.Println()
-				output.PrintSuccess(fmt.Sprintf("Datasource '%s' created. No datasets discovered yet.", name), GCtx)
-				return nil
-			}
-			fmt.Println(output.Dim.Render("  Still discovering datasets..."))
-			time.Sleep(3 * time.Second)
-		}
-
-		if len(discovered) == 0 {
+		discovered, err := pollDiscoveredDatasets(client, datasourceID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s %v\n", output.Yellow.Render("⚠"), err)
+			fmt.Println(output.Dim.Render("  Check with: soda dataset list --datasource " + name))
 			fmt.Println()
-			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created. No datasets discovered.", name), GCtx)
+			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
 			return nil
 		}
 
-		fmt.Printf("  Found %d datasets.\n\n", len(discovered))
-
-		// ── Select datasets to onboard ───────────────────────────────────
-		// Build a map from qualifiedName → discovered dataset for lookup
-		discoveredByQN := map[string]api.DiscoveredDataset{}
+		// Filter out internal tables
+		var candidates []api.DiscoveredDataset
 		for _, d := range discovered {
-			discoveredByQN[d.QualifiedName] = d
+			if d.Onboarded || isInternalDataset(d.Name, d.QualifiedName) {
+				continue
+			}
+			candidates = append(candidates, d)
 		}
 
-		selectedNames := make([]string, len(discovered))
-		for i, d := range discovered {
-			selectedNames[i] = d.QualifiedName
+		hidden := len(discovered) - len(candidates)
+		if hidden > 0 {
+			fmt.Printf("  Found %d datasets (%d internal tables hidden).\n\n", len(candidates), hidden)
+		} else {
+			fmt.Printf("  Found %d datasets.\n\n", len(candidates))
 		}
 
-		if !GCtx.NoInteractive {
-			options := make([]huh.Option[string], len(discovered))
-			for i, d := range discovered {
-				label := d.Name
-				if d.QualifiedName != "" && d.QualifiedName != d.Name {
-					label = d.QualifiedName
+		if len(candidates) == 0 {
+			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created. No new datasets to onboard.", name), GCtx)
+			return nil
+		}
+
+		// ── Step 4: Select datasets to onboard ───────────────────────────
+		byQN := map[string]api.DiscoveredDataset{}
+		for _, d := range candidates {
+			byQN[d.QualifiedName] = d
+		}
+
+		var selectedNames []string
+		if GCtx.NoInteractive {
+			for _, d := range candidates {
+				selectedNames = append(selectedNames, d.QualifiedName)
+			}
+		} else {
+			options := make([]huh.Option[string], len(candidates))
+			for i, d := range candidates {
+				label := d.QualifiedName
+				if label == "" {
+					label = d.Name
 				}
-				options[i] = huh.NewOption(label, d.QualifiedName).Selected(true)
+				options[i] = huh.NewOption(label, d.QualifiedName)
 			}
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewMultiSelect[string]().
 					Title("Select datasets to onboard").
+					Description("Space to toggle, Enter to confirm").
 					Options(options...).
 					Value(&selectedNames),
 			))
@@ -188,53 +167,66 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		if len(selectedNames) == 0 {
 			fmt.Println(output.Dim.Render("  No datasets selected."))
-			fmt.Println()
 			output.PrintSuccess(fmt.Sprintf("Datasource '%s' created.", name), GCtx)
 			return nil
 		}
 
-		// ── Onboard selected datasets ────────────────────────────────────
-		selectedIDs := make([]string, 0, len(selectedNames))
+		// ── Step 5: Onboard ──────────────────────────────────────────────
+		ids := make([]string, 0, len(selectedNames))
 		for _, qn := range selectedNames {
-			if d, ok := discoveredByQN[qn]; ok {
-				selectedIDs = append(selectedIDs, d.ID)
+			if d, ok := byQN[qn]; ok {
+				ids = append(ids, d.ID)
 			}
 		}
 
-		fmt.Printf(output.Dim.Render("  Onboarding %d datasets...")+"\n", len(selectedIDs))
+		fmt.Println(output.Dim.Render(fmt.Sprintf("  Onboarding %d datasets...", len(ids))))
 		if err := client.OnboardDiscoveredDatasets(datasourceID, api.OnboardDatasetsRequest{
-			DiscoveredDatasetIDs: selectedIDs,
+			DiscoveredDatasetIDs: ids,
 		}); err != nil {
 			return err
 		}
 		fmt.Println(output.Green.Render("  ✓") + " Datasets onboarded.")
 
-		// ── Interactive: monitoring & contracts settings ──────────────────
-		if !cmd.Flags().Changed("monitoring") && !cmd.Flags().Changed("no-monitoring") && !GCtx.NoInteractive {
-			monitoringChoice := "yes"
+		// ── Step 6: Monitoring ───────────────────────────────────────────
+		enableMonitoring := false
+		if cmd.Flags().Changed("monitoring") {
+			enableMonitoring, _ = cmd.Flags().GetBool("monitoring")
+		} else if cmd.Flags().Changed("no-monitoring") {
+			enableMonitoring = false
+		} else if GCtx.NoInteractive {
+			return output.Errorf(2, "--monitoring or --no-monitoring is required in non-interactive mode")
+		} else {
+			choice := "yes"
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Enable default metric monitoring for onboarded datasets?").
+					Title("Enable default metric monitoring?").
+					Description("Row count, freshness, schema changes, and more.").
 					Options(
 						huh.NewOption("Yes", "yes"),
 						huh.NewOption("No", "no"),
 					).
-					Value(&monitoringChoice),
+					Value(&choice),
 			))
 			if err := form.Run(); err != nil {
 				return output.Errorf(2, "cancelled")
 			}
-			enableMonitoring = monitoringChoice == "yes"
+			enableMonitoring = choice == "yes"
 		}
 
-		if !cmd.Flags().Changed("contracts") && !GCtx.NoInteractive {
+		// ── Step 7: Contracts ────────────────────────────────────────────
+		contractsMode := ""
+		if cmd.Flags().Changed("contracts") {
+			contractsMode, _ = cmd.Flags().GetString("contracts")
+		} else if GCtx.NoInteractive {
+			return output.Errorf(2, "--contracts is required in non-interactive mode (ai|skeleton|none)")
+		} else {
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Generate contracts for onboarded datasets?").
+					Title("Set up data contracts?").
 					Options(
-						huh.NewOption("AI-generated contract (Copilot)", "ai"),
-						huh.NewOption("Skeleton contract (empty template)", "skeleton"),
-						huh.NewOption("No contract", "none"),
+						huh.NewOption("AI-generated (Autopilot)", "ai"),
+						huh.NewOption("Skeleton (empty template)", "skeleton"),
+						huh.NewOption("None", "none"),
 					).
 					Value(&contractsMode),
 			))
@@ -243,8 +235,8 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}
 		}
 
-		// ── Fetch onboarded dataset IDs from Soda Cloud ──────────────────
-		fmt.Println(output.Dim.Render("  Fetching onboarded datasets..."))
+		// ── Step 8: Execute monitoring + contracts ───────────────────────
+		// Fetch cloud dataset IDs so we can call monitoring/contract APIs
 		cloudDatasets, err := client.ListDatasets(api.ListDatasetsParams{
 			DatasourceName: name,
 			Size:           500,
@@ -253,54 +245,48 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			fmt.Fprintf(os.Stderr, "  %s Could not list datasets: %v\n", output.Yellow.Render("⚠"), err)
 		}
 
-		// Build map from qualifiedName → cloud dataset
-		// The discovered dataset qualified name may be dot-separated (db.schema.table)
-		// while the contract API needs slash-separated (datasource/db/schema/table).
-		type cloudDS struct {
-			ID                   string
-			QualifiedName        string // dot-separated from API
-			ContractQualifiedName string // slash-separated for contract APIs
+		// Map: discovered qualifiedName → cloud dataset ID + contract-style QN
+		type cloudInfo struct {
+			ID        string
+			ContractQN string
 		}
-		cloudMap := map[string]cloudDS{}
+		cloud := map[string]cloudInfo{}
 		if cloudDatasets != nil {
 			for _, d := range cloudDatasets.Content {
 				cqn := d.Datasource.Name + "/" + strings.ReplaceAll(d.QualifiedName, ".", "/")
-				entry := cloudDS{ID: d.ID, QualifiedName: d.QualifiedName, ContractQualifiedName: cqn}
-				cloudMap[d.QualifiedName] = entry
-				// Also index by contract-style name for flexibility
-				cloudMap[cqn] = entry
+				ci := cloudInfo{ID: d.ID, ContractQN: cqn}
+				cloud[d.QualifiedName] = ci
+				cloud[cqn] = ci
 			}
 		}
 
 		var hadErrors bool
 
-		// ── Monitoring ───────────────────────────────────────────────────
 		if enableMonitoring {
 			fmt.Println(output.Dim.Render("  Enabling monitoring..."))
 			for _, qn := range selectedNames {
-				ds, ok := cloudMap[qn]
+				ci, ok := cloud[qn]
 				if !ok {
-					fmt.Fprintf(os.Stderr, "  %s Dataset '%s' not found in cloud — skipping monitoring.\n", output.Yellow.Render("⚠"), qn)
+					fmt.Fprintf(os.Stderr, "  %s '%s' not found in cloud — skipping.\n", output.Yellow.Render("⚠"), qn)
 					hadErrors = true
 					continue
 				}
-				if _, err := client.UpdateMetricMonitoring(ds.ID, api.UpdateMetricMonitoringRequest{Enabled: boolPtr(true)}); err != nil {
+				if _, err := client.UpdateMetricMonitoring(ci.ID, api.UpdateMetricMonitoringRequest{Enabled: boolPtr(true)}); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Monitoring for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
 					hadErrors = true
 				}
 			}
-			fmt.Println(output.Green.Render("  ✓") + " Monitoring enabled.")
+			if !hadErrors {
+				fmt.Println(output.Green.Render("  ✓") + " Monitoring enabled.")
+			}
 		}
 
-		// ── Contracts ────────────────────────────────────────────────────
 		switch contractsMode {
 		case "ai":
-			// Batch: GenerateContract accepts multiple qualified names
-			// Use contract-style qualified names (datasource/db/schema/table)
 			cqns := make([]string, 0, len(selectedNames))
 			for _, qn := range selectedNames {
-				if ds, ok := cloudMap[qn]; ok {
-					cqns = append(cqns, ds.ContractQualifiedName)
+				if ci, ok := cloud[qn]; ok {
+					cqns = append(cqns, ci.ContractQN)
 				}
 			}
 			if len(cqns) > 0 {
@@ -312,7 +298,6 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 					fmt.Fprintf(os.Stderr, "  %s AI contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
 					hadErrors = true
 				} else {
-					// Poll
 					for {
 						status, err := client.GetGenerateStatus(opID)
 						if err != nil {
@@ -331,7 +316,6 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 						fmt.Println(output.Dim.Render("  Waiting for AI generation..."))
 						time.Sleep(3 * time.Second)
 					}
-					// Pull contracts locally
 					for _, cqn := range cqns {
 						contract, err := client.FindContractByDataset(cqn)
 						if err != nil || contract == nil {
@@ -351,12 +335,12 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}
 		case "skeleton":
 			for _, qn := range selectedNames {
-				ds, ok := cloudMap[qn]
+				ci, ok := cloud[qn]
 				if !ok {
 					continue
 				}
-				outFile := datasetFileName(ds.ContractQualifiedName)
-				if err := runContractCreateSkeleton(client, ds.ContractQualifiedName, outFile); err != nil {
+				outFile := datasetFileName(ci.ContractQN)
+				if err := runContractCreateSkeleton(client, ci.ContractQN, outFile); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Skeleton for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
 					hadErrors = true
 				}
@@ -371,10 +355,62 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		fmt.Println()
 		output.PrintSuccess(fmt.Sprintf("Datasource '%s' onboarded with %d datasets.", name, len(selectedNames)), GCtx)
 		if hadErrors {
-			return output.Errorf(2, "some steps had errors — check the warnings above")
+			fmt.Println(output.Yellow.Render("  Some steps had warnings — check the output above."))
 		}
 		return nil
 	},
+}
+
+// pollDiscoveredDatasets fetches all discovered datasets for a datasource,
+// retrying until results appear or the timeout is reached.
+func pollDiscoveredDatasets(client *api.Client, datasourceID string) ([]api.DiscoveredDataset, error) {
+	deadline := time.Now().Add(5 * time.Minute)
+	for {
+		// Quick check: just fetch the first page to see if anything exists yet.
+		first, err := client.ListDiscoveredDatasets(datasourceID, 0, 100)
+		if err != nil {
+			return nil, fmt.Errorf("could not list discovered datasets: %w", err)
+		}
+		if len(first.Content) == 0 {
+			if time.Now().After(deadline) {
+				return nil, fmt.Errorf("discovery timed out after 5 minutes — datasets may still appear later")
+			}
+			fmt.Println(output.Dim.Render("  Still discovering datasets..."))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// Results exist — now fetch remaining pages.
+		all := first.Content
+		if !first.Last {
+			for pg := 1; ; pg++ {
+				time.Sleep(200 * time.Millisecond) // gentle pacing between pages
+				page, err := client.ListDiscoveredDatasets(datasourceID, pg, 100)
+				if err != nil {
+					// Return what we have so far rather than failing
+					break
+				}
+				all = append(all, page.Content...)
+				if page.Last || len(page.Content) == 0 {
+					break
+				}
+			}
+		}
+		return all, nil
+	}
+}
+
+// isInternalDataset returns true for Soda temp tables and diagnostics tables.
+func isInternalDataset(name, qualifiedName string) bool {
+	lower := strings.ToLower(name)
+	if strings.HasPrefix(lower, "__soda_temp") || strings.HasPrefix(lower, "soda_temp") {
+		return true
+	}
+	lowerQN := strings.ToLower(qualifiedName)
+	if strings.Contains(lowerQN, "/soda_diagnostics/") || strings.Contains(lowerQN, ".soda_diagnostics.") {
+		return true
+	}
+	return false
 }
 
 func init() {
