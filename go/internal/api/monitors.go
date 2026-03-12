@@ -1,5 +1,7 @@
 package api
 
+import "time"
+
 // ── Metric monitoring config ───────────────────────────────────────────────────
 
 // ── Dataset metric monitors ───────────────────────────────────────────────────
@@ -87,6 +89,43 @@ func (c *Client) UpdateMetricMonitoring(datasetID string, req UpdateMetricMonito
 		return nil, err
 	}
 	return &result, nil
+}
+
+// EnableDefaultMonitoring enables all dataset-level metric monitors for a dataset.
+// It uses POST /api/v1/datasets/{id} (the generic dataset update endpoint) because
+// defaultDatasetMonitorTypes are the known API metricType values for dataset-level monitors.
+var defaultDatasetMonitorTypes = []string{
+	"rowCount", "freshness", "schema", "rowsInserted", "totalRowCountChange", "timeliness",
+}
+
+func (c *Client) EnableDefaultMonitoring(datasetID string) error {
+	monitors := make([]DatasetMetricMonitorCfg, len(defaultDatasetMonitorTypes))
+	for i, t := range defaultDatasetMonitorTypes {
+		monitors[i] = DatasetMetricMonitorCfg{
+			MetricType:    t,
+			Configuration: DatasetMonitorConfig{IsEnabled: true},
+		}
+	}
+
+	enabled := true
+	_, err := c.UpdateDataset(datasetID, UpdateDatasetRequest{
+		Profiling: &ProfilingSettings{
+			Enabled: &enabled,
+			ProfilingSamplingStrategy: &SamplingStrategy{
+				NumberOfRows: 1000000,
+			},
+		},
+		MetricMonitoring: &MetricMonitoringSettings{
+			Enabled: &enabled,
+			ScanSchedule: &ScanSchedule{
+				CronExpression: "0 6 * * *",
+				Timezone:       "UTC",
+			},
+			DatasetMetricMonitorsConfiguration:      monitors,
+			HistoricalMetricCollectionScanStartDate: time.Now().AddDate(0, 0, -30).UTC().Format(time.RFC3339),
+		},
+	})
+	return err
 }
 
 // ── Column metric monitors ─────────────────────────────────────────────────────

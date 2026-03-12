@@ -273,7 +273,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 					hadErrors = true
 					continue
 				}
-				if _, err := client.UpdateMetricMonitoring(ci.ID, api.UpdateMetricMonitoringRequest{Enabled: boolPtr(true)}); err != nil {
+				if err := client.EnableDefaultMonitoring(ci.ID); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Monitoring for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
 					hadErrors = true
 				}

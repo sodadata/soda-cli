@@ -48,7 +48,7 @@ soda
   │   │
   │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ✅
   │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
-  │   │   [--monitoring]                                # enable default metric monitors  ❌ [POST /metricMonitoring not in public API; warns and continues]
+  │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
   │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → contracts
@@ -158,7 +158,7 @@ soda
   │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
   │   ├── onboard  <id>                                  # guided setup for an existing dataset  ✅
-  │   │   [--monitoring]                                # enable default metric monitors  ❌ [POST /metricMonitoring not in public API; warns and continues]
+  │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  🔌 [API wired, backend may not persist]
   │   │   # interactive wizard: monitoring → contracts

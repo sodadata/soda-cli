@@ -157,6 +157,18 @@ type TimePartitionRequest struct {
 	PartitionColumn string `json:"partitionColumn,omitempty"`
 }
 
+// ── Metric monitoring (via dataset update) ────────────────────────────────────
+
+// MetricMonitoringSettings is the shape of the `metricMonitoring` field inside
+// POST /api/v1/datasets/{id}. It is separate from UpdateMetricMonitoringRequest
+// which targets the (unavailable) /metricMonitoring sub-resource.
+type MetricMonitoringSettings struct {
+	Enabled                                *bool                     `json:"enabled,omitempty"`
+	ScanSchedule                           *ScanSchedule             `json:"scanSchedule,omitempty"`
+	DatasetMetricMonitorsConfiguration     []DatasetMetricMonitorCfg `json:"datasetMetricMonitorsConfiguration,omitempty"`
+	HistoricalMetricCollectionScanStartDate string                   `json:"historicalMetricCollectionScanStartDate,omitempty"`
+}
+
 // ── Update request ────────────────────────────────────────────────────────────
 
 type UpdateDatasetRequest struct {
@@ -165,6 +177,7 @@ type UpdateDatasetRequest struct {
 	Tags                 []string                    `json:"tags,omitempty"`
 	TimePartition        *TimePartitionRequest       `json:"timePartition,omitempty"`
 	DiagnosticsWarehouse *DiagnosticsWarehouseConfig `json:"diagnosticsWarehouse,omitempty"`
+	MetricMonitoring     *MetricMonitoringSettings   `json:"metricMonitoring,omitempty"`
 }
 
 func (c *Client) UpdateDataset(datasetID string, req UpdateDatasetRequest) (*Dataset, error) {

@@ -106,8 +106,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		// Step 1: Monitoring
 		if enableMonitoring {
 			fmt.Println(output.Dim.Render("  Enabling default metric monitoring..."))
-			enabled := true
-			if _, err := client.UpdateMetricMonitoring(datasetID, api.UpdateMetricMonitoringRequest{Enabled: &enabled}); err != nil {
+			if err := client.EnableDefaultMonitoring(datasetID); err != nil {
 				fmt.Fprintf(os.Stderr, "  %s Could not enable monitoring: %v\n", output.Yellow.Render("⚠"), err)
 			} else {
 				fmt.Println(output.Green.Render("  ✓") + " Metric monitoring enabled.")
