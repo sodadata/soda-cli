@@ -99,6 +99,64 @@ var datasetListCmd = &cobra.Command{
 	},
 }
 
+var datasetGetCmd = &cobra.Command{
+	Use:   "get <id>",
+	Short: "Show details for a single dataset",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		ds, err := client.GetDataset(args[0])
+		if err != nil {
+			return err
+		}
+
+		if output.EffectiveFmt(GCtx) == "json" {
+			item := map[string]string{
+				"id":               ds.ID,
+				"name":             ds.Name,
+				"qualifiedName":    ds.QualifiedName,
+				"datasource":       ds.Datasource.Name,
+				"status":           ds.DataQualityStatus,
+				"checks":           fmt.Sprintf("%.0f", ds.Checks),
+				"incidents":        fmt.Sprintf("%.0f", ds.Incidents),
+				"partitionColumn":  ds.PartitionColumn,
+				"updated":          ds.LastUpdated,
+				"cloudUrl":         ds.CloudURL,
+			}
+			keys := []string{"id", "name", "qualifiedName", "datasource", "status", "checks", "incidents", "partitionColumn", "updated", "cloudUrl"}
+			output.RenderOne(item, keys, GCtx)
+			return nil
+		}
+
+		fmt.Printf("  %-22s %s\n", output.Bold.Render("Name"), ds.Name)
+		fmt.Printf("  %-22s %s\n", output.Bold.Render("ID"), output.FmtID(ds.ID))
+		fmt.Printf("  %-22s %s\n", output.Bold.Render("Qualified name"), ds.QualifiedName)
+		fmt.Printf("  %-22s %s\n", output.Bold.Render("Datasource"), ds.Datasource.Name)
+		if ds.DataQualityStatus != "" {
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("DQ status"), output.FmtStatus(ds.DataQualityStatus))
+		}
+		fmt.Printf("  %-22s %.0f\n", output.Bold.Render("Checks"), ds.Checks)
+		fmt.Printf("  %-22s %.0f\n", output.Bold.Render("Incidents"), ds.Incidents)
+		if ds.PartitionColumn != "" {
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), ds.PartitionColumn)
+		}
+		if len(ds.Tags) > 0 {
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Tags"), strings.Join(ds.Tags, ", "))
+		}
+		if ds.LastUpdated != "" {
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Updated"), output.FmtTime(ds.LastUpdated))
+		}
+		if ds.CloudURL != "" {
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Cloud URL"), ds.CloudURL)
+		}
+		return nil
+	},
+}
+
 var datasetUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update dataset metadata (owner, tags)",
@@ -158,16 +216,29 @@ var datasetTimePartitionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		column, _ := cmd.Flags().GetString("column")
-		if column == "" {
-			fmt.Printf("  %-22s %s\n", output.Bold.Render("Dataset"), args[0])
-			fmt.Println(output.Dim.Render("  Time-partition view requires a single-dataset GET endpoint (not yet in the public API)."))
-			return nil
-		}
 
 		client, err := newAPIClient()
 		if err != nil {
 			return err
 		}
+
+		if column == "" {
+			// GET — show current time-partition
+			ds, err := client.GetDataset(args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Dataset"), ds.Name)
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("ID"), output.Dim.Render(ds.ID))
+			if ds.PartitionColumn != "" {
+				fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), ds.PartitionColumn)
+			} else {
+				fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), output.Dim.Render("not set"))
+			}
+			return nil
+		}
+
+		// SET — update time-partition column
 		req := api.UpdateDatasetRequest{
 			TimePartition: &api.TimePartitionRequest{PartitionColumn: column},
 		}
@@ -597,6 +668,7 @@ func init() {
 
 	datasetCmd.AddCommand(
 		datasetListCmd,
+		datasetGetCmd,
 		datasetUpdateCmd,
 		datasetDeleteCmd,
 		datasetTimePartitionCmd,

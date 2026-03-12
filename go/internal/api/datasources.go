@@ -125,6 +125,47 @@ func (c *Client) CreateDatasource(req CreateDatasourceRequest) (*CreateDatasourc
 	return &result, nil
 }
 
+// ── Test connection (async) ──────────────────────────────────────────────────
+
+type TestConnectionRequest struct {
+	AgentID                   string `json:"agentId"`
+	ConfigurationFileContents string `json:"configurationFileContents"`
+}
+
+type TestConnectionResponse struct {
+	OperationID string `json:"operationId"`
+}
+
+type TestConnectionStatus struct {
+	OperationID string `json:"operationId"`
+	State       string `json:"state"` // "running", "succeeded", "failed"
+	Message     string `json:"message"`
+}
+
+func (c *Client) TestConnection(req TestConnectionRequest) (*TestConnectionResponse, error) {
+	resp, err := c.post("/api/v1/datasources/actions/testConnection", req)
+	if err != nil {
+		return nil, err
+	}
+	var result TestConnectionResponse
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) GetTestConnectionStatus(operationID string) (*TestConnectionStatus, error) {
+	resp, err := c.get("/api/v1/datasources/actions/testConnection/"+operationID, nil)
+	if err != nil {
+		return nil, err
+	}
+	var result TestConnectionStatus
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (c *Client) DeleteDatasource(datasourceID string) (*DeleteDatasourceResponse, error) {
 	resp, err := c.delete("/api/v1/datasources/" + datasourceID)
 	if err != nil {

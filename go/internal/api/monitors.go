@@ -169,6 +169,22 @@ func (c *Client) CreateColumnMonitor(datasetID string, req CreateColumnMonitorRe
 	return &result, nil
 }
 
+type UpdateColumnMonitorRequest struct {
+	Configuration ColumnMonitorConfig `json:"configuration"`
+}
+
+func (c *Client) UpdateColumnMonitor(datasetID, monitorID string, req UpdateColumnMonitorRequest) (*ColumnMonitor, error) {
+	resp, err := c.put("/api/v1/datasets/"+datasetID+"/columnMetricMonitors/"+monitorID, req)
+	if err != nil {
+		return nil, err
+	}
+	var result ColumnMonitor
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (c *Client) DeleteColumnMonitor(datasetID, monitorID string) (*DeleteMonitorResponse, error) {
 	resp, err := c.delete("/api/v1/datasets/" + datasetID + "/columnMetricMonitors/" + monitorID)
 	if err != nil {
@@ -191,6 +207,24 @@ type CreateCustomSqlMonitorRequest struct {
 
 func (c *Client) CreateCustomSqlMonitor(datasetID string, req CreateCustomSqlMonitorRequest) (*CustomSqlMonitor, error) {
 	resp, err := c.post("/api/v1/datasets/"+datasetID+"/customSqlMonitors", req)
+	if err != nil {
+		return nil, err
+	}
+	var result CustomSqlMonitor
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+type UpdateCustomSqlMonitorRequest struct {
+	MonitorName   string                `json:"monitorName,omitempty"`
+	Configuration CustomSqlMonitorConfig `json:"configuration"`
+	ColumnName    string                `json:"columnName,omitempty"`
+}
+
+func (c *Client) UpdateCustomSqlMonitor(datasetID, monitorID string, req UpdateCustomSqlMonitorRequest) (*CustomSqlMonitor, error) {
+	resp, err := c.put("/api/v1/datasets/"+datasetID+"/customSqlMonitors/"+monitorID, req)
 	if err != nil {
 		return nil, err
 	}

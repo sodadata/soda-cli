@@ -233,8 +233,42 @@ var monitorConfigCmd = &cobra.Command{
 			return nil
 		}
 
-		// The public API only supports GET for metricMonitoring — no write endpoint exists.
-		return output.Errorf(2, "updating monitor config (enable/disable/schedule) is not yet available in the public API.\n\n  View current config:  soda monitor config %s\n  Enable monitoring from the Soda Cloud UI.", args[0])
+		if enable && disable {
+			return output.Errorf(2, "--enable and --disable are mutually exclusive")
+		}
+
+		timezone, _ := cmd.Flags().GetString("timezone")
+
+		req := api.UpdateMetricMonitoringRequest{}
+		if enable {
+			t := true
+			req.Enabled = &t
+		} else if disable {
+			f := false
+			req.Enabled = &f
+		}
+		if schedule != "" {
+			tz := timezone
+			if tz == "" {
+				tz = "UTC"
+			}
+			req.ScanSchedule = &api.ScanSchedule{
+				CronExpression: schedule,
+				Timezone:       tz,
+			}
+		}
+
+		updated, err := client.UpdateMetricMonitoring(args[0], req)
+		if err != nil {
+			return err
+		}
+
+		status := output.Red.Render("disabled")
+		if updated.Enabled {
+			status = output.Green.Render("enabled")
+		}
+		output.PrintSuccess(fmt.Sprintf("Monitor config updated for dataset '%s'. Monitors: %s", args[0], status), GCtx)
+		return nil
 	},
 }
 
@@ -403,15 +437,121 @@ var monitorDeleteCmd = &cobra.Command{
 	},
 }
 
-// ── monitor update (stub) ─────────────────────────────────────────────────────
+// ── monitor update ────────────────────────────────────────────────────────────
 
 var monitorUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
-	Short: "Update a monitor",
+	Short: "Update a monitor (enable/disable, change SQL, etc.)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return output.Errorf(2, "monitor update is not yet implemented")
+		datasetID, _ := cmd.Flags().GetString("dataset")
+		if datasetID == "" {
+			return output.Errorf(2, "--dataset is required")
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		// Look up the monitor type by scanning the metric monitoring config
+		cfg, err := client.GetMetricMonitoring(datasetID)
+		if err != nil {
+			return err
+		}
+
+		monitorID := args[0]
+
+		// Check column monitors
+		for _, m := range cfg.ColumnMetricMonitors {
+			if m.CheckID == monitorID {
+				return runMonitorUpdateColumn(cmd, client, datasetID, monitorID, m)
+			}
+		}
+
+		// Check custom SQL monitors
+		for _, m := range cfg.CustomSqlMetricMonitors {
+			if m.CheckID == monitorID {
+				return runMonitorUpdateCustom(cmd, client, datasetID, monitorID, m)
+			}
+		}
+
+		return output.Errorf(2, "monitor '%s' not found on dataset '%s'.\n\n  Note: dataset-level monitors cannot be updated individually — use `soda monitor config %s --enable/--disable`", monitorID, datasetID, datasetID)
 	},
+}
+
+func runMonitorUpdateColumn(cmd *cobra.Command, client *api.Client, datasetID, monitorID string, existing api.ColumnMonitor) error {
+	enable, _ := cmd.Flags().GetBool("enable")
+	disable, _ := cmd.Flags().GetBool("disable")
+
+	if enable && disable {
+		return output.Errorf(2, "--enable and --disable are mutually exclusive")
+	}
+
+	cfg := existing.Configuration
+	if enable {
+		cfg.IsEnabled = true
+	} else if disable {
+		cfg.IsEnabled = false
+	}
+
+	result, err := client.UpdateColumnMonitor(datasetID, monitorID, api.UpdateColumnMonitorRequest{
+		Configuration: cfg,
+	})
+	if err != nil {
+		return err
+	}
+	status := "disabled"
+	if result.Configuration.IsEnabled {
+		status = "enabled"
+	}
+	output.PrintSuccess(fmt.Sprintf("Column monitor '%s' updated (%s).", monitorID, status), GCtx)
+	return nil
+}
+
+func runMonitorUpdateCustom(cmd *cobra.Command, client *api.Client, datasetID, monitorID string, existing api.CustomSqlMonitor) error {
+	enable, _ := cmd.Flags().GetBool("enable")
+	disable, _ := cmd.Flags().GetBool("disable")
+	sqlQuery, _ := cmd.Flags().GetString("sql")
+	name, _ := cmd.Flags().GetString("name")
+	resultMetric, _ := cmd.Flags().GetString("result-metric")
+
+	if enable && disable {
+		return output.Errorf(2, "--enable and --disable are mutually exclusive")
+	}
+
+	cfg := existing.Configuration
+	if enable {
+		cfg.IsEnabled = true
+	} else if disable {
+		cfg.IsEnabled = false
+	}
+	if sqlQuery != "" {
+		cfg.SQLQuery = sqlQuery
+	}
+	if resultMetric != "" {
+		cfg.ResultMetric = resultMetric
+	}
+
+	reqName := existing.MonitorName
+	if name != "" {
+		reqName = name
+	}
+
+	result, err := client.UpdateCustomSqlMonitor(datasetID, monitorID, api.UpdateCustomSqlMonitorRequest{
+		MonitorName:   reqName,
+		Configuration: cfg,
+		ColumnName:    existing.ColumnName,
+	})
+	if err != nil {
+		return err
+	}
+	status := "disabled"
+	if result.Configuration.IsEnabled {
+		status = "enabled"
+	}
+	output.PrintSuccess(fmt.Sprintf("Custom SQL monitor '%s' updated (%s).", result.MonitorName, status), GCtx)
+	return nil
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -481,6 +621,13 @@ func init() {
 		}
 		return columnMetricNames, cobra.ShellCompDirectiveNoFileComp
 	})
+
+	monitorUpdateCmd.Flags().String("dataset", "", "Dataset ID (required)")
+	monitorUpdateCmd.Flags().Bool("enable", false, "Enable the monitor")
+	monitorUpdateCmd.Flags().Bool("disable", false, "Disable the monitor")
+	monitorUpdateCmd.Flags().String("sql", "", "Update SQL query (custom monitors only)")
+	monitorUpdateCmd.Flags().String("name", "", "Update monitor name (custom monitors only)")
+	monitorUpdateCmd.Flags().String("result-metric", "", "Update result metric (custom monitors only)")
 
 	monitorDeleteCmd.Flags().String("dataset", "", "Dataset ID (required)")
 

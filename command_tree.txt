@@ -41,7 +41,8 @@ soda
   │   │   # returns datasource ID + discovery scan ID
   │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
   │   │
-  │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
+  │   ├── test-connection  <config-file>                # test connection via Soda Agent (async poll)  ✅
+  │   │   [--agent <agent-id>]                        # route through a specific agent (auto-detects if only one)
   │   │
   │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
   │   │
@@ -144,6 +145,8 @@ soda
   │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
   │   │   # shows onboarded datasets from ListDatasets + discovered (not yet onboarded) from ListDiscoveredDatasets
   │   │   # columns: id, name, datasource, status (onboarded|not onboarded), checks, monitors, updated
+  │   ├── get     <id>                                  # show dataset details  ✅
+  │   │   # name, qualified name, datasource, DQ status, checks, incidents, partition column, tags, cloud URL
   │   ├── update  <id>  [--owner <user-id>]  [--tag <tag>]  ✅
   │   │   # --tag is repeatable and replaces all existing tags
   │   │   # --owner takes a user ID (use `soda iam user list` to find it)
@@ -151,7 +154,7 @@ soda
   │   │
   │   ├── time-partition  <id>  --column <col>  ✅
   │   │   # affects both profiling and metric monitoring (anomaly detection window)
-  │   │   # no --column → view current (requires single-dataset GET, not yet in public API)
+  │   │   # no --column → view current partition column (via GET /datasets/{id})
   │   │
   │   ├── profiling  <id>  [--enable|--disable]  ✅
   │   │              [--schedule <cron>]  [--timezone <tz>]
@@ -193,10 +196,10 @@ soda
   │   │           [--type column|custom|dataset]
   │   │           # --dataset is required (no global monitor list endpoint in public API)
   │   │
-  │   ├── config  <dataset-id>  [--enable|--disable]  ❌ [no write endpoint in public API]
+  │   ├── config  <dataset-id>  [--enable|--disable]  ✅
   │   │           [--schedule <cron>]  [--timezone <tz>]
-  │   │   # no flags → show current config (enabled, schedule, monitor count)  ✅ (read-only)
-  │   │   # --enable/--disable/--schedule require POST /metricMonitoring which does not exist
+  │   │   # no flags → show current config (enabled, schedule, monitor count)  ✅
+  │   │   # --enable/--disable/--schedule update via POST /metricMonitoring
   │   │
   │   ├── add     --dataset <id>  --type column|custom|dataset
   │   │
@@ -219,7 +222,12 @@ soda
   │   │     # --result-metric <col>             (required)
   │   │     # [--column <col>]
   │   │
-  │   ├── update  <id>  ❌  (not yet implemented)
+  │   ├── update  <id>  --dataset <id>  ✅
+  │   │   [--enable|--disable]                        # toggle monitor on/off
+  │   │   [--sql <query>]                             # update SQL (custom monitors only)
+  │   │   [--name <name>]                             # update name (custom monitors only)
+  │   │   [--result-metric <col>]                     # update result metric (custom monitors only)
+  │   │   # auto-detects monitor type (column vs custom) from dataset config
   │   └── delete  <id>  --dataset <id>  ✅
   │       # looks up monitor type from dataset config, then calls appropriate DELETE
   │

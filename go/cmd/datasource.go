@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -150,12 +151,85 @@ Example config:
 
 var dsTestConnectionCmd = &cobra.Command{
 	Use:   "test-connection <config-file>",
-	Short: "Test the connection defined in a YAML config file",
+	Short: "Test a datasource connection via Soda Agent",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(output.Dim.Render("  Testing connection from " + args[0] + "..."))
-		output.PrintSuccess("Connection successful.", GCtx)
-		return nil
+		configFile := args[0]
+		agentID, _ := cmd.Flags().GetString("agent")
+
+		configBytes, err := os.ReadFile(configFile)
+		if err != nil {
+			return output.Errorf(2, "could not read config file: %v", err)
+		}
+
+		// Auto-detect agent if not specified
+		if agentID == "" {
+			client, err := newAPIClient()
+			if err != nil {
+				return err
+			}
+			agents, err := client.ListAgents(100)
+			if err != nil {
+				return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+			}
+			if len(agents.Content) == 0 {
+				return output.Errorf(2, "--agent is required. No agents found.")
+			}
+			if len(agents.Content) == 1 {
+				agentID = agents.Content[0].ID
+				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+			} else {
+				fmt.Println("  Available agents:")
+				for _, a := range agents.Content {
+					fmt.Printf("    %s  %s\n", a.ID, a.Name)
+				}
+				return output.Errorf(2, "--agent is required (multiple agents found)")
+			}
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(output.Dim.Render("  Testing connection from " + configFile + "..."))
+
+		result, err := client.TestConnection(api.TestConnectionRequest{
+			AgentID:                   agentID,
+			ConfigurationFileContents: string(configBytes),
+		})
+		if err != nil {
+			return err
+		}
+
+		// Poll for completion
+		timeout := time.After(2 * time.Minute)
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-timeout:
+				return output.Errorf(2, "test-connection timed out after 2 minutes (operation: %s)", result.OperationID)
+			case <-ticker.C:
+				status, err := client.GetTestConnectionStatus(result.OperationID)
+				if err != nil {
+					return err
+				}
+				switch status.State {
+				case "succeeded":
+					output.PrintSuccess("Connection successful.", GCtx)
+					return nil
+				case "failed":
+					msg := "Connection failed."
+					if status.Message != "" {
+						msg = status.Message
+					}
+					return output.Errorf(1, msg)
+				}
+				// still running — continue polling
+			}
+		}
 	},
 }
 
@@ -245,6 +319,7 @@ var dsDiagnosticsTestConnectionCmd = &cobra.Command{
 
 func init() {
 	dsCreateCmd.Flags().String("agent", "", "Route connection through a Soda Agent")
+	dsTestConnectionCmd.Flags().String("agent", "", "Soda Agent ID to route the test through")
 
 	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")
 	dsDiagnosticsCmd.Flags().Bool("disable", false, "Disable the diagnostics warehouse")

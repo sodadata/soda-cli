@@ -214,6 +214,43 @@ func (c *Client) DeleteDataset(datasetID string) (*DeleteDatasetResponse, error)
 	return &result, nil
 }
 
+// ── Get single dataset ────────────────────────────────────────────────────────
+
+type DatasetDetail struct {
+	ID                string               `json:"id"`
+	Name              string               `json:"name"`
+	QualifiedName     string               `json:"qualifiedName"`
+	CloudURL          string               `json:"cloudUrl"`
+	Checks            float64              `json:"checks"`
+	Incidents         float64              `json:"incidents"`
+	DataQualityStatus string               `json:"dataQualityStatus"`
+	Datasource        DatasourceProperties `json:"datasource"`
+	Tags              []string             `json:"tags"`
+	LastUpdated       string               `json:"lastUpdated"`
+	PartitionColumn   string               `json:"partitionColumn"`
+	Owners            []DatasetOwnerInfo   `json:"owners"`
+}
+
+type DatasetOwnerInfo struct {
+	Type        string `json:"type"`
+	UserID      string `json:"userId"`
+	UserGroupID string `json:"userGroupId"`
+	Email       string `json:"email"`
+	Name        string `json:"name"`
+}
+
+func (c *Client) GetDataset(datasetID string) (*DatasetDetail, error) {
+	resp, err := c.get("/api/v1/datasets/"+datasetID, nil)
+	if err != nil {
+		return nil, err
+	}
+	var result DatasetDetail
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 type ListDatasetsParams struct {
 	DatasourceName string
 	Search         string
