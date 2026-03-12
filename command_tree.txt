@@ -35,19 +35,6 @@ soda
   ├── dashboard                             # org dashboard: datasets, results, incidents, recent jobs  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │
   ├── datasource  (alias: ds)
-  │   ├── create  <config-file>                         # register datasource from a YAML connection config  ✅
-  │   │   [--runner <runner-id>]                        # route through a Soda Runner (auto-detects if only one)
-  │   │   # config file must have: type, name, connection details
-  │   │   # returns datasource ID + discovery scan ID
-  │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
-  │   │
-  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅ ([Error] this endpoint is not yet available in the API (got HTML instead of JSON from /api/v1/datasources/actions/testConnection/))
-  │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
-  │   │
-  │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
-  │   │
-  │   ├── delete  <id>  ✅
-  │   │
   │   ├── onboard  <config-file-or-datasource-id>       # guided setup: create or connect to datasource + configure all datasets  ✅
   │   │   # pass a YAML config file → creates a new datasource
   │   │   # pass a datasource ID → skips creation, runs onboard flow on existing datasource
@@ -61,7 +48,18 @@ soda
   │   │   # interactive wizard: runner → discovery poll → dataset select → monitoring → profiling → contracts
   │   │   # after datasource create, suggests: soda datasource onboard <id>
   │   │
-  │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
+  │   ├── create  <config-file>                         # register datasource from a YAML connection config  ✅
+  │   │   [--runner <runner-id>]                        # route through a Soda Runner (auto-detects if only one)
+  │   │   # config file must have: type, name, connection details
+  │   │   # returns datasource ID + discovery scan ID
+  │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
+  │   │
+  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅ ([Error] this endpoint is not yet available in the API (got HTML instead of JSON from /api/v1/datasources/actions/testConnection/))
+  │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
+  │   │
+  │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
+  │   │
+  │   ├── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
   │       [--warehouse same|<config-file>]              # reuse datasource connection or provide a separate config
   │       [--schema <name>]                             # schema for diagnostic tables (default: soda_diagnostics)
@@ -77,6 +75,8 @@ soda
   │       [--failed-rows-cta]                           # show a call-to-action link to where failed rows can be found
   │       [--no-failed-rows-cta]
   │       └── test-connection   <id>                    # test the diagnostics warehouse connection  ❌
+  │
+  │   └── delete  <id>  ✅
   │
   ├── contract
   │   ├── list                                        # list all contracts in Soda Cloud  ✅
@@ -136,10 +136,10 @@ soda
   │       [--from <date>]                 # YYYY-MM-DD or ISO8601; show results on or after this date
   │       [--until <date>]                # YYYY-MM-DD or ISO8601; show results on or before this date (inclusive)
   │
-  │       # DATASET                                            TYPE   NAME                          COLUMN    STATUS     DATE
-  │       # snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  row_count > 0                 dataset   ✓ passing  2026-03-05 08:12
-  │       # snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  no_nulls                      order_id  ✗ failing  2026-03-05 08:12
-  │       # pg/prod/users                                      check  No missing values             email     ✓ passing  2026-03-05 06:45
+  │       # DATASET ID   DATASET                                            TYPE   NAME                          COLUMN    STATUS     DATE
+  │       # ds_abc123    snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  row_count > 0                           ✓ passing  2026-03-05 08:12
+  │       # ds_abc123    snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  no_nulls                      order_id  ✗ failing  2026-03-05 08:12
+  │       # ds_def456    pg/prod/users                                      check  No missing values             email     ✓ passing  2026-03-05 06:45
   │
   ├── dataset
   │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
