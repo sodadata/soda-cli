@@ -60,7 +60,7 @@ var dsCreateCmd = &cobra.Command{
 	Long: `Register a new datasource in Soda Cloud from a YAML config file.
 
 The config file must contain at minimum: type, name, and connection details.
-An agent is required to route the connection through.
+A runner is required to route the connection through.
 
 Example config:
   type: postgres
@@ -74,7 +74,7 @@ Example config:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configFile := args[0]
-		agentID, _ := cmd.Flags().GetString("agent")
+		runnerID, _ := cmd.Flags().GetString("runner")
 
 		// Read config file
 		configBytes, err := os.ReadFile(configFile)
@@ -92,29 +92,29 @@ Example config:
 			return output.Errorf(2, "'name' field is required in the config file")
 		}
 
-		// Agent is required
-		if agentID == "" {
-			// Try to auto-detect if there's only one agent
+		// Runner is required
+		if runnerID == "" {
+			// Try to auto-detect if there's only one runner
 			client, err := newAPIClient()
 			if err != nil {
 				return err
 			}
-			agents, err := client.ListAgents(100)
+			runners, err := client.ListRunners(100)
 			if err != nil {
-				return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+				return output.Errorf(2, "--runner is required (could not list runners: %v)", err)
 			}
-			if len(agents.Content) == 0 {
-				return output.Errorf(2, "--agent is required. No agents found — set up an agent in Soda Cloud first.")
+			if len(runners.Content) == 0 {
+				return output.Errorf(2, "--runner is required. No runners found — set up a runner in Soda Cloud first.")
 			}
-			if len(agents.Content) == 1 {
-				agentID = agents.Content[0].ID
-				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+			if len(runners.Content) == 1 {
+				runnerID = runners.Content[0].ID
+				fmt.Printf("  Using runner: %s (%s)\n", output.Bold.Render(runners.Content[0].Name), runnerID)
 			} else {
-				fmt.Println("  Available agents:")
-				for _, a := range agents.Content {
+				fmt.Println("  Available runners:")
+				for _, a := range runners.Content {
 					fmt.Printf("    %s  %s\n", a.ID, a.Name)
 				}
-				return output.Errorf(2, "--agent is required (multiple agents found)")
+				return output.Errorf(2, "--runner is required (multiple runners found)")
 			}
 		}
 
@@ -127,7 +127,7 @@ Example config:
 
 		result, err := client.CreateDatasource(api.CreateDatasourceRequest{
 			Name:                      name,
-			AgentID:                   agentID,
+			AgentID:                   runnerID,
 			ConfigurationFileContents: string(configBytes),
 		})
 		if err != nil {
@@ -151,39 +151,39 @@ Example config:
 
 var dsTestConnectionCmd = &cobra.Command{
 	Use:   "test-connection <config-file>",
-	Short: "Test a datasource connection via Soda Agent",
+	Short: "Test a datasource connection via Soda Runner",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configFile := args[0]
-		agentID, _ := cmd.Flags().GetString("agent")
+		runnerID, _ := cmd.Flags().GetString("runner")
 
 		configBytes, err := os.ReadFile(configFile)
 		if err != nil {
 			return output.Errorf(2, "could not read config file: %v", err)
 		}
 
-		// Auto-detect agent if not specified
-		if agentID == "" {
+		// Auto-detect runner if not specified
+		if runnerID == "" {
 			client, err := newAPIClient()
 			if err != nil {
 				return err
 			}
-			agents, err := client.ListAgents(100)
+			runners, err := client.ListRunners(100)
 			if err != nil {
-				return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+				return output.Errorf(2, "--runner is required (could not list runners: %v)", err)
 			}
-			if len(agents.Content) == 0 {
-				return output.Errorf(2, "--agent is required. No agents found.")
+			if len(runners.Content) == 0 {
+				return output.Errorf(2, "--runner is required. No runners found.")
 			}
-			if len(agents.Content) == 1 {
-				agentID = agents.Content[0].ID
-				fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+			if len(runners.Content) == 1 {
+				runnerID = runners.Content[0].ID
+				fmt.Printf("  Using runner: %s (%s)\n", output.Bold.Render(runners.Content[0].Name), runnerID)
 			} else {
-				fmt.Println("  Available agents:")
-				for _, a := range agents.Content {
+				fmt.Println("  Available runners:")
+				for _, a := range runners.Content {
 					fmt.Printf("    %s  %s\n", a.ID, a.Name)
 				}
-				return output.Errorf(2, "--agent is required (multiple agents found)")
+				return output.Errorf(2, "--runner is required (multiple runners found)")
 			}
 		}
 
@@ -195,7 +195,7 @@ var dsTestConnectionCmd = &cobra.Command{
 		fmt.Println(output.Dim.Render("  Testing connection from " + configFile + "..."))
 
 		result, err := client.TestConnection(api.TestConnectionRequest{
-			AgentID:                   agentID,
+			AgentID:                   runnerID,
 			ConfigurationFileContents: string(configBytes),
 		})
 		if err != nil {
@@ -318,8 +318,8 @@ var dsDiagnosticsTestConnectionCmd = &cobra.Command{
 }
 
 func init() {
-	dsCreateCmd.Flags().String("agent", "", "Route connection through a Soda Agent")
-	dsTestConnectionCmd.Flags().String("agent", "", "Soda Agent ID to route the test through")
+	dsCreateCmd.Flags().String("runner", "", "Route connection through a Soda Runner")
+	dsTestConnectionCmd.Flags().String("runner", "", "Soda Runner ID to route the test through")
 
 	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")
 	dsDiagnosticsCmd.Flags().Bool("disable", false, "Disable the diagnostics warehouse")

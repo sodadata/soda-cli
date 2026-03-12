@@ -736,7 +736,7 @@ func init() {
 	contractCopilotCmd.Flags().String("output", "", "Output file path")
 
 	contractVerifyCmd.Flags().String("datasource", "", "Datasource config file override")
-	contractVerifyCmd.Flags().Bool("agent", false, "Delegate execution to Soda Agent")
+	contractVerifyCmd.Flags().Bool("runner", false, "Delegate execution to Soda Runner")
 	contractVerifyCmd.Flags().Bool("push", false, "Push results to Soda Cloud after verification")
 	contractVerifyCmd.Flags().StringArray("set", nil, "Runtime variable overrides (key=value)")
 

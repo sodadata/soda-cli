@@ -46,7 +46,7 @@ cloud:
 
 ## Key domain concepts
 
-- **Datasource** — a database connection. Can be a local YAML config (`datasource create`) or a cloud-registered connection via Agent (`datasource onboard`). One datasource contains many datasets.
+- **Datasource** — a database connection. Can be a local YAML config (`datasource create`) or a cloud-registered connection via Runner (`datasource onboard`). One datasource contains many datasets.
 - **Dataset** — a specific table registered in Soda Cloud, within a datasource.
 - **Contract** — a YAML file defining data quality expectations for a dataset. Lives locally, published to Soda Cloud via `contract push`.
 - **Job** — an execution run (contract verify or monitor cycle). Produces results. Alias: `scan`.

@@ -10,27 +10,27 @@ import (
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
-var agentCmd = &cobra.Command{
-	Use:   "agent",
-	Short: "Manage Soda Agents",
+var runnerCmd = &cobra.Command{
+	Use:   "runner",
+	Short: "Manage Soda Runners",
 }
 
-var agentListCmd = &cobra.Command{
+var runnerListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List registered Soda Agents",
+	Short: "List registered Soda Runners",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := newAPIClient()
 		if err != nil {
 			return err
 		}
 
-		result, err := client.ListAgents(100)
+		result, err := client.ListRunners(100)
 		if err != nil {
 			return err
 		}
 
 		if len(result.Content) == 0 {
-			fmt.Println(output.Dim.Render("  No agents found."))
+			fmt.Println(output.Dim.Render("  No runners found."))
 			return nil
 		}
 
@@ -39,9 +39,9 @@ var agentListCmd = &cobra.Command{
 			rows[i] = map[string]string{
 				"id":        a.ID,
 				"name":      a.Name,
-				"type":      fmtAgentType(a.Type),
-				"status":    fmtAgentStatus(a.IsOnline),
-				"last seen": fmtAgentTime(a.LastSeenTimestamp),
+				"type":      fmtRunnerType(a.Type),
+				"status":    fmtRunnerStatus(a.IsOnline),
+				"last seen": fmtRunnerTime(a.LastSeenTimestamp),
 				"version":   a.Versions.Agent,
 			}
 		}
@@ -52,9 +52,9 @@ var agentListCmd = &cobra.Command{
 	},
 }
 
-var agentGetCmd = &cobra.Command{
-	Use:   "get <agent-id>",
-	Short: "Show details for a specific agent",
+var runnerGetCmd = &cobra.Command{
+	Use:   "get <runner-id>",
+	Short: "Show details for a specific runner",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := newAPIClient()
@@ -62,28 +62,28 @@ var agentGetCmd = &cobra.Command{
 			return err
 		}
 
-		a, err := client.GetAgent(args[0])
+		a, err := client.GetRunner(args[0])
 		if err != nil {
 			return err
 		}
 
 		rows := []map[string]string{{
-			"id":        a.ID,
-			"name":      a.Name,
-			"label":     a.Label,
-			"type":      fmtAgentType(a.Type),
-			"status":    fmtAgentStatus(a.IsOnline),
-			"last seen": fmtAgentTime(a.LastSeenTimestamp),
-			"agent version":  a.Versions.Agent,
+			"id":              a.ID,
+			"name":            a.Name,
+			"label":           a.Label,
+			"type":            fmtRunnerType(a.Type),
+			"status":          fmtRunnerStatus(a.IsOnline),
+			"last seen":       fmtRunnerTime(a.LastSeenTimestamp),
+			"runner version":  a.Versions.Agent,
 			"library version": a.Versions.Library,
 		}}
 
-		output.RenderOne(rows[0], []string{"id", "name", "label", "type", "status", "last seen", "agent version", "library version"}, GCtx)
+		output.RenderOne(rows[0], []string{"id", "name", "label", "type", "status", "last seen", "runner version", "library version"}, GCtx)
 		return nil
 	},
 }
 
-func fmtAgentType(t string) string {
+func fmtRunnerType(t string) string {
 	switch strings.ToUpper(t) {
 	case "SELF_HOSTED":
 		return "self-hosted"
@@ -94,14 +94,14 @@ func fmtAgentType(t string) string {
 	}
 }
 
-func fmtAgentStatus(online bool) string {
+func fmtRunnerStatus(online bool) string {
 	if online {
 		return "online"
 	}
 	return "offline"
 }
 
-func fmtAgentTime(s string) string {
+func fmtRunnerTime(s string) string {
 	if s == "" {
 		return ""
 	}
@@ -113,6 +113,6 @@ func fmtAgentTime(s string) string {
 }
 
 func init() {
-	agentCmd.AddCommand(agentListCmd, agentGetCmd)
-	rootCmd.AddCommand(agentCmd)
+	runnerCmd.AddCommand(runnerListCmd, runnerGetCmd)
+	rootCmd.AddCommand(runnerCmd)
 }

@@ -125,11 +125,11 @@ var Monitors = []map[string]string{
 	{"id": "mon_004", "dataset": "sf_analytics.sessions", "type": "custom", "metric": "daily_session_duration", "status": "enabled", "last_run": "2026-03-05 01:00"},
 }
 
-// Agents is mock data for the agent list command.
-var Agents = []map[string]string{
-	{"id": "agent_001", "name": "prod-agent", "status": "running", "version": "1.4.2", "last_seen": "2026-03-05 08:10"},
-	{"id": "agent_002", "name": "staging-agent", "status": "running", "version": "1.4.1", "last_seen": "2026-03-05 07:55"},
-	{"id": "agent_003", "name": "legacy-agent", "status": "offline", "version": "1.3.0", "last_seen": "2026-02-28 12:00"},
+// Runners is mock data for the runner list command.
+var Runners = []map[string]string{
+	{"id": "runner_001", "name": "prod-runner", "status": "running", "version": "1.4.2", "last_seen": "2026-03-05 08:10"},
+	{"id": "runner_002", "name": "staging-runner", "status": "running", "version": "1.4.1", "last_seen": "2026-03-05 07:55"},
+	{"id": "runner_003", "name": "legacy-runner", "status": "offline", "version": "1.3.0", "last_seen": "2026-02-28 12:00"},
 }
 
 // ServiceAccounts is mock data for the iam service-account list command.

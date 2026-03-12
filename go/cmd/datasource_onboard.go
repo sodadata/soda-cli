@@ -33,7 +33,7 @@ selecting all discovered datasets and applying the requested settings.
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		arg := args[0]
-		agentID, _ := cmd.Flags().GetString("agent")
+		runnerID, _ := cmd.Flags().GetString("runner")
 
 		// Infer non-interactive when all action flags are explicitly provided.
 		hasMonitoring := cmd.Flags().Changed("monitoring") || cmd.Flags().Changed("no-monitoring")
@@ -64,27 +64,27 @@ selecting all discovered datasets and applying the requested settings.
 				return output.Errorf(2, "'name' field is required in the config file")
 			}
 
-			// ── Step 1: Resolve agent ─────────────────────────────────────────
-			if agentID == "" {
-				agents, err := client.ListAgents(100)
+			// ── Step 1: Resolve runner ────────────────────────────────────────
+			if runnerID == "" {
+				runners, err := client.ListRunners(100)
 				if err != nil {
-					return output.Errorf(2, "--agent is required (could not list agents: %v)", err)
+					return output.Errorf(2, "--runner is required (could not list runners: %v)", err)
 				}
-				if len(agents.Content) == 0 {
-					return output.Errorf(2, "--agent is required. No agents found — set up an agent in Soda Cloud first.")
+				if len(runners.Content) == 0 {
+					return output.Errorf(2, "--runner is required. No runners found — set up a runner in Soda Cloud first.")
 				}
-				if len(agents.Content) == 1 {
-					agentID = agents.Content[0].ID
-					fmt.Printf("  Using agent: %s (%s)\n", output.Bold.Render(agents.Content[0].Name), agentID)
+				if len(runners.Content) == 1 {
+					runnerID = runners.Content[0].ID
+					fmt.Printf("  Using runner: %s (%s)\n", output.Bold.Render(runners.Content[0].Name), runnerID)
 				} else if noInteractive {
-					fmt.Println("  Available agents:")
-					for _, a := range agents.Content {
+					fmt.Println("  Available runners:")
+					for _, a := range runners.Content {
 						fmt.Printf("    %s  %s\n", a.ID, a.Name)
 					}
-					return output.Errorf(2, "--agent is required (multiple agents found)")
+					return output.Errorf(2, "--runner is required (multiple runners found)")
 				} else {
-					options := make([]huh.Option[string], len(agents.Content))
-					for i, a := range agents.Content {
+					options := make([]huh.Option[string], len(runners.Content))
+					for i, a := range runners.Content {
 						label := a.Name
 						if a.Label != "" {
 							label = a.Label + " (" + a.Name + ")"
@@ -93,9 +93,9 @@ selecting all discovered datasets and applying the requested settings.
 					}
 					form := huh.NewForm(huh.NewGroup(
 						huh.NewSelect[string]().
-							Title("Which agent should route this connection?").
+							Title("Which runner should route this connection?").
 							Options(options...).
-							Value(&agentID),
+							Value(&runnerID),
 					))
 					if err := form.Run(); err != nil {
 						return output.Errorf(2, "cancelled")
@@ -107,7 +107,7 @@ selecting all discovered datasets and applying the requested settings.
 			fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
 			createResult, err := client.CreateDatasource(api.CreateDatasourceRequest{
 				Name:                      name,
-				AgentID:                   agentID,
+				AgentID:                   runnerID,
 				ConfigurationFileContents: string(configBytes),
 			})
 			if err != nil {
@@ -452,7 +452,7 @@ func isInternalDataset(name, qualifiedName string) bool {
 }
 
 func init() {
-	dsOnboardCmd.Flags().String("agent", "", "Route connection through a Soda Agent (only used when creating a new datasource)")
+	dsOnboardCmd.Flags().String("runner", "", "Route connection through a Soda Runner (only used when creating a new datasource)")
 	dsOnboardCmd.Flags().Bool("monitoring", false, "Enable default metric monitors for all datasets")
 	dsOnboardCmd.Flags().Bool("no-monitoring", false, "Skip monitoring setup")
 	dsOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling for all datasets")

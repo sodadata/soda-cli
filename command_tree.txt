@@ -36,13 +36,13 @@ soda
   │
   ├── datasource  (alias: ds)
   │   ├── create  <config-file>                         # register datasource from a YAML connection config  ✅
-  │   │   [--agent <agent-id>]                          # route through a Soda Agent (auto-detects if only one)
+  │   │   [--runner <runner-id>]                        # route through a Soda Runner (auto-detects if only one)
   │   │   # config file must have: type, name, connection details
   │   │   # returns datasource ID + discovery scan ID
   │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
   │   │
-  │   ├── test-connection  <config-file>                # test connection via Soda Agent (async poll)  ✅
-  │   │   [--agent <agent-id>]                        # route through a specific agent (auto-detects if only one)
+  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅
+  │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
   │   │
   │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
   │   │
@@ -51,14 +51,14 @@ soda
   │   ├── onboard  <config-file-or-datasource-id>       # guided setup: create or connect to datasource + configure all datasets  ✅
   │   │   # pass a YAML config file → creates a new datasource
   │   │   # pass a datasource ID → skips creation, runs onboard flow on existing datasource
-  │   │   [--agent <name>]                              # route through a Soda Agent (only when creating; auto-detects if only one)
+  │   │   [--runner <name>]                             # route through a Soda Runner (only when creating; auto-detects if only one)
   │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--profiling]                                 # enable dataset profiling  ✅
   │   │   [--no-profiling]                              # skip profiling setup
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
   │   │   # when all action flags provided: fully non-interactive, onboards all datasets automatically
-  │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → profiling → contracts
+  │   │   # interactive wizard: runner → discovery poll → dataset select → monitoring → profiling → contracts
   │   │   # after datasource create, suggests: soda datasource onboard <id>
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
@@ -101,7 +101,7 @@ soda
   │   │   --output <file>
   │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud  ❌ [requires soda-core engine]
   │   │   [--datasource <file>]            # explicit override when no soda.yml
-  │   │   [--agent]                        # delegate to Soda Agent
+  │   │   [--runner]                       # delegate to Soda Runner
   │   │   [--push]                         # run checks + push results to cloud
   │   │   [--set key=value]               # runtime variable overrides (repeatable)
   │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
@@ -305,9 +305,9 @@ soda
   │       ├── create  --name <n>  --email <email>  ❌
   │       └── delete  <id>  ❌
   │
-  ├── agent
+  ├── runner
   │   ├── list  ✅
-  │   └── get   <agent-id>  ✅
+  │   └── get   <runner-id>  ✅
   │
   ├── secret
   │   ├── create  --name <n>  --value <v>  ❌ [NOT YET IMPLEMENTABLE - API work required]
