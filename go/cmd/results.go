@@ -187,8 +187,10 @@ var resultsListCmd = &cobra.Command{
 
 		rows := make([]map[string]string, len(checks))
 		for i, c := range checks {
+			datasetID := ""
 			qualifiedName := ""
 			if len(c.Datasets) > 0 {
+				datasetID = c.Datasets[0].ID
 				if c.Datasets[0].QualifiedName != "" {
 					qualifiedName = c.Datasets[0].QualifiedName
 				} else {
@@ -196,22 +198,18 @@ var resultsListCmd = &cobra.Command{
 				}
 			}
 
-			col := c.Column
-			if col == "" {
-				col = "dataset"
-			}
-
 			rows[i] = map[string]string{
-				"dataset": qualifiedName,
-				"type":    "check",
-				"name":    c.Name,
-				"column":  col,
-				"status":  fmtCheckStatus(c.EvaluationStatus),
-				"date":    fmtCheckTime(c.LastCheckRunTime),
+				"dataset id": datasetID,
+				"dataset":    qualifiedName,
+				"type":       "check",
+				"name":       c.Name,
+				"column":     c.Column,
+				"status":     fmtCheckStatus(c.EvaluationStatus),
+				"date":       fmtCheckTime(c.LastCheckRunTime),
 			}
 		}
 
-		cols := []string{"dataset", "type", "name", "column", "status", "date"}
+		cols := []string{"dataset id", "dataset", "type", "name", "column", "status", "date"}
 		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
 
 		if total > len(checks) || !result.Last {

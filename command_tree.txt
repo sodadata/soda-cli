@@ -41,7 +41,7 @@ soda
   │   │   # returns datasource ID + discovery scan ID
   │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
   │   │
-  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅
+  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅ ([Error] this endpoint is not yet available in the API (got HTML instead of JSON from /api/v1/datasources/actions/testConnection/))
   │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
   │   │
   │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
