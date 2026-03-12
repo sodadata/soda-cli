@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -40,9 +42,12 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			return err
 		}
 		var datasetName string
+		var qualifiedName string
 		for _, d := range datasets.Content {
 			if d.ID == datasetID {
 				datasetName = d.Name
+				// Build contract-style qualified name: datasource/db/schema/table
+				qualifiedName = d.Datasource.Name + "/" + strings.ReplaceAll(d.QualifiedName, ".", "/")
 				break
 			}
 		}
@@ -100,9 +105,13 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		// Step 1: Monitoring
 		if enableMonitoring {
-			fmt.Printf("  %s Enabling default dataset monitors is not yet available in the public API.\n", output.Yellow.Render("⚠"))
-			fmt.Println(output.Dim.Render("    Enable monitors from the Soda Cloud UI, or use:"))
-			fmt.Println(output.Dim.Render("    soda monitor add --dataset <id> --type column --column <col> --metric <metric>"))
+			fmt.Println(output.Dim.Render("  Enabling default metric monitoring..."))
+			enabled := true
+			if _, err := client.UpdateMetricMonitoring(datasetID, api.UpdateMetricMonitoringRequest{Enabled: &enabled}); err != nil {
+				fmt.Fprintf(os.Stderr, "  %s Could not enable monitoring: %v\n", output.Yellow.Render("⚠"), err)
+			} else {
+				fmt.Println(output.Green.Render("  ✓") + " Metric monitoring enabled.")
+			}
 		} else {
 			fmt.Println(output.Dim.Render("  Skipping monitoring setup."))
 		}
@@ -110,9 +119,23 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		// Step 2: Contracts
 		switch contractsMode {
 		case "ai":
-			fmt.Println(output.Dim.Render("  AI-generated contracts are not yet available. Coming soon."))
+			if qualifiedName == "" {
+				fmt.Fprintf(os.Stderr, "  %s Cannot generate AI contract: dataset qualified name not available.\n", output.Yellow.Render("⚠"))
+			} else {
+				outFile := datasetFileName(qualifiedName)
+				if err := runContractCreateCopilot(client, qualifiedName, outFile); err != nil {
+					fmt.Fprintf(os.Stderr, "  %s Contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
+				}
+			}
 		case "skeleton":
-			fmt.Println(output.Dim.Render("  Skeleton contract generation is not yet available. Coming soon."))
+			if qualifiedName == "" {
+				fmt.Fprintf(os.Stderr, "  %s Cannot generate skeleton contract: dataset qualified name not available.\n", output.Yellow.Render("⚠"))
+			} else {
+				outFile := datasetFileName(qualifiedName)
+				if err := runContractCreateSkeleton(client, qualifiedName, outFile); err != nil {
+					fmt.Fprintf(os.Stderr, "  %s Contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
+				}
+			}
 		case "none":
 			fmt.Println(output.Dim.Render("  Skipping contract setup."))
 		default:
@@ -123,6 +146,16 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		output.PrintSuccess(fmt.Sprintf("Dataset '%s' onboarding complete.", datasetName), GCtx)
 		return nil
 	},
+}
+
+// datasetFileName returns "tablename.yml" from a qualified name like "ds.schema.table" or "ds/db/schema/table".
+func datasetFileName(qualifiedName string) string {
+	sep := "."
+	if strings.Contains(qualifiedName, "/") {
+		sep = "/"
+	}
+	parts := strings.Split(qualifiedName, sep)
+	return parts[len(parts)-1] + ".yml"
 }
 
 func init() {

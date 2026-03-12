@@ -1,11 +1,100 @@
 package api
 
+import (
+	"net/url"
+	"strconv"
+)
+
 type Datasource struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
+	Label     string `json:"label"`
 	Type      string `json:"type"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
+}
+
+// ── List datasources ──────────────────────────────────────────────────────────
+
+type DatasourcePage struct {
+	Content       []Datasource `json:"content"`
+	TotalElements int          `json:"totalElements"`
+	TotalPages    int          `json:"totalPages"`
+	Number        int          `json:"number"`
+	Last          bool         `json:"last"`
+}
+
+func (c *Client) ListDatasources(page, size int) (*DatasourcePage, error) {
+	params := url.Values{}
+	params.Set("page", strconv.Itoa(page))
+	if size <= 0 {
+		size = 100
+	}
+	params.Set("size", strconv.Itoa(size))
+	resp, err := c.get("/api/v1/datasources", params)
+	if err != nil {
+		return nil, err
+	}
+	var result DatasourcePage
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ── Discovered datasets ───────────────────────────────────────────────────────
+
+type DiscoveredDataset struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	QualifiedName string `json:"qualifiedName"`
+	DatasourceID  string `json:"datasourceId"`
+	Onboarded     bool   `json:"onboarded"`
+	CreatedAt     string `json:"createdAt"`
+}
+
+type DiscoveredDatasetPage struct {
+	Content       []DiscoveredDataset `json:"content"`
+	TotalElements int                 `json:"totalElements"`
+	TotalPages    int                 `json:"totalPages"`
+	Number        int                 `json:"number"`
+	Last          bool                `json:"last"`
+}
+
+func (c *Client) ListDiscoveredDatasets(datasourceID string, page, size int) (*DiscoveredDatasetPage, error) {
+	params := url.Values{}
+	params.Set("datasourceId", datasourceID)
+	params.Set("page", strconv.Itoa(page))
+	if size <= 0 {
+		size = 100
+	}
+	params.Set("size", strconv.Itoa(size))
+	resp, err := c.get("/api/v1/discoveredDatasets", params)
+	if err != nil {
+		return nil, err
+	}
+	var result DiscoveredDatasetPage
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ── Onboard discovered datasets ───────────────────────────────────────────────
+
+type OnboardDatasetsRequest struct {
+	DiscoveredDatasetIDs []string `json:"discoveredDatasetIds"`
+}
+
+// OnboardDiscoveredDatasets onboards discovered datasets into Soda Cloud.
+// Returns nil on success (the API returns 202 with no body).
+func (c *Client) OnboardDiscoveredDatasets(datasourceID string, req OnboardDatasetsRequest) error {
+	resp, err := c.post("/api/v1/datasources/"+datasourceID+"/onboardDatasets", req)
+	if err != nil {
+		return err
+	}
+	// 202 Accepted with empty body — just check for errors
+	return decode(resp, &struct{}{})
 }
 
 type CreateDatasourceRequest struct {

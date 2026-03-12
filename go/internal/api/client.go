@@ -129,5 +129,12 @@ func decode(resp *http.Response, target interface{}) error {
 	if len(body) == 0 {
 		return nil
 	}
-	return json.Unmarshal(body, target)
+	if err := json.Unmarshal(body, target); err != nil {
+		// API returned non-JSON (likely HTML from a missing endpoint)
+		if len(body) > 0 && body[0] == '<' {
+			return &output.ExitError{Code: 2, Msg: fmt.Sprintf("this endpoint is not yet available in the API (got HTML instead of JSON from %s)", resp.Request.URL.Path)}
+		}
+		return err
+	}
+	return nil
 }

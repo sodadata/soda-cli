@@ -21,7 +21,35 @@ var dsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all datasources",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return output.Errorf(2, "datasource list is not yet available in the public API")
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		page, err := client.ListDatasources(0, 100)
+		if err != nil {
+			return err
+		}
+		if len(page.Content) == 0 {
+			fmt.Println(output.Dim.Render("  No datasources found."))
+			return nil
+		}
+		rows := make([]map[string]string, len(page.Content))
+		for i, ds := range page.Content {
+			rows[i] = map[string]string{
+				"id":      ds.ID,
+				"name":    ds.Name,
+				"label":   ds.Label,
+				"type":    ds.Type,
+				"created": ds.CreatedAt,
+				"updated": ds.UpdatedAt,
+			}
+		}
+		cols := []string{"id", "name", "label", "type", "created", "updated"}
+		output.Render(rows, cols, nil, GCtx)
+		if !page.Last {
+			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d datasources.\n"), len(page.Content), page.TotalElements)
+		}
+		return nil
 	},
 }
 
