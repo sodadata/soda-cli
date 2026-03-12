@@ -77,15 +77,46 @@ See `command_tree.txt` for the current authoritative tree. Key structural decisi
 - `contract pull/push` are the cloud sync pair (not fetch/publish)
 - `job` (alias: `scan`) is read-only — lists execution history and streams logs
 - `results` is the unified view of all signals (checks + monitor alerts) across jobs
-- `notification` is the entry point for alerting; `notification channel` manages connections (no top-level `integration` command)
-- `users assign/revoke` and `users group assign/revoke` handle role membership; `role` is definition-only
-- `datasource onboard` = cloud-registered via Agent; `datasource create` = local YAML
+- `notification rule` for alert rules; `notification integration` for connections (Slack, Teams, webhook)
+- `iam` is the single namespace for identity/access: `iam user`, `iam group`, `iam role`, `iam service-account`
+- `datasource create <config-file>` registers a datasource from a YAML connection config
+- `monitor` is top-level (not nested under `dataset`); `monitor list` requires `--dataset`
+
+## Implementation
+
+**Language**: Go. Source lives in `go/`. Builds to a single static binary (`go build -o soda .`).
+
+**Stack**: `cobra` (commands) + `lipgloss` (styling) + `huh` (interactive wizards) + `tablewriter` (tables)
+
+**Layout**:
+- `go/cmd/` — flat package, one file per resource (root.go, auth.go, dataset.go, contract.go, etc.)
+- `go/internal/api/` — API client methods per resource (client.go, datasets.go, contracts.go, agents.go, datasources.go)
+- `go/internal/ctx/` — GlobalCtx struct
+- `go/internal/output/` — rendering helpers (Render, RenderOne, PrintSuccess, ExitError)
+
+**Auth**: Basic Auth (`api_key_id:api_key_secret`) against Soda Cloud API. Credentials stored in `~/.soda/credentials`.
+
+**API hosts**: `cloud.soda.io` (EU), `cloud.us.soda.io` (US), `dev.sodadata.io` (dev)
 
 ## Pending decisions / known TODOs
 
 - **Binary name**: new `soda` replaces `soda-core`'s `soda` binary. Migration strategy TBD.
 - **`results`**: temp name — needs a better name that covers both checks and monitor alerts without the "manual check" connotation.
-- **`dataset profiling refresh`**: API design to re-evaluate.
 - **`datasource diagnostics` / `dataset diagnostics`**: what exactly is configurable at each level needs spec.
 - **`contract verify`**: help text needs to make clear this can be cloud-connected (not obvious from the name alone).
-- **`contract create`**: could internally invoke copilot if the user has the right license tier.
+
+## Known API gaps (as of 2026-03-12)
+
+These Soda Cloud public API endpoints do not exist yet, blocking CLI implementation:
+- `datasource list` — GET /api/v1/datasources returns SPA HTML (not yet deployed)
+- `monitor config` write — no POST /metricMonitoring (read-only)
+- `monitor add --type dataset` — dataset monitors exist by default but can't be enabled via API
+- `incident *` — endpoint returns SPA HTML
+- `job list` — no list endpoint (only `job logs <id>`)
+- `notification *`, `secret *` — no endpoints
+- `contract proposal *` — endpoint returns SPA HTML
+
+Recently unblocked:
+- `discoveredDatasets` — GET /api/v1/discoveredDatasets (with ?datasourceId= filter) now works
+- `onboardDatasets` — POST /api/v1/datasources/{id}/onboardDatasets now works (accepts discoveredDatasetIds)
+- `datasource onboard` — now wired end-to-end (create → discover → select → onboard → monitoring → contracts)

@@ -28,7 +28,7 @@ soda
   │   │           # generate API keys: https://docs.soda.io/reference/generate-api-keys
   │   ├── logout  [--profile <name>]  🏠
   │   ├── status                            # active profile, api key id, connection health  ✅
-  │   └── switch  <profile>  🏠ao
+  │   └── switch  <profile>  🏠
   │
   ├── init                                  # scaffold soda.yml + configs/ + contracts/  🏠
   │
@@ -39,6 +39,7 @@ soda
   │   │   [--agent <agent-id>]                          # route through a Soda Agent (auto-detects if only one)
   │   │   # config file must have: type, name, connection details
   │   │   # returns datasource ID + discovery scan ID
+  │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
   │   │
   │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
   │   │
@@ -46,8 +47,10 @@ soda
   │   │
   │   ├── delete  <id>  ✅
   │   │
-  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ✅
-  │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
+  │   ├── onboard  <config-file-or-datasource-id>       # guided setup: create or connect to datasource + configure all datasets  ✅
+  │   │   # pass a YAML config file → creates a new datasource
+  │   │   # pass a datasource ID → skips creation, runs onboard flow on existing datasource
+  │   │   [--agent <name>]                              # route through a Soda Agent (only when creating; auto-detects if only one)
   │   │   [--monitoring]                                # enable default metric monitors  ✅
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--profiling]                                 # enable dataset profiling  ✅
@@ -55,6 +58,7 @@ soda
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
   │   │   # when all action flags provided: fully non-interactive, onboards all datasets automatically
   │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → profiling → contracts
+  │   │   # after datasource create, suggests: soda datasource onboard <id>
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
@@ -78,6 +82,7 @@ soda
   │   ├── create    --dataset <ds/db/schema/table>  🔌 [API wired, backend may not persist yet]
   │   │   --mode skeleton|copilot     # default: skeleton
   │   │   --output <file>
+  │   │   [--no-wait]                 # start generation and return immediately (copilot mode only)
   │   │   # skeleton → async: POST /contracts/actions/createSkeleton → poll status → fetch contract
   │   │   # copilot  → async: POST /contracts/actions/generate → poll status → fetch contract (requires license)
   │   ├── lint (alias: validate)  [<file>]           # syntax check, no network  🏠
@@ -125,6 +130,10 @@ soda
   │       [--status passing|failing|error]  # client-side filter (API does not support server-side filtering)
   │       [--type check|monitor|all]      # monitor returns graceful "not available" message
   │       [--limit <n>]                   # default: 10
+  │       [--sort dataset|name|column|status|date]  # default: date
+  │       [--order asc|desc]              # default: desc
+  │       [--from <date>]                 # YYYY-MM-DD or ISO8601; show results on or after this date
+  │       [--until <date>]                # YYYY-MM-DD or ISO8601; show results on or before this date (inclusive)
   │
   │       # DATASET                                            TYPE   NAME                          COLUMN    STATUS     DATE
   │       # snowflakeproduct/SODA_PRODUCT/PUBLIC/ORDERS        check  row_count > 0                 dataset   ✓ passing  2026-03-05 08:12
@@ -133,6 +142,8 @@ soda
   │
   ├── dataset
   │   ├── list    [--filter <query>] [--datasource <name>] [--tag <tag>]  ✅
+  │   │   # shows onboarded datasets from ListDatasets + discovered (not yet onboarded) from ListDiscoveredDatasets
+  │   │   # columns: id, name, datasource, status (onboarded|not onboarded), checks, monitors, updated
   │   ├── update  <id>  [--owner <user-id>]  [--tag <tag>]  ✅
   │   │   # --tag is repeatable and replaces all existing tags
   │   │   # --owner takes a user ID (use `soda iam user list` to find it)
