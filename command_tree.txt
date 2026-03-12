@@ -42,21 +42,16 @@ soda
   │   │
   │   ├── test-connection  <config-file>                # test connection defined in a YAML config file  ❌
   │   │
-  │   ├── list                                          # list datasources  ❌ [no GET /datasources endpoint]
+  │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
   │   │
   │   ├── delete  <id>  ✅
   │   │
-  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ❌ [blocked: no discovered datasets API, no dataset monitor write API]
+  │   ├── onboard  <config-file>                         # guided setup: create datasource + configure all datasets  ✅
   │   │   [--agent <name>]                              # route through a Soda Agent (or soda-hosted-agent)
-  │   │   [--monitoring]                                # enable default metric monitors for all datasets
+  │   │   [--monitoring]                                # enable default metric monitors  ❌ [POST /metricMonitoring not in public API; warns and continues]
   │   │   [--no-monitoring]                             # skip monitoring setup
-  │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)
-  │   │   # interactive wizard: agent → monitoring → contracts
-  │   │   # goal: eliminate blank state after datasource creation
-  │   │   # blockers: datasource create works (✅), but after creation:
-  │   │   #   1. no API to list discovered datasets from a discovery scan
-  │   │   #   2. no write API for dataset-level monitors (enable/disable)
-  │   │   #   3. contract skeleton generation API unreliable (backend may not persist)
+  │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
+  │   │   # interactive wizard: agent → discovery poll → dataset select → monitoring → contracts
   │   │
   │   └── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
@@ -162,10 +157,10 @@ soda
   │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]  ❌
   │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
-  │   ├── onboard  <id>                                  # guided setup for an existing dataset  🔌
-  │   │   [--monitoring]                                # enable default metric monitors  ❌ [no write endpoint for dataset monitors]
+  │   ├── onboard  <id>                                  # guided setup for an existing dataset  ✅
+  │   │   [--monitoring]                                # enable default metric monitors  ❌ [POST /metricMonitoring not in public API; warns and continues]
   │   │   [--no-monitoring]                             # skip monitoring setup
-  │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  ❌ [copilot API pending]
+  │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  🔌 [API wired, backend may not persist]
   │   │   # interactive wizard: monitoring → contracts
   │   │   # works with datasets already in Soda Cloud
   │   │   # default monitors: row count, row count change, freshness, schema changes,
