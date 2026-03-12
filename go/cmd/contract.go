@@ -347,12 +347,14 @@ The contract is created in Soda Cloud and its YAML is saved locally.`,
 }
 
 func runContractCreateSkeleton(client *api.Client, dataset, outFile string) error {
-	fmt.Println(output.Dim.Render("  Generating skeleton contract for " + dataset + "..."))
+	spinner := output.NewSpinner("Generating skeleton contract for " + dataset + "...")
+	spinner.Start()
 
 	opID, err := client.CreateSkeleton(api.CreateSkeletonRequest{
 		DatasetQualifiedName: dataset,
 	})
 	if err != nil {
+		spinner.Stop()
 		return err
 	}
 
@@ -361,16 +363,18 @@ func runContractCreateSkeleton(client *api.Client, dataset, outFile string) erro
 		time.Sleep(2 * time.Second)
 		status, err := client.GetSkeletonStatus(opID)
 		if err != nil {
+			spinner.Stop()
 			return err
 		}
 		if status.State == "completed" {
 			break
 		}
 		if status.State == "failed" || status.State == "canceled" {
+			spinner.Stop()
 			return output.Errorf(2, "skeleton generation %s", status.State)
 		}
-		fmt.Println(output.Dim.Render("  Waiting for generation to complete..."))
 	}
+	spinner.Stop()
 
 	// Fetch the created contract
 	contract, err := client.FindContractByDataset(dataset)
@@ -390,30 +394,37 @@ func runContractCreateSkeleton(client *api.Client, dataset, outFile string) erro
 }
 
 func runContractCreateCopilot(client *api.Client, dataset, outFile string) error {
-	fmt.Println(output.Dim.Render("  Generating AI-powered contract for " + dataset + "..."))
+	spinner := output.NewSpinner("Generating AI contract for " + dataset + "...")
+	spinner.Start()
 
 	opID, err := client.GenerateContract(api.GenerateContractRequest{
 		DatasetQualifiedNames: []string{dataset},
 	})
 	if err != nil {
+		spinner.Stop()
 		return err
 	}
 
 	// Poll until done
+	elapsed := 0
 	for {
 		time.Sleep(3 * time.Second)
+		elapsed += 3
 		status, err := client.GetGenerateStatus(opID)
 		if err != nil {
+			spinner.Stop()
 			return err
 		}
 		if status.State == "completed" {
 			break
 		}
 		if status.State == "failed" || status.State == "canceled" {
+			spinner.Stop()
 			return output.Errorf(2, "AI generation %s", status.State)
 		}
-		fmt.Println(output.Dim.Render("  Waiting for AI generation to complete..."))
+		spinner.SetMessage(fmt.Sprintf("Generating AI contract for %s... (%ds)", dataset, elapsed))
 	}
+	spinner.Stop()
 
 	// Fetch the created contract
 	contract, err := client.FindContractByDataset(dataset)

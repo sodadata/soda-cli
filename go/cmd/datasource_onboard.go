@@ -102,8 +102,10 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		fmt.Printf("  Datasource ID: %s\n", datasourceID)
 
 		// ── Step 3: Discover datasets ────────────────────────────────────
-		fmt.Println(output.Dim.Render("  Waiting for dataset discovery..."))
-		discovered, err := pollDiscoveredDatasets(client, datasourceID)
+		spinner := output.NewSpinner("Waiting for dataset discovery...")
+		spinner.Start()
+		discovered, err := pollDiscoveredDatasets(client, datasourceID, spinner)
+		spinner.Stop()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s %v\n", output.Yellow.Render("⚠"), err)
 			fmt.Println(output.Dim.Render("  Check with: soda dataset list --datasource " + name))
@@ -290,31 +292,49 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				}
 			}
 			if len(cqns) > 0 {
-				fmt.Println(output.Dim.Render("  Generating AI contracts..."))
+				aiSpinner := output.NewSpinner(fmt.Sprintf("Generating AI contracts for %d datasets...", len(cqns)))
+				aiSpinner.Start()
 				opID, err := client.GenerateContract(api.GenerateContractRequest{
 					DatasetQualifiedNames: cqns,
 				})
 				if err != nil {
+					aiSpinner.Stop()
 					fmt.Fprintf(os.Stderr, "  %s AI contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
 					hadErrors = true
 				} else {
+					elapsed := 0
 					for {
+						time.Sleep(3 * time.Second)
+						elapsed += 3
 						status, err := client.GetGenerateStatus(opID)
 						if err != nil {
+							aiSpinner.Stop()
 							fmt.Fprintf(os.Stderr, "  %s Could not check generation status: %v\n", output.Yellow.Render("⚠"), err)
 							hadErrors = true
 							break
 						}
 						if status.State == "completed" {
+							aiSpinner.Stop()
 							break
 						}
 						if status.State == "failed" || status.State == "canceled" {
+							aiSpinner.Stop()
 							fmt.Fprintf(os.Stderr, "  %s AI generation %s\n", output.Yellow.Render("⚠"), status.State)
 							hadErrors = true
 							break
 						}
-						fmt.Println(output.Dim.Render("  Waiting for AI generation..."))
-						time.Sleep(3 * time.Second)
+						// Show which datasets are still pending
+						pending := make([]string, 0)
+						for _, ds := range status.Datasets {
+							if ds.ScanState != "completed" {
+								pending = append(pending, datasetFileName(ds.DatasetQualifiedName))
+							}
+						}
+						if len(pending) > 0 && len(pending) < len(cqns) {
+							aiSpinner.SetMessage(fmt.Sprintf("Generating AI contracts... %d/%d done (%ds)", len(cqns)-len(pending), len(cqns), elapsed))
+						} else {
+							aiSpinner.SetMessage(fmt.Sprintf("Generating AI contracts for %d datasets... (%ds)", len(cqns), elapsed))
+						}
 					}
 					for _, cqn := range cqns {
 						contract, err := client.FindContractByDataset(cqn)
@@ -363,8 +383,9 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 // pollDiscoveredDatasets fetches all discovered datasets for a datasource,
 // retrying until results appear or the timeout is reached.
-func pollDiscoveredDatasets(client *api.Client, datasourceID string) ([]api.DiscoveredDataset, error) {
+func pollDiscoveredDatasets(client *api.Client, datasourceID string, spinner *output.Spinner) ([]api.DiscoveredDataset, error) {
 	deadline := time.Now().Add(5 * time.Minute)
+	elapsed := 0
 	for {
 		// Quick check: just fetch the first page to see if anything exists yet.
 		first, err := client.ListDiscoveredDatasets(datasourceID, 0, 100)
@@ -375,19 +396,20 @@ func pollDiscoveredDatasets(client *api.Client, datasourceID string) ([]api.Disc
 			if time.Now().After(deadline) {
 				return nil, fmt.Errorf("discovery timed out after 5 minutes — datasets may still appear later")
 			}
-			fmt.Println(output.Dim.Render("  Still discovering datasets..."))
+			elapsed += 5
+			spinner.SetMessage(fmt.Sprintf("Discovering datasets... (%ds)", elapsed))
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		// Results exist — now fetch remaining pages.
+		// Results exist — fetch remaining pages.
+		spinner.SetMessage("Loading discovered datasets...")
 		all := first.Content
 		if !first.Last {
 			for pg := 1; ; pg++ {
-				time.Sleep(200 * time.Millisecond) // gentle pacing between pages
+				time.Sleep(200 * time.Millisecond)
 				page, err := client.ListDiscoveredDatasets(datasourceID, pg, 100)
 				if err != nil {
-					// Return what we have so far rather than failing
 					break
 				}
 				all = append(all, page.Content...)
