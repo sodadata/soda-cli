@@ -292,65 +292,16 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				}
 			}
 			if len(cqns) > 0 {
-				aiSpinner := output.NewSpinner(fmt.Sprintf("Generating AI contracts for %d datasets...", len(cqns)))
-				aiSpinner.Start()
-				opID, err := client.GenerateContract(api.GenerateContractRequest{
+				_, err := client.GenerateContract(api.GenerateContractRequest{
 					DatasetQualifiedNames: cqns,
 				})
 				if err != nil {
-					aiSpinner.Stop()
 					fmt.Fprintf(os.Stderr, "  %s AI contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
 					hadErrors = true
 				} else {
-					elapsed := 0
-					for {
-						time.Sleep(3 * time.Second)
-						elapsed += 3
-						status, err := client.GetGenerateStatus(opID)
-						if err != nil {
-							aiSpinner.Stop()
-							fmt.Fprintf(os.Stderr, "  %s Could not check generation status: %v\n", output.Yellow.Render("⚠"), err)
-							hadErrors = true
-							break
-						}
-						if status.State == "completed" {
-							aiSpinner.Stop()
-							break
-						}
-						if status.State == "failed" || status.State == "canceled" {
-							aiSpinner.Stop()
-							fmt.Fprintf(os.Stderr, "  %s AI generation %s\n", output.Yellow.Render("⚠"), status.State)
-							hadErrors = true
-							break
-						}
-						// Show which datasets are still pending
-						pending := make([]string, 0)
-						for _, ds := range status.Datasets {
-							if ds.ScanState != "completed" {
-								pending = append(pending, datasetFileName(ds.DatasetQualifiedName))
-							}
-						}
-						if len(pending) > 0 && len(pending) < len(cqns) {
-							aiSpinner.SetMessage(fmt.Sprintf("Generating AI contracts... %d/%d done (%ds)", len(cqns)-len(pending), len(cqns), elapsed))
-						} else {
-							aiSpinner.SetMessage(fmt.Sprintf("Generating AI contracts for %d datasets... (%ds)", len(cqns), elapsed))
-						}
-					}
-					for _, cqn := range cqns {
-						contract, err := client.FindContractByDataset(cqn)
-						if err != nil || contract == nil {
-							fmt.Fprintf(os.Stderr, "  %s Could not fetch contract for '%s'\n", output.Yellow.Render("⚠"), cqn)
-							hadErrors = true
-							continue
-						}
-						outFile := datasetFileName(cqn)
-						if err := os.WriteFile(outFile, []byte(contract.Contents), 0644); err != nil {
-							fmt.Fprintf(os.Stderr, "  %s Could not write %s: %v\n", output.Yellow.Render("⚠"), outFile, err)
-							hadErrors = true
-							continue
-						}
-						fmt.Printf("  %s Contract saved to %s\n", output.Green.Render("✓"), outFile)
-					}
+					fmt.Printf("  %s AI contract generation started for %d datasets.\n", output.Green.Render("✓"), len(cqns))
+					fmt.Println(output.Dim.Render("  Contracts are being generated in the background and will appear in Soda Cloud when ready."))
+					fmt.Println(output.Dim.Render("  Check results:  soda results list"))
 				}
 			}
 		case "skeleton":

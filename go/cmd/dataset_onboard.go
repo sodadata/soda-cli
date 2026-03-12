@@ -122,7 +122,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				fmt.Fprintf(os.Stderr, "  %s Cannot generate AI contract: dataset qualified name not available.\n", output.Yellow.Render("⚠"))
 			} else {
 				outFile := datasetFileName(qualifiedName)
-				if err := runContractCreateCopilot(client, qualifiedName, outFile); err != nil {
+				if err := runContractCreateCopilot(client, qualifiedName, outFile, false); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
 				}
 			}

@@ -335,11 +335,13 @@ The contract is created in Soda Cloud and its YAML is saved locally.`,
 			return err
 		}
 
+		noWait, _ := cmd.Flags().GetBool("no-wait")
+
 		switch mode {
 		case "skeleton":
 			return runContractCreateSkeleton(client, dataset, outFile)
 		case "copilot":
-			return runContractCreateCopilot(client, dataset, outFile)
+			return runContractCreateCopilot(client, dataset, outFile, noWait)
 		default:
 			return output.Errorf(2, "unknown mode '%s' — use skeleton or copilot", mode)
 		}
@@ -393,17 +395,23 @@ func runContractCreateSkeleton(client *api.Client, dataset, outFile string) erro
 	return nil
 }
 
-func runContractCreateCopilot(client *api.Client, dataset, outFile string) error {
-	spinner := output.NewSpinner("Generating AI contract for " + dataset + "...")
-	spinner.Start()
-
+func runContractCreateCopilot(client *api.Client, dataset, outFile string, noWait bool) error {
 	opID, err := client.GenerateContract(api.GenerateContractRequest{
 		DatasetQualifiedNames: []string{dataset},
 	})
 	if err != nil {
-		spinner.Stop()
 		return err
 	}
+
+	if noWait {
+		fmt.Printf("  %s AI contract generation started for %s.\n", output.Green.Render("✓"), dataset)
+		fmt.Println(output.Dim.Render("  Running in background — contract will appear in Soda Cloud when ready."))
+		fmt.Println(output.Dim.Render("  Check results:  soda results list"))
+		return nil
+	}
+
+	spinner := output.NewSpinner("Generating AI contract for " + dataset + "...")
+	spinner.Start()
 
 	// Poll until done
 	elapsed := 0
@@ -720,6 +728,7 @@ func init() {
 	contractCreateCmd.Flags().String("dataset", "", "Dataset FQN: datasource/db/schema/table")
 	contractCreateCmd.Flags().String("mode", "skeleton", "Generation mode: skeleton|copilot")
 	contractCreateCmd.Flags().String("output", "", "Output file path")
+	contractCreateCmd.Flags().Bool("no-wait", false, "Start generation and return immediately without waiting for completion (copilot mode only)")
 
 	contractDiffCmd.Flags().String("dataset", "", "Dataset qualified name for cloud comparison (overrides file's dataset field)")
 
