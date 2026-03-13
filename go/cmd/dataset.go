@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,38 @@ var datasetListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filter, _ := cmd.Flags().GetString("filter")
 		datasource, _ := cmd.Flags().GetString("datasource")
+		status, _ := cmd.Flags().GetString("status")
+		idFilter, _ := cmd.Flags().GetString("id")
+		limit, _ := cmd.Flags().GetInt("limit")
+		fromStr, _ := cmd.Flags().GetString("from")
+		untilStr, _ := cmd.Flags().GetString("until")
+
+		// Validate status filter
+		if status != "" {
+			switch strings.ToLower(status) {
+			case "onboarded", "not onboarded", "not-onboarded":
+				// ok
+			default:
+				return output.Errorf(2, "invalid --status value '%s' — use: onboarded, not-onboarded", status)
+			}
+		}
+
+		// Parse date filters
+		var fromTime, untilTime time.Time
+		if fromStr != "" {
+			t, err := parseDate(fromStr)
+			if err != nil {
+				return output.Errorf(2, "invalid --from value '%s': use YYYY-MM-DD or ISO8601", fromStr)
+			}
+			fromTime = t
+		}
+		if untilStr != "" {
+			t, err := parseDate(untilStr)
+			if err != nil {
+				return output.Errorf(2, "invalid --until value '%s': use YYYY-MM-DD or ISO8601", untilStr)
+			}
+			untilTime = t.Add(24*time.Hour - time.Second) // inclusive: end of day
+		}
 
 		client, err := newAPIClient()
 		if err != nil {
@@ -30,7 +63,7 @@ var datasetListCmd = &cobra.Command{
 		result, err := client.ListDatasets(api.ListDatasetsParams{
 			Search:         filter,
 			DatasourceName: datasource,
-			Size:           100,
+			Size:           500,
 		})
 		if err != nil {
 			return err
@@ -84,16 +117,77 @@ var datasetListCmd = &cobra.Command{
 			}
 		}
 
+		// Client-side filters
+		if filter != "" {
+			needle := strings.ToLower(filter)
+			filtered := rows[:0]
+			for _, r := range rows {
+				if strings.Contains(strings.ToLower(r["name"]), needle) {
+					filtered = append(filtered, r)
+				}
+			}
+			rows = filtered
+		}
+
+		if status != "" {
+			normalized := strings.ToLower(status)
+			if normalized == "not-onboarded" {
+				normalized = "not onboarded"
+			}
+			filtered := rows[:0]
+			for _, r := range rows {
+				if r["status"] == normalized {
+					filtered = append(filtered, r)
+				}
+			}
+			rows = filtered
+		}
+
+		if idFilter != "" {
+			needle := strings.ToLower(idFilter)
+			filtered := rows[:0]
+			for _, r := range rows {
+				if strings.Contains(strings.ToLower(r["id"]), needle) {
+					filtered = append(filtered, r)
+				}
+			}
+			rows = filtered
+		}
+
+		if !fromTime.IsZero() || !untilTime.IsZero() {
+			filtered := rows[:0]
+			for _, r := range rows {
+				t, err := time.Parse(time.RFC3339, r["updated"])
+				if err != nil {
+					continue
+				}
+				if !fromTime.IsZero() && t.Before(fromTime) {
+					continue
+				}
+				if !untilTime.IsZero() && t.After(untilTime) {
+					continue
+				}
+				filtered = append(filtered, r)
+			}
+			rows = filtered
+		}
+
 		if len(rows) == 0 {
 			fmt.Println(output.Dim.Render("  No datasets found."))
 			return nil
 		}
 
+		// Apply limit
+		total := len(rows)
+		if limit > 0 && len(rows) > limit {
+			rows = rows[:limit]
+		}
+
 		cols := []string{"id", "name", "datasource", "status", "checks", "monitors", "updated"}
 		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
 
-		if !result.Last {
-			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d datasets.\n"), len(result.Content), result.TotalElements)
+		if total > len(rows) || !result.Last {
+			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d datasets.\n"), len(rows), total)
 		}
 		return nil
 	},
@@ -627,6 +721,11 @@ func isNotEnabledOnDatasource(err error) bool {
 func init() {
 	datasetListCmd.Flags().String("filter", "", "Fuzzy search on dataset name")
 	datasetListCmd.Flags().String("datasource", "", "Filter by datasource name")
+	datasetListCmd.Flags().String("id", "", "Filter by dataset ID (substring match)")
+	datasetListCmd.Flags().String("status", "", "Filter by status: onboarded|not-onboarded")
+	datasetListCmd.Flags().Int("limit", 10, "Maximum number of datasets to show")
+	datasetListCmd.Flags().String("from", "", "Show datasets updated on or after this date (YYYY-MM-DD or ISO8601)")
+	datasetListCmd.Flags().String("until", "", "Show datasets updated on or before this date (YYYY-MM-DD or ISO8601)")
 	datasetListCmd.Flags().String("tag", "", "Filter by tag")
 
 	datasetUpdateCmd.Flags().String("owner", "", "Dataset owner user ID")

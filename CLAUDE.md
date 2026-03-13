@@ -108,7 +108,6 @@ See `command_tree.txt` for the current authoritative tree. Key structural decisi
 ## Known API gaps (as of 2026-03-12)
 
 These Soda Cloud public API endpoints do not exist yet, blocking CLI implementation:
-- `datasource list` — GET /api/v1/datasources returns SPA HTML (not yet deployed)
 - `monitor config` write — no POST /metricMonitoring (read-only)
 - `monitor add --type dataset` — dataset monitors exist by default but can't be enabled via API
 - `incident *` — endpoint returns SPA HTML
@@ -117,6 +116,7 @@ These Soda Cloud public API endpoints do not exist yet, blocking CLI implementat
 - `contract proposal *` — endpoint returns SPA HTML
 
 Recently unblocked:
+- `datasource list` — GET /api/v1/datasources now works (paginated, returns id/name/label/type/timestamps)
 - `discoveredDatasets` — GET /api/v1/discoveredDatasets (with ?datasourceId= filter) now works
 - `onboardDatasets` — POST /api/v1/datasources/{id}/onboardDatasets now works (accepts discoveredDatasetIds)
 - `datasource onboard` — now wired end-to-end (create → discover → select → onboard → monitoring → contracts)
