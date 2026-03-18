@@ -54,10 +54,17 @@ soda
   │   │   # returns datasource ID + discovery scan ID
   │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
   │   │
-  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅ ([Error] this endpoint is not yet available in the API (got HTML instead of JSON from /api/v1/datasources/actions/testConnection/))
+  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  🔌 [CLI wired, API returns HTML]
   │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
   │   │
-  │   ├── list                                          # list datasources  🔌 [CLI wired, API endpoint not yet deployed]
+  │   ├── list                                          # list datasources  ✅
+  │   │
+  │   ├── get  <id>                                     # show datasource details  ✅
+  │   │
+  │   ├── update  <id>                                  # update a datasource  🔌 [CLI wired, API returns 404]
+  │   │   [--label <text>]                             # new label
+  │   │   [--runner <runner-id>]                       # change runner
+  │   │   [--config <file>]                            # update connection config
   │   │
   │   ├── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
@@ -86,7 +93,8 @@ soda
   │   │   [--no-wait]                 # start generation and return immediately (copilot mode only)
   │   │   # skeleton → async: POST /contracts/actions/createSkeleton → poll status → fetch contract
   │   │   # copilot  → async: POST /contracts/actions/generate → poll status → fetch contract (requires license)
-  │   ├── lint (alias: validate)  [<file>]           # syntax check, no network  🏠
+  │   ├── lint (alias: validate)  [<file>]           # validate contract YAML via soda-core  🔌 [requires soda-core on PATH]
+  │   │   # uses soda-core for real schema validation; falls back to basic YAML parse if not installed
   │   ├── push      [<file>]                         # push contract definition to cloud (upsert)  ✅
   │   │   # reads 'dataset:' field from file to find/create the contract
   │   ├── pull      <identifier>                      # pull contract from cloud → <table>.yml  ✅
@@ -99,11 +107,16 @@ soda
   │   │   # file + prompt    → improve existing contract
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    [<file-or-dir>|--dataset <identifier>]   # file, dir, or fetch contract from cloud  ❌ [requires soda-core engine]
-  │   │   [--datasource <file>]            # explicit override when no soda.yml
-  │   │   [--runner]                       # delegate to Soda Runner
-  │   │   [--push]                         # run checks + push results to cloud
+  │   ├── verify    <file>                                    # verify contract checks against data
+  │   │   [--datasource <file>]            # explicit datasource config override
+  │   │   [--runner <name>]                # execution target:
+  │   │   │                                #   (omitted) → push to Soda Cloud, verify via cloud Runner  ✅
+  │   │   │                                #   soda-core → run locally via soda-core engine  🔌 [requires soda-core on PATH]
+  │   │   [--push]                         # push results to Soda Cloud (useful with --runner soda-core)
+  │   │   [--no-wait]                      # start verification and return immediately (cloud mode only)  ✅
   │   │   [--set key=value]               # runtime variable overrides (repeatable)
+  │   │   # cloud mode: push contract → POST /contracts/{id}/verify → poll GET /scans/{id} → results
+  │   │   # local mode: shell out to soda-core, requires --datasource or soda.yml, prompts install if missing
   │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
   │   └── proposal                         # PR flow for published contracts  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │       ├── list   [--status open|done|all]
@@ -122,7 +135,8 @@ soda
   │   │   # sc_abc123   pg_prod       orders      contract  ✗ failing  2026-03-05 08:12
   │   │   # sc_def456   pg_prod       users       monitor   ✓ passing  2026-03-05 06:45
   │   │
-  │   └── logs  <id>  [--follow]  ✅
+  │   ├── logs    <id>  [--follow]  ✅
+  │   └── cancel  <id>              # cancel a running scan  🔌 [CLI wired, API returns 404]
   │
   ├── results                              # contract checks + monitor alerts in one place  ✅ (checks only; monitors pending API)
   │   └── list  ✅
@@ -232,9 +246,9 @@ soda
   │       # looks up monitor type from dataset config, then calls appropriate DELETE
   │
   ├── incident
-  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  ❌ [NOT YET IMPLEMENTABLE - API work required]
-  │   ├── get     <id>  ❌ [NOT YET IMPLEMENTABLE - API work required]
-  │   └── update  <id>  ❌ [NOT YET IMPLEMENTABLE - API work required]
+  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌 [CLI wired, API returns HTML]
+  │   ├── get     <id>  🔌 [CLI wired, API returns HTML]
+  │   └── update  <id>  🔌 [CLI wired, API returns HTML]
   │       [--title <text>]
   │       [--severity minor|major|critical]
   │       [--description <text>]
@@ -306,8 +320,10 @@ soda
   │       └── delete  <id>  ❌
   │
   ├── runner
-  │   ├── list  ✅
-  │   └── get   <runner-id>  ✅
+  │   ├── list    ✅
+  │   ├── get     <runner-id>  ✅
+  │   ├── create  --name <n>   # returns API key credentials (shown once)  ✅
+  │   └── delete  <runner-id>  ✅
   │
   ├── secret
   │   ├── create  --name <n>  --value <v>  ❌ [NOT YET IMPLEMENTABLE - API work required]
