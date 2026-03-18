@@ -210,6 +210,54 @@ func (c *Client) GetGenerateStatus(operationID string) (*GenerateStatus, error) 
 	return &result, nil
 }
 
+// VerifyContract triggers a contract verification via Soda Cloud.
+// Returns the scan ID from the X-Soda-Scan-Id response header.
+func (c *Client) VerifyContract(contractID string) (string, error) {
+	resp, err := c.post("/api/v1/contracts/"+contractID+"/verify", struct{}{})
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+	}
+	if resp.StatusCode >= 400 {
+		var apiErr struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+
+	// Extract scan ID from header or Location
+	scanID := resp.Header.Get("X-Soda-Scan-Id")
+	if scanID == "" {
+		scanID = extractOperationID(resp.Header.Get("Location"))
+	}
+	if scanID == "" {
+		// Try to extract from response body
+		var result struct {
+			ScanID string `json:"scanId"`
+			ID     string `json:"id"`
+		}
+		if json.Unmarshal(body, &result) == nil {
+			if result.ScanID != "" {
+				scanID = result.ScanID
+			} else if result.ID != "" {
+				scanID = result.ID
+			}
+		}
+	}
+	if scanID == "" {
+		return "", &output.ExitError{Code: 2, Msg: "verify request succeeded but no scan ID was returned"}
+	}
+	return scanID, nil
+}
+
 // decodeContractResponse handles two response shapes from the contract API:
 //   - wrapped:  {"contract": {id, datasetId, ...}, "contents": "..."}
 //   - flat:     {id, datasetId, datasetQualifiedName, ...}

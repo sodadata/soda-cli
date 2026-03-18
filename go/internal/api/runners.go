@@ -58,3 +58,35 @@ func (c *Client) GetRunner(runnerID string) (*Runner, error) {
 	}
 	return &result.Runner, nil
 }
+
+// ── Runner create/delete ─────────────────────────────────────────────────────
+
+type CreateRunnerRequest struct {
+	Name string `json:"name"`
+}
+
+type CreateRunnerResponse struct {
+	ID           string `json:"id"`
+	APIKeyID     string `json:"apiKeyId"`
+	APIKeySecret string `json:"apiKeySecret"`
+}
+
+func (c *Client) CreateRunner(req CreateRunnerRequest) (*CreateRunnerResponse, error) {
+	resp, err := c.post("/api/v1/runners", req)
+	if err != nil {
+		return nil, err
+	}
+	var result CreateRunnerResponse
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) DeleteRunner(runnerID string) error {
+	resp, err := c.delete("/api/v1/runners/" + runnerID)
+	if err != nil {
+		return err
+	}
+	return decode(resp, &struct{}{})
+}

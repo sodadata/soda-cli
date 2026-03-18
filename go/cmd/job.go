@@ -95,6 +95,23 @@ var jobLogsCmd = &cobra.Command{
 	},
 }
 
+var jobCancelCmd = &cobra.Command{
+	Use:   "cancel <id>",
+	Short: "Cancel a running scan",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		if err := client.CancelScan(args[0]); err != nil {
+			return err
+		}
+		output.PrintSuccess("Scan cancellation requested.", GCtx)
+		return nil
+	},
+}
+
 func init() {
 	jobListCmd.Flags().String("datasource", "", "Filter by datasource ID")
 	jobListCmd.Flags().String("dataset", "", "Filter by dataset ID")
@@ -103,5 +120,5 @@ func init() {
 
 	jobLogsCmd.Flags().Bool("follow", false, "Stream logs as they arrive")
 
-	jobCmd.AddCommand(jobListCmd, jobLogsCmd)
+	jobCmd.AddCommand(jobListCmd, jobLogsCmd, jobCancelCmd)
 }

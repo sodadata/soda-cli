@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
@@ -112,6 +113,59 @@ func fmtRunnerTime(s string) string {
 	return t.UTC().Format("2006-01-02 15:04")
 }
 
+var runnerCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new Soda Runner",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name, _ := cmd.Flags().GetString("name")
+		if name == "" {
+			return output.Errorf(2, "--name is required")
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		result, err := client.CreateRunner(api.CreateRunnerRequest{Name: name})
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("Runner ID"), result.ID)
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("API Key ID"), result.APIKeyID)
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("API Key Secret"), result.APIKeySecret)
+		fmt.Println()
+		fmt.Println(output.Yellow.Render("  Save the API key secret now — it will not be shown again."))
+		fmt.Println()
+		output.PrintSuccess(fmt.Sprintf("Runner '%s' created.", name), GCtx)
+		fmt.Println()
+		fmt.Println(output.Dim.Render("  Next steps:"))
+		fmt.Println(output.Dim.Render("  To connect this runner, deploy the Soda Runner Helm chart on your Kubernetes cluster."))
+		fmt.Println(output.Dim.Render("  Docs: https://docs.soda.io/deployment-options/soda-agent/deploy-soda-agent"))
+		return nil
+	},
+}
+
+var runnerDeleteCmd = &cobra.Command{
+	Use:   "delete <runner-id>",
+	Short: "Delete a Soda Runner",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		if err := client.DeleteRunner(args[0]); err != nil {
+			return err
+		}
+		output.PrintSuccess("Runner deleted.", GCtx)
+		return nil
+	},
+}
+
 func init() {
-	runnerCmd.AddCommand(runnerListCmd, runnerGetCmd)
+	runnerCreateCmd.Flags().String("name", "", "Name for the new runner")
+
+	runnerCmd.AddCommand(runnerListCmd, runnerGetCmd, runnerCreateCmd, runnerDeleteCmd)
 }

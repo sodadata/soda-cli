@@ -1,8 +1,14 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/soda-data-inc/soda-cli/internal/output"
 )
 
 type Datasource struct {
@@ -40,6 +46,61 @@ func (c *Client) ListDatasources(page, size int) (*DatasourcePage, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (c *Client) GetDatasource(datasourceID string) (*Datasource, error) {
+	resp, err := c.get("/api/v1/datasources/"+datasourceID, nil)
+	if err != nil {
+		return nil, err
+	}
+	return decodeDatasourceResponse(resp)
+}
+
+type UpdateDatasourceRequest struct {
+	AgentID                   string `json:"agentId,omitempty"`
+	ConfigurationFileContents string `json:"configurationFileContents,omitempty"`
+	Label                     string `json:"label,omitempty"`
+}
+
+func (c *Client) UpdateDatasource(datasourceID string, req UpdateDatasourceRequest) (*Datasource, error) {
+	resp, err := c.patch("/api/v1/datasources/"+datasourceID, req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeDatasourceResponse(resp)
+}
+
+// decodeDatasourceResponse handles {"datasource": {...}} or flat {...} shapes.
+func decodeDatasourceResponse(resp *http.Response) (*Datasource, error) {
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return nil, &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+	}
+	if resp.StatusCode >= 400 {
+		var apiErr struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return nil, &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		return nil, &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+
+	var wrapper struct {
+		Datasource *Datasource `json:"datasource"`
+	}
+	if json.Unmarshal(body, &wrapper) == nil && wrapper.Datasource != nil && wrapper.Datasource.ID != "" {
+		return wrapper.Datasource, nil
+	}
+	var flat Datasource
+	if err := json.Unmarshal(body, &flat); err != nil {
+		return nil, err
+	}
+	return &flat, nil
 }
 
 // ── Discovered datasets ───────────────────────────────────────────────────────

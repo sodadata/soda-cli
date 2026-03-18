@@ -252,6 +252,70 @@ var dsDeleteCmd = &cobra.Command{
 	},
 }
 
+// ── datasource get ────────────────────────────────────────────────────────────
+
+var dsGetCmd = &cobra.Command{
+	Use:   "get <id>",
+	Short: "Show datasource details",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		ds, err := client.GetDatasource(args[0])
+		if err != nil {
+			return err
+		}
+		item := map[string]string{
+			"id":      ds.ID,
+			"name":    ds.Name,
+			"label":   ds.Label,
+			"type":    ds.Type,
+			"created": ds.CreatedAt,
+			"updated": ds.UpdatedAt,
+		}
+		output.RenderOne(item, []string{"id", "name", "label", "type", "created", "updated"}, GCtx)
+		return nil
+	},
+}
+
+// ── datasource update ─────────────────────────────────────────────────────────
+
+var dsUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update a datasource",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		var req api.UpdateDatasourceRequest
+		if v, _ := cmd.Flags().GetString("label"); v != "" {
+			req.Label = v
+		}
+		if v, _ := cmd.Flags().GetString("runner"); v != "" {
+			req.AgentID = v
+		}
+		if v, _ := cmd.Flags().GetString("config"); v != "" {
+			configBytes, err := os.ReadFile(v)
+			if err != nil {
+				return output.Errorf(2, "could not read config file: %v", err)
+			}
+			req.ConfigurationFileContents = string(configBytes)
+		}
+
+		ds, err := client.UpdateDatasource(args[0], req)
+		if err != nil {
+			return err
+		}
+		output.PrintSuccess(fmt.Sprintf("Datasource '%s' updated.", ds.Name), GCtx)
+		return nil
+	},
+}
+
 // ── datasource diagnostics ────────────────────────────────────────────────────
 
 var dsDiagnosticsCmd = &cobra.Command{
@@ -320,6 +384,9 @@ var dsDiagnosticsTestConnectionCmd = &cobra.Command{
 func init() {
 	dsCreateCmd.Flags().String("runner", "", "Route connection through a Soda Runner")
 	dsTestConnectionCmd.Flags().String("runner", "", "Soda Runner ID to route the test through")
+	dsUpdateCmd.Flags().String("label", "", "New label for the datasource")
+	dsUpdateCmd.Flags().String("runner", "", "Agent/runner ID to route through")
+	dsUpdateCmd.Flags().String("config", "", "YAML connection config file")
 
 	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")
 	dsDiagnosticsCmd.Flags().Bool("disable", false, "Disable the diagnostics warehouse")
@@ -338,5 +405,5 @@ func init() {
 	dsDiagnosticsCmd.Flags().Bool("no-failed-rows-cta", false, "Hide the call-to-action link for failed rows")
 	dsDiagnosticsCmd.AddCommand(dsDiagnosticsTestConnectionCmd)
 
-	datasourceCmd.AddCommand(dsOnboardCmd, dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsDiagnosticsCmd, dsDeleteCmd)
+	datasourceCmd.AddCommand(dsOnboardCmd, dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsGetCmd, dsUpdateCmd, dsDiagnosticsCmd, dsDeleteCmd)
 }

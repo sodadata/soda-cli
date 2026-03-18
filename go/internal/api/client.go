@@ -132,12 +132,20 @@ func decode(resp *http.Response, target interface{}) error {
 		return &output.ExitError{Code: 2, Msg: "rate limit exceeded — try again in a moment"}
 	}
 	if resp.StatusCode >= 400 {
+		// HTML body means the endpoint doesn't exist (SPA fallback)
+		if len(body) > 0 && body[0] == '<' {
+			return &output.ExitError{Code: 2, Msg: fmt.Sprintf("this feature is not yet available in the Soda Cloud API (%s). It's on the roadmap — check back soon.", resp.Request.URL.Path)}
+		}
 		// try to extract a human-readable message from the JSON error body
 		var apiErr struct {
 			Message string `json:"message"`
 		}
 		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
 			return &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		// Empty body with 404 — endpoint likely doesn't exist
+		if resp.StatusCode == 404 && len(body) == 0 {
+			return &output.ExitError{Code: 2, Msg: fmt.Sprintf("not found — this endpoint may not be available yet (%s)", resp.Request.URL.Path)}
 		}
 		return &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
 	}
@@ -147,7 +155,7 @@ func decode(resp *http.Response, target interface{}) error {
 	if err := json.Unmarshal(body, target); err != nil {
 		// API returned non-JSON (likely HTML from a missing endpoint)
 		if len(body) > 0 && body[0] == '<' {
-			return &output.ExitError{Code: 2, Msg: fmt.Sprintf("this endpoint is not yet available in the API (got HTML instead of JSON from %s)", resp.Request.URL.Path)}
+			return &output.ExitError{Code: 2, Msg: fmt.Sprintf("this feature is not yet available in the Soda Cloud API (%s). It's on the roadmap — check back soon.", resp.Request.URL.Path)}
 		}
 		return err
 	}
