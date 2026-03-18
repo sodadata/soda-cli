@@ -105,17 +105,25 @@ See `command_tree.txt` for the current authoritative tree. Key structural decisi
 - **`datasource diagnostics` / `dataset diagnostics`**: what exactly is configurable at each level needs spec.
 - **`contract verify`**: help text needs to make clear this can be cloud-connected (not obvious from the name alone).
 
-## Known API gaps (as of 2026-03-12)
+## Known API gaps (as of 2026-03-18)
 
 These Soda Cloud public API endpoints do not exist yet, blocking CLI implementation:
 - `monitor config` write — no POST /metricMonitoring (read-only)
 - `monitor add --type dataset` — dataset monitors exist by default but can't be enabled via API
-- `incident *` — endpoint returns SPA HTML
+- `incident *` — endpoint returns SPA HTML (CLI wired, waiting on API team)
 - `job list` — no list endpoint (only `job logs <id>`)
+- `job cancel` — POST /scans/{id}/actions/cancel returns 404 (CLI wired, waiting on API team)
+- `datasource update` — PATCH /datasources/{id} returns 404 (CLI wired, waiting on API team)
+- `datasource test-connection` — POST /datasources/actions/testConnection returns HTML (CLI wired, waiting on API team)
 - `notification *`, `secret *` — no endpoints
 - `contract proposal *` — endpoint returns SPA HTML
+- `datasource get <name>` / `runner get <name>` — API only supports lookup by ID, not name (requested from Michael)
 
 Recently unblocked:
+- `contract verify` — POST /contracts/{id}/verify + GET /scans/{id} polling works end-to-end (2026-03-18)
+- `runner create` — POST /runners works (returns apiKeyId + apiKeySecret) (2026-03-18)
+- `runner delete` — DELETE /runners/{id} works (2026-03-18)
+- `datasource get` — GET /datasources/{id} works (2026-03-18)
 - `datasource list` — GET /api/v1/datasources now works (paginated, returns id/name/label/type/timestamps)
 - `discoveredDatasets` — GET /api/v1/discoveredDatasets (with ?datasourceId= filter) now works
 - `onboardDatasets` — POST /api/v1/datasources/{id}/onboardDatasets now works (accepts discoveredDatasetIds)
