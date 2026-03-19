@@ -245,29 +245,6 @@ These work on every command:
 | `--verbose` | Show detailed output |
 | `--no-interactive` | Never prompt, fail with clear error if input is missing |
 
-## Design Principles
-
-- **Noun then verb.** Every command follows `soda <resource> <action>`.
-- **Smart output.** Tables when TTY, JSON when piped. Override with `--output`.
-- **Non-interactive by design.** `--no-interactive` works on every command, safe for CI and agents.
-- **One auth system.** `~/.soda/credentials` serves both local CLI and API calls.
-- **Config precedence.** `--flags` > env vars > `./soda.yml` > `~/.soda/config.yml`.
-
-## Project Structure
-
-```
-go/
-  main.go                     # entry point
-  cmd/                        # one file per resource (auth.go, dataset.go, contract.go, ...)
-  internal/
-    api/                      # Soda Cloud API client (one file per resource)
-    config/                   # credential + config loading
-    ctx/                      # GlobalCtx (flags, profile)
-    output/                   # rendering (tables, JSON, CSV, spinner, styles)
-command_tree.txt              # authoritative command tree with status markers
-CLAUDE.md                     # instructions for Claude Code
-```
-
 ## What's Missing & Roadmap
 
 ### Waiting on Soda Cloud API
