@@ -272,7 +272,7 @@ The goal is one CLI that covers the full data quality lifecycle:
 
 1. **Connect.** `soda datasource onboard` sets up a database connection with monitoring, profiling, and contracts in one command.
 2. **Define.** `soda contract create --mode copilot` uses AI to generate meaningful checks from your schema and data profile.
-3. **Import.** `soda contract import` translates existing data quality definitions from other formats (ODCS, dbt tests, Great Expectations, SodaCL v1) into Soda contracts.
+3. **Import.** `soda contract translate` translates existing data quality definitions from other formats (ODCS, dbt tests, Great Expectations, SodaCL v3) into Soda contracts.
 4. **Verify.** `soda contract verify` runs checks locally or in the cloud, from CI/CD or your terminal.
 5. **Monitor.** `soda monitor` adds ML anomaly detection that fires alerts when metrics drift.
 6. **Respond.** `soda incident` and `soda notification` close the loop from detection to resolution.
