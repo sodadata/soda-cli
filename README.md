@@ -262,6 +262,16 @@ These work on every command:
 | `--verbose` | Show detailed output |
 | `--no-interactive` | Never prompt, fail with clear error if input is missing |
 
+## Telemetry
+
+Soda CLI collects anonymous usage data (command names, exit codes, duration, OS/arch) to help us understand which features are used and improve the tool. No personal information, API keys, file contents, or query data is ever collected.
+
+To opt out:
+
+```bash
+export SODACLI_TELEMETRY=false
+```
+
 ## What's Missing & Roadmap
 
 ### Waiting on Soda Cloud API
