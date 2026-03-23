@@ -1,7 +1,7 @@
 .claude
 .venv
+.env
 *.pyc
 Soda CLI notes.md
 .DS_Store
-go/tests
 demo/
