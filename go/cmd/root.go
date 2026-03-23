@@ -27,7 +27,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&GCtx.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVarP(&GCtx.Verbose, "verbose", "v", false, "Show detailed output")
 	rootCmd.PersistentFlags().BoolVar(&GCtx.NoInteractive, "no-interactive", false, "Never prompt; fail with clear error if input missing")
-	rootCmd.Version = "0.1.0-dev"
+	rootCmd.Version = Version
 
 	// Register top-level commands in display order.
 	rootCmd.AddCommand(

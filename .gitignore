@@ -5,3 +5,8 @@
 Soda CLI notes.md
 .DS_Store
 demo/
+
+# Go binaries
+go/sodacli
+go/sodacli-test
+go/dist/

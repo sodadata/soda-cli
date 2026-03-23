@@ -1,0 +1,62 @@
+version: 2
+
+project_name: sodacli
+
+builds:
+  - id: sodacli
+    main: .
+    binary: sodacli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/soda-data-inc/soda-cli/cmd.Version={{.Version}}
+      - -X github.com/soda-data-inc/soda-cli/cmd.Commit={{.ShortCommit}}
+      - -X github.com/soda-data-inc/soda-cli/cmd.Date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - repository:
+      owner: sodadata
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/sodadata/soda-cli"
+    description: "Soda CLI — data quality from the command line"
+    license: "Apache-2.0"
+    install: |
+      bin.install "sodacli"
+    test: |
+      system "#{bin}/sodacli", "version"
+
+release:
+  github:
+    owner: sodadata
+    name: soda-cli
+  prerelease: auto
+  name_template: "v{{.Version}}"
