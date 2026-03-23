@@ -105,8 +105,8 @@ List datasets (onboarded + discovered-not-yet-onboarded).
 | `--until <date>` | | Updated on or before (YYYY-MM-DD) |
 | `--tag <tag>` | | Filter by tag |
 
-### `sodacli dataset get <id>`
-Show details: name, qualified name, datasource, DQ status, checks, incidents, partition column, tags, cloud URL.
+### `sodacli dataset get <id>` — Blocked
+API returns HTML instead of JSON. Use `sodacli dataset list` with filters to find dataset details.
 
 ### `sodacli dataset update <id>`
 

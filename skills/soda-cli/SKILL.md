@@ -17,7 +17,7 @@ When calling `sodacli` from an agent, **always pass `--output json`** to get str
 **Fully working (tested against live API):**
 - `auth` — login, logout, status, switch profiles
 - `datasource` — list, get, create, delete, onboard (full wizard)
-- `dataset` — list (with filters), get, update, profiling, diagnostics, permissions, onboard
+- `dataset` — list (with filters), update, profiling, diagnostics, permissions, onboard
 - `contract` — list, push, pull, diff, lint, create (skeleton/copilot), verify
 - `monitor` — list, config, add (column/custom), update, delete
 - `results` — list (with all filters, sorting, date ranges)
@@ -30,6 +30,7 @@ When calling `sodacli` from an agent, **always pass `--output json`** to get str
 - `notification` — rules and integrations
 - `secret` — CRUD
 - `job list`, `job cancel`
+- `dataset get` (API returns HTML instead of JSON)
 - `datasource update`, `datasource test-connection`
 - `contract proposal` — list, pull, push, close
 - `monitor add --type dataset` (dataset monitors exist by default, no write endpoint)
@@ -75,11 +76,11 @@ sodacli dataset list --datasource <name> --status onboarded --limit 50 --output 
 # Filter datasets by name, date range, tag
 sodacli dataset list --filter "orders" --from 2026-01-01 --until 2026-12-31 --output json
 
-# Get dataset details (name, DQ status, checks, cloud URL)
-sodacli dataset get <dataset-id> --output json
-
 # View profiling data (column stats, row count, missing %)
 sodacli dataset profiling <dataset-id> --output json
+
+# NOTE: `sodacli dataset get <id>` is NOT available yet (API returns HTML).
+# Use `dataset list` with filters to find dataset details instead.
 ```
 
 ### Onboard a datasource (end-to-end)
