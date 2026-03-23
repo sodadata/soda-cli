@@ -81,14 +81,17 @@ func TestMonitorAddColumnAndDelete(t *testing.T) {
 	}
 	t.Logf("Found column monitor: %s", monitorID)
 
-	// Update: disable — API may return 404 (known limitation)
+	// Update: disable
 	t.Run("update_disable", func(t *testing.T) {
 		r := run(t, "monitor", "update", monitorID, "--dataset", testDatasetID(), "--disable")
-		if r.ExitCode == 0 {
-			assertOutputContains(t, r, "updated")
-		} else {
-			t.Logf("monitor update returned exit=%d (API may not support PUT for column monitors): %s", r.ExitCode, r.Output())
-		}
+		assertExitCode(t, r, 0)
+		assertOutputContains(t, r, "updated")
+	})
+
+	// Update: re-enable
+	t.Run("update_enable", func(t *testing.T) {
+		r := run(t, "monitor", "update", monitorID, "--dataset", testDatasetID(), "--enable")
+		assertExitCode(t, r, 0)
 	})
 
 	// Delete
@@ -122,18 +125,15 @@ func TestMonitorAddCustomAndDelete(t *testing.T) {
 	}
 	t.Logf("Found custom monitor: %s", monitorID)
 
-	// Update name and SQL — API may return 404 (known limitation)
+	// Update name and SQL
 	t.Run("update_custom", func(t *testing.T) {
 		r := run(t, "monitor", "update", monitorID,
 			"--dataset", testDatasetID(),
 			"--name", "integration-test-renamed",
 			"--sql", "SELECT count(*) as cnt FROM ACCOUNT_BALANCES WHERE 1=1",
 		)
-		if r.ExitCode == 0 {
-			assertOutputContains(t, r, "updated")
-		} else {
-			t.Logf("monitor update returned exit=%d (API may not support PUT for custom monitors): %s", r.ExitCode, r.Output())
-		}
+		assertExitCode(t, r, 0)
+		assertOutputContains(t, r, "updated")
 	})
 
 	// Delete

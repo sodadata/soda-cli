@@ -174,7 +174,7 @@ type UpdateColumnMonitorRequest struct {
 }
 
 func (c *Client) UpdateColumnMonitor(datasetID, monitorID string, req UpdateColumnMonitorRequest) (*ColumnMonitor, error) {
-	resp, err := c.put("/api/v1/datasets/"+datasetID+"/columnMetricMonitors/"+monitorID, req)
+	resp, err := c.post("/api/v1/datasets/"+datasetID+"/columnMetricMonitors/"+monitorID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ type UpdateCustomSqlMonitorRequest struct {
 }
 
 func (c *Client) UpdateCustomSqlMonitor(datasetID, monitorID string, req UpdateCustomSqlMonitorRequest) (*CustomSqlMonitor, error) {
-	resp, err := c.put("/api/v1/datasets/"+datasetID+"/customSqlMonitors/"+monitorID, req)
+	resp, err := c.post("/api/v1/datasets/"+datasetID+"/customSqlMonitors/"+monitorID, req)
 	if err != nil {
 		return nil, err
 	}
