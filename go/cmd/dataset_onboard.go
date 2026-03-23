@@ -198,7 +198,7 @@ func init() {
 	datasetOnboardCmd.Flags().Bool("no-monitoring", false, "Skip monitoring setup")
 	datasetOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling")
 	datasetOnboardCmd.Flags().Bool("no-profiling", false, "Skip profiling setup")
-	datasetOnboardCmd.Flags().String("contracts", "", "Generate contract: ai|skeleton|none")
+	datasetOnboardCmd.Flags().String("contracts", "", "Generate contract: copilot|skeleton|none")
 
 	datasetCmd.AddCommand(datasetOnboardCmd)
 }
