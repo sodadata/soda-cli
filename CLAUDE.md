@@ -13,7 +13,7 @@ Target users: data engineers running it manually, and AI agents running it progr
 
 ## Design principles — must be respected in all implementation decisions
 
-1. **Noun → Verb structure** — all commands follow `soda <resource> <action>` consistently
+1. **Noun → Verb structure** — all commands follow `sodacli <resource> <action>` consistently
 2. **Context-aware defaults** — `soda.yml` in project root eliminates repetitive flags; config precedence: `--flags` > env vars > `./soda.yml` > `~/.soda/config.yml`
 3. **Human output when TTY, JSON when piped** — auto-detect, overridable with `--output`
 4. **One auth system** — `~/.soda/credentials` serves both local CLI and API calls
@@ -84,7 +84,7 @@ See `command_tree.txt` for the current authoritative tree. Key structural decisi
 
 ## Implementation
 
-**Language**: Go. Source lives in `go/`. Builds to a single static binary (`go build -o soda .`).
+**Language**: Go. Source lives in `go/`. Builds to a single static binary (`go build -o sodacli .`).
 
 **Stack**: `cobra` (commands) + `lipgloss` (styling) + `huh` (interactive wizards) + `tablewriter` (tables)
 
@@ -100,7 +100,7 @@ See `command_tree.txt` for the current authoritative tree. Key structural decisi
 
 ## Pending decisions / known TODOs
 
-- **Binary name**: new `soda` replaces `soda-core`'s `soda` binary. Migration strategy TBD.
+- **Binary name**: `sodacli` replaces `soda-core`'s `soda` binary. Different name avoids conflicts.
 - **`results`**: temp name — needs a better name that covers both checks and monitor alerts without the "manual check" connotation.
 - **`datasource diagnostics` / `dataset diagnostics`**: what exactly is configurable at each level needs spec.
 - **`contract verify`**: help text needs to make clear this can be cloud-connected (not obvious from the name alone).

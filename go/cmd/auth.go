@@ -53,7 +53,7 @@ var authLoginCmd = &cobra.Command{
 					}
 					fmt.Printf("  Host set to %s for profile '%s'.\n\n", output.Bold.Render(host), profileName)
 					fmt.Printf("  Complete setup by running:\n\n")
-					fmt.Printf("    soda auth login --api-key-id <your-key-id> --api-key-secret <your-secret>\n\n")
+					fmt.Printf("    sodacli auth login --api-key-id <your-key-id> --api-key-secret <your-secret>\n\n")
 					fmt.Printf("  Generate API keys: https://docs.soda.io/reference/generate-api-keys\n")
 					return nil
 				}
@@ -69,7 +69,7 @@ var authLoginCmd = &cobra.Command{
 					}
 					missing += "--api-key-secret"
 				}
-				return output.Errorf(2, "%s required. Example:\n\n  soda auth login --api-key-id <id> --api-key-secret <secret>\n\nGenerate keys: https://docs.soda.io/reference/generate-api-keys", missing)
+				return output.Errorf(2, "%s required. Example:\n\n  sodacli auth login --api-key-id <id> --api-key-secret <secret>\n\nGenerate keys: https://docs.soda.io/reference/generate-api-keys", missing)
 			}
 		} else {
 			// No flags: interactive wizard
@@ -192,7 +192,7 @@ var authStatusCmd = &cobra.Command{
 		fmt.Printf("  %-20s %s\n", output.Bold.Render("Host"), host)
 
 		if !ok || p.APIKeyID == "" {
-			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Dim.Render("not configured — run `soda auth login`"))
+			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Dim.Render("not configured — run `sodacli auth login`"))
 			return nil
 		}
 

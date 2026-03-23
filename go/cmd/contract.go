@@ -238,7 +238,7 @@ var contractDiffCmd = &cobra.Command{
 			return err
 		}
 		if remote == nil {
-			return output.Errorf(2, "no contract found in Soda Cloud for dataset '%s' — run `soda contract push` to create it", qualifiedName)
+			return output.Errorf(2, "no contract found in Soda Cloud for dataset '%s' — run `sodacli contract push` to create it", qualifiedName)
 		}
 
 		localLines := strings.Split(strings.TrimRight(string(contents), "\n"), "\n")
@@ -268,7 +268,7 @@ var contractDiffCmd = &cobra.Command{
 			}
 		}
 		fmt.Println()
-		fmt.Println(output.Dim.Render(fmt.Sprintf("  Run `soda contract push %s` to publish local changes.", file)))
+		fmt.Println(output.Dim.Render(fmt.Sprintf("  Run `sodacli contract push %s` to publish local changes.", file)))
 		return nil
 	},
 }
@@ -406,7 +406,7 @@ func runContractCreateCopilot(client *api.Client, dataset, outFile string, noWai
 	if noWait {
 		fmt.Printf("  %s AI contract generation started for %s.\n", output.Green.Render("✓"), dataset)
 		fmt.Println(output.Dim.Render("  Running in background — contract will appear in Soda Cloud when ready."))
-		fmt.Println(output.Dim.Render("  Check results:  soda results list"))
+		fmt.Println(output.Dim.Render("  Check results:  sodacli results list"))
 		return nil
 	}
 
@@ -635,7 +635,7 @@ var contractVerifyCmd = &cobra.Command{
 		noWait, _ := cmd.Flags().GetBool("no-wait")
 		if noWait {
 			output.PrintSuccess(fmt.Sprintf("Verification started (scan: %s). Running in background.", scanID), GCtx)
-			fmt.Println(output.Dim.Render("  Check status:  soda job logs " + scanID))
+			fmt.Println(output.Dim.Render("  Check status:  sodacli job logs " + scanID))
 			return nil
 		}
 

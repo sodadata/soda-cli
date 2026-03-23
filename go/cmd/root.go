@@ -11,7 +11,7 @@ import (
 var GCtx = &ctx.GlobalCtx{}
 
 var rootCmd = &cobra.Command{
-	Use:           "soda",
+	Use:           "sodacli",
 	Short:         "Soda — data quality CLI",
 	Long:          "Run checks, manage contracts, and monitor your data.\n\nDocs: https://docs.soda.io/soda-cli",
 	SilenceUsage:  true,

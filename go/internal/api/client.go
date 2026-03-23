@@ -126,7 +126,7 @@ func decode(resp *http.Response, target interface{}) error {
 		return err
 	}
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+		return &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
 	}
 	if resp.StatusCode == 429 {
 		return &output.ExitError{Code: 2, Msg: "rate limit exceeded — try again in a moment"}

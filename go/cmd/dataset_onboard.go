@@ -19,7 +19,7 @@ var datasetOnboardCmd = &cobra.Command{
 
 Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
-  soda dataset onboard <id> --monitoring --profiling --contracts skeleton`,
+  sodacli dataset onboard <id> --monitoring --profiling --contracts skeleton`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID := args[0]

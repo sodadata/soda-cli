@@ -182,7 +182,7 @@ func decodeAsyncOperation(resp *http.Response) (string, error) {
 			return "", &output.ExitError{Code: code, Msg: apiErr.Message}
 		}
 		if resp.StatusCode == 401 {
-			return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+			return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
 		}
 		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
 	}
@@ -221,7 +221,7 @@ func (c *Client) VerifyContract(contractID string) (string, error) {
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
 	}
 	if resp.StatusCode >= 400 {
 		var apiErr struct {
@@ -268,7 +268,7 @@ func decodeContractResponse(resp *http.Response) (*Contract, error) {
 		return nil, err
 	}
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+		return nil, &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
 	}
 	if resp.StatusCode >= 400 {
 		var apiErr struct {

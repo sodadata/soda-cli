@@ -15,7 +15,7 @@ All commands support these global flags:
 
 ## auth
 
-### `soda auth login`
+### `sodacli auth login`
 Authenticate with Soda Cloud. Stores credentials in `~/.soda/credentials`.
 
 | Flag | Description |
@@ -25,37 +25,37 @@ Authenticate with Soda Cloud. Stores credentials in `~/.soda/credentials`.
 | `--api-key-secret <secret>` | API key secret |
 | `--profile <name>` | Save to named profile |
 
-### `soda auth status`
+### `sodacli auth status`
 Show active profile and connection health.
 
-### `soda auth logout`
+### `sodacli auth logout`
 Remove stored credentials for the active profile.
 
-### `soda auth switch <profile>`
+### `sodacli auth switch <profile>`
 Switch the active auth profile.
 
 ---
 
 ## datasource (alias: ds)
 
-### `soda datasource list`
+### `sodacli datasource list`
 List all datasources. Returns: id, name, label, type, created, updated.
 
-### `soda datasource create <config-file>`
+### `sodacli datasource create <config-file>`
 Register a datasource from a YAML connection config.
 
 | Flag | Description |
 |---|---|
 | `--runner <id>` | Soda Runner ID (auto-detects if only one) |
 
-### `soda datasource test-connection <config-file>`
+### `sodacli datasource test-connection <config-file>`
 Test a datasource connection via Soda Runner (async poll, 2min timeout).
 
 | Flag | Description |
 |---|---|
 | `--runner <id>` | Soda Runner ID (auto-detects if only one) |
 
-### `soda datasource onboard <config-file-or-datasource-id>`
+### `sodacli datasource onboard <config-file-or-datasource-id>`
 Guided setup: create datasource + discover datasets + onboard.
 
 | Flag | Description |
@@ -69,10 +69,10 @@ Guided setup: create datasource + discover datasets + onboard.
 
 When all action flags provided, runs fully non-interactively.
 
-### `soda datasource delete <id>`
+### `sodacli datasource delete <id>`
 Delete a datasource (schedules deletion).
 
-### `soda datasource diagnostics <id>`
+### `sodacli datasource diagnostics <id>`
 View or configure the diagnostics warehouse.
 
 | Flag | Description |
@@ -87,7 +87,7 @@ View or configure the diagnostics warehouse.
 
 ## dataset
 
-### `soda dataset list`
+### `sodacli dataset list`
 List datasets (onboarded + discovered).
 
 | Flag | Default | Description |
@@ -101,20 +101,20 @@ List datasets (onboarded + discovered).
 | `--until <date>` | | Updated on or before (YYYY-MM-DD) |
 | `--tag <tag>` | | Filter by tag |
 
-### `soda dataset get <id>`
+### `sodacli dataset get <id>`
 Show details: name, qualified name, datasource, DQ status, checks, incidents, partition column, tags, cloud URL.
 
-### `soda dataset update <id>`
+### `sodacli dataset update <id>`
 
 | Flag | Description |
 |---|---|
 | `--owner <user-id>` | Set dataset owner |
 | `--tag <tag>` | Set tags (repeatable; replaces all existing) |
 
-### `soda dataset delete <id>`
+### `sodacli dataset delete <id>`
 Delete a dataset from Soda Cloud.
 
-### `soda dataset onboard <id>`
+### `sodacli dataset onboard <id>`
 Guided setup for an existing dataset: monitoring, profiling, contracts.
 
 | Flag | Description |
@@ -123,13 +123,13 @@ Guided setup for an existing dataset: monitoring, profiling, contracts.
 | `--profiling` / `--no-profiling` | Toggle profiling |
 | `--contracts ai\|skeleton\|none` | Contract generation |
 
-### `soda dataset time-partition <id>`
+### `sodacli dataset time-partition <id>`
 
 | Flag | Description |
 |---|---|
 | `--column <col>` | Set partition column (omit to view current) |
 
-### `soda dataset profiling <id>`
+### `sodacli dataset profiling <id>`
 
 | Flag | Description |
 |---|---|
@@ -140,7 +140,7 @@ Guided setup for an existing dataset: monitoring, profiling, contracts.
 
 No flags = view current profiling data and column stats.
 
-### `soda dataset diagnostics <id>`
+### `sodacli dataset diagnostics <id>`
 
 | Flag | Description |
 |---|---|
@@ -149,10 +149,10 @@ No flags = view current profiling data and column stats.
 
 No flags = view current settings. Requires diagnostics enabled on the datasource first.
 
-### `soda dataset permissions list <id>`
+### `sodacli dataset permissions list <id>`
 List permissions (principal, type, role).
 
-### `soda dataset permissions assign <id>`
+### `sodacli dataset permissions assign <id>`
 
 | Flag | Description |
 |---|---|
@@ -160,17 +160,17 @@ List permissions (principal, type, role).
 | `--user <email>` | User email |
 | `--group <group-id>` | Group ID |
 
-### `soda dataset permissions revoke <id>`
+### `sodacli dataset permissions revoke <id>`
 Same flags as assign.
 
 ---
 
 ## contract
 
-### `soda contract list`
+### `sodacli contract list`
 List all contracts in Soda Cloud. Returns: id, dataset, updated.
 
-### `soda contract create`
+### `sodacli contract create`
 Generate a contract YAML from a live dataset schema.
 
 | Flag | Description |
@@ -180,19 +180,19 @@ Generate a contract YAML from a live dataset schema.
 | `--output <file>` | Output file path |
 | `--no-wait` | Return immediately (copilot mode only) |
 
-### `soda contract push [file]`
+### `sodacli contract push [file]`
 Push a local contract YAML to Soda Cloud (upsert). Reads `dataset:` field from the file.
 
-### `soda contract pull <identifier>`
+### `sodacli contract pull <identifier>`
 Pull a contract by dataset qualified name (`datasource/db/schema/table`). Saves to `<table>.yml`.
 
-### `soda contract diff [file]`
+### `sodacli contract diff [file]`
 Show diff between local contract and Soda Cloud version.
 
-### `soda contract lint [file]` (alias: validate)
+### `sodacli contract lint [file]` (alias: validate)
 Validate contract syntax locally (no network required).
 
-### `soda contract verify [file-or-dir]`
+### `sodacli contract verify [file-or-dir]`
 Run contract checks against your data.
 
 | Flag | Description |
@@ -208,14 +208,14 @@ Exit codes: 0=pass, 1=checks failed, 2=error, 3=auth error.
 
 ## monitor
 
-### `soda monitor list`
+### `sodacli monitor list`
 
 | Flag | Description |
 |---|---|
 | `--dataset <id>` | Dataset ID (required) |
 | `--type column\|custom\|dataset` | Filter by monitor type |
 
-### `soda monitor config <dataset-id>`
+### `sodacli monitor config <dataset-id>`
 View or update dataset-level monitoring settings.
 
 | Flag | Description |
@@ -226,7 +226,7 @@ View or update dataset-level monitoring settings.
 
 No flags = view current config.
 
-### `soda monitor add`
+### `sodacli monitor add`
 Add a monitor to a dataset.
 
 | Flag | Description |
@@ -254,7 +254,7 @@ Add a monitor to a dataset.
 
 **Dataset monitors** (`--type dataset`): Not yet available via API.
 
-### `soda monitor update <id>`
+### `sodacli monitor update <id>`
 
 | Flag | Description |
 |---|---|
@@ -264,7 +264,7 @@ Add a monitor to a dataset.
 | `--name <name>` | Update name (custom only) |
 | `--result-metric <col>` | Update result metric (custom only) |
 
-### `soda monitor delete <id>`
+### `sodacli monitor delete <id>`
 
 | Flag | Description |
 |---|---|
@@ -274,7 +274,7 @@ Add a monitor to a dataset.
 
 ## results
 
-### `soda results list`
+### `sodacli results list`
 List check results across datasets.
 
 | Flag | Default | Description |
@@ -293,43 +293,43 @@ List check results across datasets.
 
 ## job (alias: scan)
 
-### `soda job logs <id>`
+### `sodacli job logs <id>`
 
 | Flag | Description |
 |---|---|
 | `--follow` | Stream logs as they arrive |
 
-### `soda job list`
+### `sodacli job list`
 Not yet available in the API.
 
 ---
 
 ## runner
 
-### `soda runner list`
+### `sodacli runner list`
 List registered Soda Runners. Returns: id, name, status.
 
-### `soda runner get <runner-id>`
+### `sodacli runner get <runner-id>`
 Show details for a specific runner.
 
 ---
 
 ## iam
 
-### `soda iam user list`
+### `sodacli iam user list`
 List users in the organization.
 
-### `soda iam group list`
+### `sodacli iam group list`
 List groups with members.
 
-### `soda iam group create`
+### `sodacli iam group create`
 
 | Flag | Description |
 |---|---|
 | `--name <name>` | Group name (required) |
 | `--member <email>` | Initial member (repeatable) |
 
-### `soda iam group update <id>`
+### `sodacli iam group update <id>`
 
 | Flag | Description |
 |---|---|
@@ -337,10 +337,10 @@ List groups with members.
 | `--add-member <email>` | Add member (repeatable) |
 | `--remove-member <email>` | Remove member (repeatable) |
 
-### `soda iam group delete <id>`
+### `sodacli iam group delete <id>`
 Delete a group.
 
-### `soda iam role list`
+### `sodacli iam role list`
 List dataset-scoped roles.
 
 | Flag | Description |

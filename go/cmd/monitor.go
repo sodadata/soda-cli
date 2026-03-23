@@ -347,7 +347,7 @@ func runMonitorAddDataset(_ *cobra.Command, _ *api.Client, datasetID string) err
 	// The public API only supports GET for dataset-level monitors — no write endpoint exists.
 	// Dataset monitors (row count, freshness, schema, etc.) exist by default but must be
 	// enabled/disabled from the Soda Cloud UI.
-	return output.Errorf(2, "adding/enabling dataset-level monitors is not yet available in the public API.\n\n  Dataset monitors exist by default — enable them from the Soda Cloud UI.\n  To add column monitors:  soda monitor add --dataset %s --type column --column <col> --metric <metric>", datasetID)
+	return output.Errorf(2, "adding/enabling dataset-level monitors is not yet available in the public API.\n\n  Dataset monitors exist by default — enable them from the Soda Cloud UI.\n  To add column monitors:  sodacli monitor add --dataset %s --type column --column <col> --metric <metric>", datasetID)
 }
 
 func runMonitorAddCustom(cmd *cobra.Command, client *api.Client, datasetID string) error {
@@ -476,7 +476,7 @@ var monitorUpdateCmd = &cobra.Command{
 			}
 		}
 
-		return output.Errorf(2, "monitor '%s' not found on dataset '%s'.\n\n  Note: dataset-level monitors cannot be updated individually — use `soda monitor config %s --enable/--disable`", monitorID, datasetID, datasetID)
+		return output.Errorf(2, "monitor '%s' not found on dataset '%s'.\n\n  Note: dataset-level monitors cannot be updated individually — use `sodacli monitor config %s --enable/--disable`", monitorID, datasetID, datasetID)
 	},
 }
 

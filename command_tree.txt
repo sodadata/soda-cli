@@ -6,7 +6,7 @@ Legend:
   🏠  local operation, no API needed
   ❌  no public API endpoint (placeholder / future)
 
-soda
+sodacli
   │
   │  Global flags (all commands):
   │    --output table|json|csv    # auto-detects TTY
@@ -46,13 +46,13 @@ soda
   │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
   │   │   # when all action flags provided: fully non-interactive, onboards all datasets automatically
   │   │   # interactive wizard: runner → discovery poll → dataset select → monitoring → profiling → contracts
-  │   │   # after datasource create, suggests: soda datasource onboard <id>
+  │   │   # after datasource create, suggests: sodacli datasource onboard <id>
   │   │
   │   ├── create  <config-file>                         # register datasource from a YAML connection config  ✅
   │   │   [--runner <runner-id>]                        # route through a Soda Runner (auto-detects if only one)
   │   │   # config file must have: type, name, connection details
   │   │   # returns datasource ID + discovery scan ID
-  │   │   # after success, suggests next steps: soda datasource onboard <id> or soda dataset onboard <dataset-id>
+  │   │   # after success, suggests next steps: sodacli datasource onboard <id> or sodacli dataset onboard <dataset-id>
   │   │
   │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  🔌 [CLI wired, API returns HTML]
   │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
@@ -163,7 +163,7 @@ soda
   │   │   # name, qualified name, datasource, DQ status, checks, incidents, partition column, tags, cloud URL
   │   ├── update  <id>  [--owner <user-id>]  [--tag <tag>]  ✅
   │   │   # --tag is repeatable and replaces all existing tags
-  │   │   # --owner takes a user ID (use `soda iam user list` to find it)
+  │   │   # --owner takes a user ID (use `sodacli iam user list` to find it)
   │   ├── delete  <id>  ✅
   │   │
   │   ├── time-partition  <id>  --column <col>  ✅

@@ -514,7 +514,7 @@ var datasetDiagnosticsCmd = &cobra.Command{
 			if result.ScanAndResultsConfiguration == nil && result.FailedRowsConfiguration == nil {
 				fmt.Printf("  %-28s %s\n", output.Bold.Render("Diagnostics warehouse"), output.Dim.Render("not configured"))
 				fmt.Printf("\n  %s\n", output.Dim.Render("Set it up at the datasource level first:"))
-				fmt.Printf("  %s\n", output.Dim.Render("  soda datasource diagnostics <datasource-id> --enable"))
+				fmt.Printf("  %s\n", output.Dim.Render("  sodacli datasource diagnostics <datasource-id> --enable"))
 				return nil
 			}
 			if result.ScanAndResultsConfiguration != nil {
@@ -554,7 +554,7 @@ var datasetDiagnosticsCmd = &cobra.Command{
 		if _, err := client.UpdateDatasetDiagnostics(args[0], cfg); err != nil {
 			if isNotEnabledOnDatasource(err) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "\n  %s\n", output.Dim.Render("Set up the diagnostics warehouse on the datasource first:"))
-				fmt.Fprintf(cmd.ErrOrStderr(), "  %s\n\n", output.Dim.Render("  soda datasource diagnostics <datasource-id> --enable"))
+				fmt.Fprintf(cmd.ErrOrStderr(), "  %s\n\n", output.Dim.Render("  sodacli datasource diagnostics <datasource-id> --enable"))
 			}
 			return err
 		}

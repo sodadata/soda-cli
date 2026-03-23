@@ -78,7 +78,7 @@ func decodeDatasourceResponse(resp *http.Response) (*Datasource, error) {
 		return nil, err
 	}
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, &output.ExitError{Code: 3, Msg: "authentication failed — run `soda auth login`"}
+		return nil, &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
 	}
 	if resp.StatusCode >= 400 {
 		var apiErr struct {

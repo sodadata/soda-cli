@@ -28,8 +28,8 @@ datasource ID to run the onboarding flow on an already-registered datasource.
 When all action flags are provided the command runs fully non-interactively,
 selecting all discovered datasets and applying the requested settings.
 
-  soda datasource onboard config.yml --monitoring --profiling --contracts ai
-  soda datasource onboard <datasource-id> --no-monitoring --no-profiling --contracts none`,
+  sodacli datasource onboard config.yml --monitoring --profiling --contracts ai
+  sodacli datasource onboard <datasource-id> --no-monitoring --no-profiling --contracts none`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		arg := args[0]
@@ -142,7 +142,7 @@ selecting all discovered datasets and applying the requested settings.
 		spinner.Stop()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s %v\n", output.Yellow.Render("⚠"), err)
-			fmt.Println(output.Dim.Render("  Check with: soda dataset list --datasource " + name))
+			fmt.Println(output.Dim.Render("  Check with: sodacli dataset list --datasource " + name))
 			fmt.Println()
 			output.PrintSuccess(fmt.Sprintf("Datasource '%s' ready.", name), GCtx)
 			return nil
@@ -368,7 +368,7 @@ selecting all discovered datasets and applying the requested settings.
 				} else {
 					fmt.Printf("  %s AI contract generation started for %d datasets.\n", output.Green.Render("✓"), len(cqns))
 					fmt.Println(output.Dim.Render("  Contracts are being generated in the background and will appear in Soda Cloud when ready."))
-					fmt.Println(output.Dim.Render("  Check results:  soda results list"))
+					fmt.Println(output.Dim.Render("  Check results:  sodacli results list"))
 				}
 			}
 		case "skeleton":

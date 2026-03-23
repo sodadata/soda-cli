@@ -64,10 +64,10 @@ func GetProfile(profileName string, creds Credentials) (Profile, error) {
 	}
 	p, ok := creds[profileName]
 	if !ok {
-		return Profile{}, fmt.Errorf("profile '%s' not found in ~/.soda/credentials — run `soda auth login`", profileName)
+		return Profile{}, fmt.Errorf("profile '%s' not found in ~/.soda/credentials — run `sodacli auth login`", profileName)
 	}
 	if p.APIKeyID == "" || p.APIKeySecret == "" {
-		return Profile{}, fmt.Errorf("profile '%s' is missing credentials — run `soda auth login`", profileName)
+		return Profile{}, fmt.Errorf("profile '%s' is missing credentials — run `sodacli auth login`", profileName)
 	}
 	return p, nil
 }
