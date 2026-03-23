@@ -91,11 +91,27 @@ sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts sk
 
 # Or step by step:
 sodacli datasource create warehouse.yml
+# ⚠ Discovery is async — datasets won't appear immediately.
+# Use `sodacli job logs <scan-id>` (printed by create) to confirm completion,
+# or wait ~10-15 seconds before listing datasets.
 sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts none
-
-# Onboard a single dataset (creates contract + runs verification)
-sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts skeleton
 ```
+
+**Onboarding a single dataset from a new datasource:**
+`dataset onboard` only works after `datasource onboard` has run at least once. If you only need one table, you must still run `datasource onboard` first (which onboards all discovered datasets), then manage individual datasets afterwards.
+
+```bash
+# This will NOT work right after `datasource create`, even if the dataset appears in `dataset list`:
+# sodacli dataset onboard <dataset-id>   ← returns "dataset not found"
+
+# Instead, onboard the datasource first, then work with individual datasets:
+sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts copilot
+# Now `dataset onboard`, `dataset profiling`, `monitor add`, etc. work on individual datasets.
+```
+
+**Contract generation modes:**
+- `skeleton` — schema structure + not-null checks only (fast, deterministic)
+- `copilot` — AI analyzes your data and generates format, range, uniqueness, and business-logic checks (takes longer, may need manual fixes — see Troubleshooting below)
 
 When `--contracts skeleton` or `--contracts copilot` is used, the onboard flow automatically verifies the generated contracts against your data and displays pass/fail results.
 
@@ -252,6 +268,24 @@ sodacli contract verify contracts/orders.yml --no-interactive --output json
 # 1 = checks failed  →  fail the pipeline
 # 2 = execution error →  retry or alert
 # 3 = auth error      →  check credentials
+```
+
+## Troubleshooting
+
+### Contract verification fails with exit code 2
+When `contract verify` returns exit code 2, the output may only show "0 checks passed" without details. Always check the scan logs for the actual error:
+```bash
+sodacli job logs <scan-id>
+```
+The scan ID is printed by the `contract verify` command.
+
+### Copilot contracts: UUID regex checks fail on Postgres
+Copilot may generate `valid_format` regex checks on UUID columns (e.g., `'^[0-9a-fA-F]{8}-...'`). On Postgres, the `~` regex operator doesn't work on `uuid` type columns, causing a SQL error. **Fix:** Remove `invalid` / `valid_format` checks on UUID columns — the database data type already enforces UUID format. Keep `missing` and `duplicate` checks, which work fine.
+
+### Discovery scan not complete
+After `datasource create`, the discovery scan runs asynchronously. If `dataset list` returns empty or `dataset onboard` returns "not found", the scan may still be running. Check with:
+```bash
+sodacli job logs <scan-id>   # scan-id is printed by datasource create
 ```
 
 ## Global Flags (all commands)

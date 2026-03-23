@@ -49,7 +49,7 @@ List all datasources. Returns: id, name, label, type, created, updated.
 Show datasource details by ID.
 
 ### `sodacli datasource create <config-file>`
-Register a datasource from a YAML connection config. Requires a self-hosted Soda Runner.
+Register a datasource from a YAML connection config. Requires a self-hosted Soda Runner. Triggers an async discovery scan — datasets won't appear in `dataset list` until the scan completes (~10-15 seconds). The scan ID is printed in the output; use `sodacli job logs <scan-id>` to confirm completion.
 
 | Flag | Description |
 |------|-------------|
@@ -123,11 +123,17 @@ Delete a dataset from Soda Cloud.
 ### `sodacli dataset onboard <id>`
 Guided setup for an existing dataset: monitoring, profiling, contracts, and verification.
 
+**Important:** `dataset onboard` only works after `datasource onboard` has been run at least once for the parent datasource. Running it right after `datasource create` will return "dataset not found" even if the dataset appears in `dataset list`.
+
 | Flag | Description |
 |------|-------------|
 | `--monitoring` / `--no-monitoring` | Toggle monitoring |
 | `--profiling` / `--no-profiling` | Toggle profiling |
 | `--contracts copilot\|skeleton\|none` | Contract generation |
+
+Contract modes:
+- `skeleton` — schema structure + not-null checks only (fast, deterministic)
+- `copilot` — AI-generated checks including format, range, uniqueness, and business logic (slower, may need manual fixes for edge cases like UUID columns on Postgres)
 
 When all flags provided, runs non-interactively. When contracts are generated, they are automatically verified against your data.
 
@@ -212,6 +218,8 @@ Push contract to cloud + trigger verification via Runner + poll for results.
 | `--set key=value` | Runtime variable overrides (repeatable) |
 
 Exit codes: 0=pass, 1=checks failed, 2=error, 3=auth error.
+
+**Debugging exit code 2:** The output may only show "0 checks passed" without details. Use `sodacli job logs <scan-id>` (scan ID is printed in the verify output) to see the actual SQL or runtime error. Common cause: copilot-generated regex checks on Postgres UUID columns — remove `invalid`/`valid_format` checks on UUID columns since the data type already enforces format.
 
 ### `sodacli contract copilot` — Blocked
 Not yet available.
