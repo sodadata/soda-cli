@@ -85,16 +85,18 @@ sodacli dataset profiling <dataset-id> --output json
 ### Onboard a datasource (end-to-end)
 
 ```bash
-# Full onboard: create datasource + discover + enable monitoring + profiling + contracts
+# Full onboard: create datasource + discover + monitoring + profiling + contracts + verify
 sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts skeleton
 
 # Or step by step:
 sodacli datasource create warehouse.yml
 sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts none
 
-# Onboard a single dataset
+# Onboard a single dataset (creates contract + runs verification)
 sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts skeleton
 ```
+
+When `--contracts skeleton` or `--contracts ai` is used, the onboard flow automatically verifies the generated contracts against your data and displays pass/fail results.
 
 Datasource config file format:
 ```yaml

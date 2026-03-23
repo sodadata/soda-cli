@@ -350,6 +350,8 @@ selecting all discovered datasets and applying the requested settings.
 			}
 		}
 
+		var contractFiles []string
+
 		switch contractsMode {
 		case "ai":
 			cqns := make([]string, 0, len(selectedNames))
@@ -367,7 +369,7 @@ selecting all discovered datasets and applying the requested settings.
 					hadErrors = true
 				} else {
 					fmt.Printf("  %s AI contract generation started for %d datasets.\n", output.Green.Render("✓"), len(cqns))
-					fmt.Println(output.Dim.Render("  Contracts are being generated in the background and will appear in Soda Cloud when ready."))
+					fmt.Println(output.Dim.Render("  Contracts are being generated in the background — verification will run once they're ready."))
 					fmt.Println(output.Dim.Render("  Check results:  sodacli results list"))
 				}
 			}
@@ -381,12 +383,26 @@ selecting all discovered datasets and applying the requested settings.
 				if err := runContractCreateSkeleton(client, ci.ContractQN, outFile); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Skeleton for '%s': %v\n", output.Yellow.Render("⚠"), qn, err)
 					hadErrors = true
+				} else {
+					contractFiles = append(contractFiles, outFile)
 				}
 			}
 		case "none":
 			// skip
 		default:
 			return output.Errorf(2, "unknown contracts mode '%s' — use ai, skeleton, or none", contractsMode)
+		}
+
+		// ── Step 10: Verify contracts ────────────────────────────────────
+		if len(contractFiles) > 0 {
+			fmt.Println()
+			fmt.Println(output.Dim.Render(fmt.Sprintf("  Verifying %d contract(s)...", len(contractFiles))))
+			for _, f := range contractFiles {
+				if err := runContractVerify(client, f, false); err != nil {
+					fmt.Fprintf(os.Stderr, "  %s Verification for '%s': %v\n", output.Yellow.Render("⚠"), f, err)
+					hadErrors = true
+				}
+			}
 		}
 
 		// ── Summary ──────────────────────────────────────────────────────

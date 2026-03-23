@@ -577,174 +577,175 @@ var contractVerifyCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
-
-		// 2. Read file + parse dataset field
-		contents, err := os.ReadFile(file)
-		if err != nil {
-			return output.Errorf(2, "could not read file %s: %v", file, err)
-		}
-		qualifiedName, err := parseDatasetField(contents)
-		if err != nil {
-			return output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
-		}
-		if qualifiedName == "" {
-			return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
-		}
+		noWait, _ := cmd.Flags().GetBool("no-wait")
 
 		client, err := newAPIClient()
 		if err != nil {
 			return err
 		}
 
-		// 3. Push/update contract to cloud (ensure latest YAML is there)
-		fmt.Println(output.Dim.Render("  Pushing contract for " + qualifiedName + "..."))
-		existing, err := client.FindContractByDataset(qualifiedName)
-		if err != nil {
-			return err
-		}
-
-		req := api.ContractRequest{
-			DatasetQualifiedName: qualifiedName,
-			Contents:             string(contents),
-		}
-
-		var contractID string
-		if existing != nil {
-			result, err := client.UpdateContract(existing.ID, req)
-			if err != nil {
-				return err
-			}
-			contractID = result.ID
-		} else {
-			result, err := client.CreateContract(req)
-			if err != nil {
-				return err
-			}
-			contractID = result.ID
-		}
-
-		// 4. Trigger verification
-		fmt.Println(output.Dim.Render("  Triggering verification..."))
-		scanID, err := client.VerifyContract(contractID)
-		if err != nil {
-			return err
-		}
-		fmt.Println(output.Dim.Render("  Scan ID: " + scanID))
-
-		// --no-wait: return immediately after triggering
-		noWait, _ := cmd.Flags().GetBool("no-wait")
-		if noWait {
-			output.PrintSuccess(fmt.Sprintf("Verification started (scan: %s). Running in background.", scanID), GCtx)
-			fmt.Println(output.Dim.Render("  Check status:  sodacli job logs " + scanID))
-			return nil
-		}
-
-		// 5. Poll for completion
-		spinner := output.NewSpinner("Running contract checks...")
-		spinner.Start()
-
-		timeout := time.After(10 * time.Minute)
-		ticker := time.NewTicker(3 * time.Second)
-		defer ticker.Stop()
-
-		var finalStatus *api.ScanStatus
-		for {
-			select {
-			case <-timeout:
-				spinner.Stop()
-				return output.Errorf(2, "verification timed out after 10 minutes (scan: %s)", scanID)
-			case <-ticker.C:
-				status, err := client.GetScanStatus(scanID)
-				if err != nil {
-					spinner.Stop()
-					return err
-				}
-				if api.IsScanTerminal(status.State) {
-					finalStatus = status
-					spinner.Stop()
-					goto done
-				}
-				spinner.SetMessage(fmt.Sprintf("Running contract checks... (state: %s)", status.State))
-			}
-		}
-	done:
-
-		// 6. Display results
-		fmt.Println()
-		passed := 0
-		failed := 0
-		warned := 0
-		for _, chk := range finalStatus.Checks {
-			switch chk.EvaluationStatus {
-			case "pass":
-				passed++
-			case "fail":
-				failed++
-			case "warn":
-				warned++
-			}
-		}
-
-		// Summary line
-		summary := fmt.Sprintf("  %d checks passed", passed)
-		if failed > 0 {
-			summary += fmt.Sprintf(", %s", output.Red.Render(fmt.Sprintf("%d failed", failed)))
-		}
-		if warned > 0 {
-			summary += fmt.Sprintf(", %s", output.Yellow.Render(fmt.Sprintf("%d warnings", warned)))
-		}
-		fmt.Println(summary)
-
-		// Check results table
-		if len(finalStatus.Checks) > 0 {
-			rows := make([]map[string]string, len(finalStatus.Checks))
-			for i, chk := range finalStatus.Checks {
-				name := chk.Name
-				if name == "" {
-					name = chk.Definition
-				}
-				if name == "" {
-					name = chk.ID
-				}
-				rows[i] = map[string]string{
-					"type":   chk.Type,
-					"column": chk.Column,
-					"name":   name,
-					"status": fmtCheckStatus(chk.EvaluationStatus),
-				}
-			}
-			fmt.Println()
-			output.Render(rows, []string{"type", "column", "name", "status"}, map[string]bool{"status": true}, GCtx)
-		}
-
-		// Cloud URL
-		if finalStatus.CloudURL != "" {
-			fmt.Println()
-			fmt.Println(output.Dim.Render("  Full results: " + finalStatus.CloudURL))
-		}
-
-		// 7. Exit code based on state
-		switch finalStatus.State {
-		case "completed", "completedWithWarnings":
-			if failed > 0 {
-				return output.Errorf(1, "%d check(s) failed", failed)
-			}
-			output.PrintSuccess("All checks passed.", GCtx)
-			return nil
-		case "completedWithFailures":
-			return output.Errorf(1, "%d check(s) failed", finalStatus.Failures)
-		case "completedWithErrors":
-			return output.Errorf(2, "verification completed with errors")
-		case "failed":
-			return output.Errorf(2, "verification failed")
-		case "canceled":
-			return output.Errorf(2, "verification was canceled")
-		case "timedOut":
-			return output.Errorf(2, "verification timed out on the server")
-		default:
-			return output.Errorf(2, "unexpected terminal state: %s", finalStatus.State)
-		}
+		return runContractVerify(client, file, noWait)
 	},
+}
+
+// runContractVerify pushes a contract file to cloud, triggers verification,
+// polls for results, and displays a summary. Reused by the verify command
+// and both onboard flows.
+func runContractVerify(client *api.Client, file string, noWait bool) error {
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		return output.Errorf(2, "could not read file %s: %v", file, err)
+	}
+	qualifiedName, err := parseDatasetField(contents)
+	if err != nil {
+		return output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
+	}
+	if qualifiedName == "" {
+		return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
+	}
+
+	// Push/update contract to cloud
+	fmt.Println(output.Dim.Render("  Pushing contract for " + qualifiedName + "..."))
+	existing, err := client.FindContractByDataset(qualifiedName)
+	if err != nil {
+		return err
+	}
+
+	req := api.ContractRequest{
+		DatasetQualifiedName: qualifiedName,
+		Contents:             string(contents),
+	}
+
+	var contractID string
+	if existing != nil {
+		result, err := client.UpdateContract(existing.ID, req)
+		if err != nil {
+			return err
+		}
+		contractID = result.ID
+	} else {
+		result, err := client.CreateContract(req)
+		if err != nil {
+			return err
+		}
+		contractID = result.ID
+	}
+
+	// Trigger verification
+	fmt.Println(output.Dim.Render("  Triggering verification..."))
+	scanID, err := client.VerifyContract(contractID)
+	if err != nil {
+		return err
+	}
+	fmt.Println(output.Dim.Render("  Scan ID: " + scanID))
+
+	if noWait {
+		output.PrintSuccess(fmt.Sprintf("Verification started (scan: %s). Running in background.", scanID), GCtx)
+		fmt.Println(output.Dim.Render("  Check status:  sodacli job logs " + scanID))
+		return nil
+	}
+
+	// Poll for completion
+	spinner := output.NewSpinner("Running contract checks...")
+	spinner.Start()
+
+	timeout := time.After(10 * time.Minute)
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	var finalStatus *api.ScanStatus
+	for {
+		select {
+		case <-timeout:
+			spinner.Stop()
+			return output.Errorf(2, "verification timed out after 10 minutes (scan: %s)", scanID)
+		case <-ticker.C:
+			status, err := client.GetScanStatus(scanID)
+			if err != nil {
+				spinner.Stop()
+				return err
+			}
+			if api.IsScanTerminal(status.State) {
+				finalStatus = status
+				spinner.Stop()
+				goto done
+			}
+			spinner.SetMessage(fmt.Sprintf("Running contract checks... (state: %s)", status.State))
+		}
+	}
+done:
+
+	// Display results
+	fmt.Println()
+	passed := 0
+	failed := 0
+	warned := 0
+	for _, chk := range finalStatus.Checks {
+		switch chk.EvaluationStatus {
+		case "pass":
+			passed++
+		case "fail":
+			failed++
+		case "warn":
+			warned++
+		}
+	}
+
+	summary := fmt.Sprintf("  %d checks passed", passed)
+	if failed > 0 {
+		summary += fmt.Sprintf(", %s", output.Red.Render(fmt.Sprintf("%d failed", failed)))
+	}
+	if warned > 0 {
+		summary += fmt.Sprintf(", %s", output.Yellow.Render(fmt.Sprintf("%d warnings", warned)))
+	}
+	fmt.Println(summary)
+
+	if len(finalStatus.Checks) > 0 {
+		rows := make([]map[string]string, len(finalStatus.Checks))
+		for i, chk := range finalStatus.Checks {
+			name := chk.Name
+			if name == "" {
+				name = chk.Definition
+			}
+			if name == "" {
+				name = chk.ID
+			}
+			rows[i] = map[string]string{
+				"type":   chk.Type,
+				"column": chk.Column,
+				"name":   name,
+				"status": fmtCheckStatus(chk.EvaluationStatus),
+			}
+		}
+		fmt.Println()
+		output.Render(rows, []string{"type", "column", "name", "status"}, map[string]bool{"status": true}, GCtx)
+	}
+
+	if finalStatus.CloudURL != "" {
+		fmt.Println()
+		fmt.Println(output.Dim.Render("  Full results: " + finalStatus.CloudURL))
+	}
+
+	switch finalStatus.State {
+	case "completed", "completedWithWarnings":
+		if failed > 0 {
+			return output.Errorf(1, "%d check(s) failed", failed)
+		}
+		output.PrintSuccess("All checks passed.", GCtx)
+		return nil
+	case "completedWithFailures":
+		return output.Errorf(1, "%d check(s) failed", finalStatus.Failures)
+	case "completedWithErrors":
+		return output.Errorf(2, "verification completed with errors")
+	case "failed":
+		return output.Errorf(2, "verification failed")
+	case "canceled":
+		return output.Errorf(2, "verification was canceled")
+	case "timedOut":
+		return output.Errorf(2, "verification timed out on the server")
+	default:
+		return output.Errorf(2, "unexpected terminal state: %s", finalStatus.State)
+	}
 }
 
 // ── contract proposal ─────────────────────────────────────────────────────────

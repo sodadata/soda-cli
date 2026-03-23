@@ -89,7 +89,7 @@ Generate API keys at [docs.soda.io/reference/generate-api-keys](https://docs.sod
 ### 2. Onboard a datasource
 
 ```bash
-# Full onboard: create datasource, discover datasets, enable monitoring + profiling + contracts
+# Full onboard: create datasource, discover datasets, enable monitoring + profiling + contracts + verify
 sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts ai
 ```
 
@@ -287,7 +287,7 @@ The CLI code is written for these. They'll work as soon as the API endpoints shi
 
 The goal is one CLI that covers the full data quality lifecycle:
 
-1. **Connect.** `sodacli datasource onboard` sets up a database connection with monitoring, profiling, and contracts in one command.
+1. **Connect.** `sodacli datasource onboard` sets up a database connection with monitoring, profiling, contracts, and verification in one command.
 2. **Define.** `sodacli contract create --mode copilot` uses AI to generate meaningful checks from your schema and data profile.
 3. **Import.** `sodacli contract translate` translates existing data quality definitions from other formats (ODCS, dbt tests, Great Expectations, SodaCL v3) into Soda contracts.
 4. **Verify.** `sodacli contract verify` runs checks locally or in the cloud, from CI/CD or your terminal.

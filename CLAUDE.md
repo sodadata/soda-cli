@@ -127,4 +127,4 @@ Recently unblocked:
 - `datasource list` — GET /api/v1/datasources now works (paginated, returns id/name/label/type/timestamps)
 - `discoveredDatasets` — GET /api/v1/discoveredDatasets (with ?datasourceId= filter) now works
 - `onboardDatasets` — POST /api/v1/datasources/{id}/onboardDatasets now works (accepts discoveredDatasetIds)
-- `datasource onboard` — now wired end-to-end (create → discover → select → onboard → monitoring → contracts)
+- `datasource onboard` — now wired end-to-end (create → discover → select → onboard → monitoring → contracts → verify)

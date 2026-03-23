@@ -56,7 +56,7 @@ Register a datasource from a YAML connection config. Requires a self-hosted Soda
 | `--runner <id>` | Soda Runner ID (auto-detects if only one) |
 
 ### `sodacli datasource onboard <config-file-or-datasource-id>`
-Guided setup: create datasource + discover datasets + onboard all.
+Guided setup: create datasource + discover datasets + onboard + verify contracts.
 
 | Flag | Description |
 |------|-------------|
@@ -65,7 +65,7 @@ Guided setup: create datasource + discover datasets + onboard all.
 | `--profiling` / `--no-profiling` | Toggle dataset profiling |
 | `--contracts ai\|skeleton\|none` | Generate contracts for all datasets |
 
-When all action flags provided, runs fully non-interactively (no prompts).
+When all action flags provided, runs fully non-interactively (no prompts). When `--contracts skeleton` or `--contracts ai` is used, automatically verifies generated contracts against your data after creation.
 
 ### `sodacli datasource delete <id>`
 Schedule a datasource for deletion.
@@ -121,7 +121,7 @@ At least one flag required.
 Delete a dataset from Soda Cloud.
 
 ### `sodacli dataset onboard <id>`
-Guided setup for an existing dataset: monitoring, profiling, contracts.
+Guided setup for an existing dataset: monitoring, profiling, contracts, and verification.
 
 | Flag | Description |
 |------|-------------|
@@ -129,7 +129,7 @@ Guided setup for an existing dataset: monitoring, profiling, contracts.
 | `--profiling` / `--no-profiling` | Toggle profiling |
 | `--contracts ai\|skeleton\|none` | Contract generation |
 
-When all flags provided, runs non-interactively.
+When all flags provided, runs non-interactively. When contracts are generated, they are automatically verified against your data.
 
 ### `sodacli dataset time-partition <id>`
 

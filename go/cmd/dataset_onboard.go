@@ -138,6 +138,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		}
 
 		// Step 2: Contracts
+		var contractFile string
 		switch contractsMode {
 		case "ai":
 			if qualifiedName == "" {
@@ -146,6 +147,8 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				outFile := datasetFileName(qualifiedName)
 				if err := runContractCreateCopilot(client, qualifiedName, outFile, false); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
+				} else {
+					contractFile = outFile
 				}
 			}
 		case "skeleton":
@@ -155,12 +158,23 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				outFile := datasetFileName(qualifiedName)
 				if err := runContractCreateSkeleton(client, qualifiedName, outFile); err != nil {
 					fmt.Fprintf(os.Stderr, "  %s Contract generation failed: %v\n", output.Yellow.Render("⚠"), err)
+				} else {
+					contractFile = outFile
 				}
 			}
 		case "none":
 			fmt.Println(output.Dim.Render("  Skipping contract setup."))
 		default:
 			return output.Errorf(2, "unknown contracts mode '%s' — use ai, skeleton, or none", contractsMode)
+		}
+
+		// Step 3: Verify contract
+		if contractFile != "" {
+			fmt.Println()
+			fmt.Println(output.Dim.Render("  Verifying contract..."))
+			if err := runContractVerify(client, contractFile, false); err != nil {
+				fmt.Fprintf(os.Stderr, "  %s Verification failed: %v\n", output.Yellow.Render("⚠"), err)
+			}
 		}
 
 		fmt.Println()
