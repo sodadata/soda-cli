@@ -63,7 +63,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		if !hasMonitoring && !hasProfiling && !hasContracts {
 			if noInteractive {
-				return output.Errorf(2, "flags required in non-interactive mode: --monitoring/--no-monitoring, --profiling/--no-profiling, --contracts ai|skeleton|none")
+				return output.Errorf(2, "flags required in non-interactive mode: --monitoring/--no-monitoring, --profiling/--no-profiling, --contracts copilot|skeleton|none")
 			}
 
 			monitoringChoice := "yes"
@@ -90,7 +90,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 				huh.NewSelect[string]().
 					Title("Set up a data contract?").
 					Options(
-						huh.NewOption("AI-generated contract (Copilot)", "ai"),
+						huh.NewOption("AI-generated contract (Copilot)", "copilot"),
 						huh.NewOption("Skeleton contract (empty template)", "skeleton"),
 						huh.NewOption("No contract", "none"),
 					).
@@ -140,7 +140,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		// Step 2: Contracts
 		var contractFile string
 		switch contractsMode {
-		case "ai":
+		case "copilot":
 			if qualifiedName == "" {
 				fmt.Fprintf(os.Stderr, "  %s Cannot generate AI contract: dataset qualified name not available.\n", output.Yellow.Render("⚠"))
 			} else {
@@ -165,7 +165,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		case "none":
 			fmt.Println(output.Dim.Render("  Skipping contract setup."))
 		default:
-			return output.Errorf(2, "unknown contracts mode '%s' — use ai, skeleton, or none", contractsMode)
+			return output.Errorf(2, "unknown contracts mode '%s' — use copilot, skeleton, or none", contractsMode)
 		}
 
 		// Step 3: Verify contract

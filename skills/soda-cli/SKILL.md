@@ -96,7 +96,7 @@ sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts 
 sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts skeleton
 ```
 
-When `--contracts skeleton` or `--contracts ai` is used, the onboard flow automatically verifies the generated contracts against your data and displays pass/fail results.
+When `--contracts skeleton` or `--contracts copilot` is used, the onboard flow automatically verifies the generated contracts against your data and displays pass/fail results.
 
 Datasource config file format:
 ```yaml

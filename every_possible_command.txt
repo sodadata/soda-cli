@@ -109,8 +109,8 @@
   sodacli datasource onboard <ds-id> --monitoring --profiling --contracts none
   sodacli datasource onboard <ds-id> --no-monitoring --no-profiling --contracts none
   sodacli datasource onboard <ds-id> --monitoring --no-profiling --contracts skeleton
-  sodacli datasource onboard <ds-id> --no-monitoring --profiling --contracts ai
-  sodacli datasource onboard <ds-id> --monitoring --profiling --contracts ai
+  sodacli datasource onboard <ds-id> --no-monitoring --profiling --contracts copilot
+  sodacli datasource onboard <ds-id> --monitoring --profiling --contracts copilot
   sodacli datasource onboard <config-file> --runner <runner-id> --monitoring --profiling --contracts none
   sodacli datasource onboard <ds-id> --no-interactive --monitoring --profiling --contracts none
 
@@ -221,8 +221,8 @@
   sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts none
   sodacli dataset onboard <dataset-id> --no-monitoring --no-profiling --contracts none
   sodacli dataset onboard <dataset-id> --monitoring --no-profiling --contracts skeleton
-  sodacli dataset onboard <dataset-id> --no-monitoring --profiling --contracts ai
-  sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts ai
+  sodacli dataset onboard <dataset-id> --no-monitoring --profiling --contracts copilot
+  sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts copilot
 
   # ═══════════════════════════════════════════════════════════════════
   # CONTRACT

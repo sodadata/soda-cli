@@ -63,9 +63,9 @@ Guided setup: create datasource + discover datasets + onboard + verify contracts
 | `--runner <id>` | Soda Runner ID (only for new datasources) |
 | `--monitoring` / `--no-monitoring` | Toggle default metric monitors |
 | `--profiling` / `--no-profiling` | Toggle dataset profiling |
-| `--contracts ai\|skeleton\|none` | Generate contracts for all datasets |
+| `--contracts copilot\|skeleton\|none` | Generate contracts for all datasets |
 
-When all action flags provided, runs fully non-interactively (no prompts). When `--contracts skeleton` or `--contracts ai` is used, automatically verifies generated contracts against your data after creation.
+When all action flags provided, runs fully non-interactively (no prompts). When `--contracts skeleton` or `--contracts copilot` is used, automatically verifies generated contracts against your data after creation.
 
 ### `sodacli datasource delete <id>`
 Schedule a datasource for deletion.
@@ -127,7 +127,7 @@ Guided setup for an existing dataset: monitoring, profiling, contracts, and veri
 |------|-------------|
 | `--monitoring` / `--no-monitoring` | Toggle monitoring |
 | `--profiling` / `--no-profiling` | Toggle profiling |
-| `--contracts ai\|skeleton\|none` | Contract generation |
+| `--contracts copilot\|skeleton\|none` | Contract generation |
 
 When all flags provided, runs non-interactively. When contracts are generated, they are automatically verified against your data.
 

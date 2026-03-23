@@ -28,7 +28,7 @@ datasource ID to run the onboarding flow on an already-registered datasource.
 When all action flags are provided the command runs fully non-interactively,
 selecting all discovered datasets and applying the requested settings.
 
-  sodacli datasource onboard config.yml --monitoring --profiling --contracts ai
+  sodacli datasource onboard config.yml --monitoring --profiling --contracts copilot
   sodacli datasource onboard <datasource-id> --no-monitoring --no-profiling --contracts none`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -280,13 +280,13 @@ selecting all discovered datasets and applying the requested settings.
 		if cmd.Flags().Changed("contracts") {
 			contractsMode, _ = cmd.Flags().GetString("contracts")
 		} else if noInteractive {
-			return output.Errorf(2, "--contracts is required in non-interactive mode (ai|skeleton|none)")
+			return output.Errorf(2, "--contracts is required in non-interactive mode (copilot|skeleton|none)")
 		} else {
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
 					Title("Set up data contracts?").
 					Options(
-						huh.NewOption("AI-generated (Autopilot)", "ai"),
+						huh.NewOption("AI-generated (Copilot)", "copilot"),
 						huh.NewOption("Skeleton (empty template)", "skeleton"),
 						huh.NewOption("None", "none"),
 					).
@@ -353,7 +353,7 @@ selecting all discovered datasets and applying the requested settings.
 		var contractFiles []string
 
 		switch contractsMode {
-		case "ai":
+		case "copilot":
 			cqns := make([]string, 0, len(selectedNames))
 			for _, qn := range selectedNames {
 				if ci, ok := cloud[qn]; ok {
@@ -390,7 +390,7 @@ selecting all discovered datasets and applying the requested settings.
 		case "none":
 			// skip
 		default:
-			return output.Errorf(2, "unknown contracts mode '%s' — use ai, skeleton, or none", contractsMode)
+			return output.Errorf(2, "unknown contracts mode '%s' — use copilot, skeleton, or none", contractsMode)
 		}
 
 		// ── Step 10: Verify contracts ────────────────────────────────────

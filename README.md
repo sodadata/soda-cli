@@ -90,7 +90,7 @@ Generate API keys at [docs.soda.io/reference/generate-api-keys](https://docs.sod
 
 ```bash
 # Full onboard: create datasource, discover datasets, enable monitoring + profiling + contracts + verify
-sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts ai
+sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts copilot
 ```
 
 Or step by step:

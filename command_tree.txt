@@ -43,7 +43,7 @@ sodacli
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--profiling]                                 # enable dataset profiling  ✅
   │   │   [--no-profiling]                              # skip profiling setup
-  │   │   [--contracts ai|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
+  │   │   [--contracts copilot|skeleton|none]                # generate contracts for all datasets (default: none)  🔌 [API wired, backend may not persist]
   │   │   # when all action flags provided: fully non-interactive, onboards all datasets automatically
   │   │   # interactive wizard: runner → discovery poll → dataset select → monitoring → profiling → contracts → verify
   │   │   # after datasource create, suggests: sodacli datasource onboard <id>
@@ -193,7 +193,7 @@ sodacli
   │   │   [--no-monitoring]                             # skip monitoring setup
   │   │   [--profiling]                                 # enable dataset profiling  ✅
   │   │   [--no-profiling]                              # skip profiling setup
-  │   │   [--contracts ai|skeleton|none]                # generate contract (default: none)  🔌 [API wired, backend may not persist]
+  │   │   [--contracts copilot|skeleton|none]                # generate contract (default: none)  🔌 [API wired, backend may not persist]
   │   │   # when all action flags provided: fully non-interactive
   │   │   # interactive wizard: monitoring → profiling → contracts → verify
   │   │   # works with datasets already in Soda Cloud
