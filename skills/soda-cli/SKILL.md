@@ -6,57 +6,99 @@ allowed-tools: Read, Bash(sodacli *), Bash(cat *), Glob, Grep
 
 # Soda CLI Guide
 
-The Soda CLI (`sodacli`) manages data quality from the command line. It follows `sodacli <resource> <action>` consistently.
+The Soda CLI (`sodacli`) manages data quality from the command line. All commands follow `sodacli <resource> <action>`.
 
-## Key Concepts
+## Important: always use `--output json` when running commands
 
-- **Datasource** — a database connection (Snowflake, Postgres, BigQuery, etc.)
-- **Dataset** — a table registered in Soda Cloud, within a datasource
-- **Contract** — a YAML file defining data quality checks for a dataset
-- **Monitor** — ML anomaly detection on a dataset column (distinct from contract checks)
-- **Runner** — an agent that executes checks against your database
-- **Results** — check pass/fail signals across all jobs
+When calling `sodacli` from an agent, **always pass `--output json`** to get structured, parseable output. Without it, the CLI outputs human-readable tables that are harder to parse.
 
-## Output Behavior
+## Quick Reference — What Works
 
-- TTY: human-readable tables. Piped: JSON.
-- Override with `--output json|table|csv`
-- All commands support `--no-interactive` for CI/CD and AI agents
-- Exit codes: `0`=pass, `1`=checks failed, `2`=error, `3`=auth error
+**Fully working (tested against live API):**
+- `auth` — login, logout, status, switch profiles
+- `datasource` — list, get, create, delete, onboard (full wizard)
+- `dataset` — list (with filters), get, update, profiling, diagnostics, permissions, onboard
+- `contract` — list, push, pull, diff, lint, create (skeleton/copilot), verify
+- `monitor` — list, config, add (column/custom), update, delete
+- `results` — list (with all filters, sorting, date ranges)
+- `job` — logs
+- `runner` — list, create (returns API keys for Kubernetes deployment)
+- `iam` — user list, group CRUD, role list
+
+**Not yet available (API blocked):**
+- `incident` — list, get, update (API returns HTML)
+- `notification` — rules and integrations
+- `secret` — CRUD
+- `job list`, `job cancel`
+- `datasource update`, `datasource test-connection`
+- `contract proposal` — list, pull, push, close
+- `monitor add --type dataset` (dataset monitors exist by default, no write endpoint)
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success / all checks passed |
+| `1` | One or more checks failed |
+| `2` | Execution error |
+| `3` | Authentication error — run `sodacli auth login` |
 
 ## Authentication
 
 ```bash
-# Interactive login (prompts for host, API key ID, API key secret)
-sodacli auth login
-
-# Non-interactive login
+# Non-interactive (for agents and CI/CD)
 sodacli auth login --host cloud.soda.io --api-key-id <id> --api-key-secret <secret>
 
-# US region
-sodacli auth login --host cloud.us.soda.io --api-key-id <id> --api-key-secret <secret>
-
-# Check connection health
+# Check connection
 sodacli auth status
 
-# Use a named profile
-sodacli auth login --profile production --host cloud.soda.io --api-key-id <id> --api-key-secret <secret>
-sodacli auth switch production
-
-# All commands accept --profile to override active profile
-sodacli dataset list --profile production
+# Named profiles
+sodacli auth login --profile prod --host cloud.soda.io --api-key-id <id> --api-key-secret <secret>
+sodacli auth switch prod
+sodacli dataset list --profile prod    # any command accepts --profile
 ```
 
-Credentials are stored in `~/.soda/credentials`. Generate API keys at https://docs.soda.io/reference/generate-api-keys
+Credentials stored in `~/.soda/credentials`. Generate API keys at https://docs.soda.io/reference/generate-api-keys
 
-## Common Workflows
+## Core Workflows
 
-### 1. Onboard a new datasource end-to-end
+### Discover what's there
 
 ```bash
-# Create a datasource config file
-cat > warehouse.yml <<EOF
-type: snowflake
+# List datasources
+sodacli datasource list --output json
+
+# List datasets (default limit: 10)
+sodacli dataset list --output json
+sodacli dataset list --datasource <name> --status onboarded --limit 50 --output json
+
+# Filter datasets by name, date range, tag
+sodacli dataset list --filter "orders" --from 2026-01-01 --until 2026-12-31 --output json
+
+# Get dataset details (name, DQ status, checks, cloud URL)
+sodacli dataset get <dataset-id> --output json
+
+# View profiling data (column stats, row count, missing %)
+sodacli dataset profiling <dataset-id> --output json
+```
+
+### Onboard a datasource (end-to-end)
+
+```bash
+# Full onboard: create datasource + discover + enable monitoring + profiling + contracts
+sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts skeleton
+
+# Or step by step:
+sodacli datasource create warehouse.yml
+sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts none
+
+# Onboard a single dataset
+sodacli dataset onboard <dataset-id> --monitoring --profiling --contracts skeleton
+```
+
+Datasource config file format:
+```yaml
+type: snowflake           # snowflake, postgres, bigquery, mysql, redshift, etc.
 name: my_warehouse
 connection:
   host: account.snowflakecomputing.com
@@ -66,217 +108,159 @@ connection:
   password: secret
   role: SODA_ROLE
   warehouse: COMPUTE_WH
-EOF
-
-# Test the connection first
-sodacli datasource test-connection warehouse.yml
-
-# Full onboard: create datasource + discover datasets + enable monitoring + profiling + generate contracts
-sodacli datasource onboard warehouse.yml --monitoring --profiling --contracts skeleton
-
-# Or step by step:
-sodacli datasource create warehouse.yml                    # creates datasource, returns ID
-sodacli datasource onboard <datasource-id> --monitoring    # onboard discovered datasets
 ```
 
-### 2. Explore existing data
+### Contracts (data quality checks)
 
 ```bash
-# List datasources
-sodacli datasource list
+# List contracts
+sodacli contract list --output json
 
-# List datasets (default: 10 rows)
-sodacli dataset list
-sodacli dataset list --limit 50
-sodacli dataset list --datasource snowflakeproduct
-sodacli dataset list --status onboarded --filter orders
-sodacli dataset list --from 2026-03-01 --until 2026-03-13
-
-# Get dataset details
-sodacli dataset get <dataset-id>
-
-# View profiling data
-sodacli dataset profiling <dataset-id>
-```
-
-### 3. Create, edit, and push a contract
-
-```bash
 # Generate a contract from live schema
 sodacli contract create --dataset datasource/db/schema/table --mode skeleton --output my_table.yml
 
-# Or pull an existing contract from cloud
+# Pull existing contract from cloud
 sodacli contract pull datasource/db/schema/table
 
-# Edit the contract YAML locally, then push back
+# Edit locally, then push back
 sodacli contract push my_table.yml
 
-# Check diff before pushing
+# Compare local vs cloud
 sodacli contract diff my_table.yml
 
-# Validate syntax locally (no network)
+# Validate syntax (no network)
 sodacli contract lint my_table.yml
+
+# Run checks via cloud Runner
+sodacli contract verify my_table.yml --output json
+
+# Fire and forget (returns immediately)
+sodacli contract verify my_table.yml --no-wait
 ```
 
-### 4. Run contract checks
+### Monitors (ML anomaly detection)
 
 ```bash
-# Verify locally
-sodacli contract verify my_table.yml
+# List monitors on a dataset (--dataset is required)
+sodacli monitor list --dataset <dataset-id> --output json
 
-# Verify and push results to Soda Cloud
-sodacli contract verify my_table.yml --push
+# View monitoring config
+sodacli monitor config <dataset-id> --output json
 
-# Override runtime variables
-sodacli contract verify my_table.yml --set date=2026-03-13 --push
-```
-
-### 5. Add monitors to a dataset
-
-```bash
-# List existing monitors
-sodacli monitor list --dataset <dataset-id>
-
-# View monitoring config (enabled, schedule)
-sodacli monitor config <dataset-id>
-
-# Enable monitoring with a schedule
+# Enable monitoring with schedule
 sodacli monitor config <dataset-id> --enable --schedule "0 6 * * *" --timezone "UTC"
 
-# Add a column monitor
-sodacli monitor add --dataset <dataset-id> --type column --column order_amount --metric avg
+# Add column monitor
+sodacli monitor add --dataset <id> --type column --column revenue --metric avg
+sodacli monitor add --dataset <id> --type column --column order_id --metric count --group-by region
 
-# Add a column monitor with group-by
-sodacli monitor add --dataset <dataset-id> --type column --column revenue --metric sum --group-by region --group-by product_line
+# Add custom SQL monitor
+sodacli monitor add --dataset <id> --type custom \
+  --name "dup check" \
+  --sql "SELECT count(*) as c FROM t GROUP BY id HAVING count(*) > 1" \
+  --result-metric c
 
-# Add a custom SQL monitor
-sodacli monitor add --dataset <dataset-id> --type custom --name "duplicate orders" \
-  --sql "SELECT order_id, COUNT(*) as cnt FROM orders GROUP BY order_id HAVING COUNT(*) > 1" \
-  --result-metric cnt
+# Update a monitor (enable/disable, change SQL)
+sodacli monitor update <monitor-id> --dataset <id> --disable
+sodacli monitor update <monitor-id> --dataset <id> --name "renamed" --sql "SELECT 1 as c"
 
-# Column monitor metrics: count, missing-pct, duplicate-pct, distinct-count,
-#   min, max, avg, sum, std-dev, variance, q1, median, q3,
-#   min-length, max-length, avg-length, freshness
-
-# Delete a monitor
-sodacli monitor delete <monitor-id> --dataset <dataset-id>
+# Delete
+sodacli monitor delete <monitor-id> --dataset <id>
 ```
 
-### 6. View check results
+Column metric types: `count`, `missing-pct`, `duplicate-pct`, `distinct-count`, `min`, `max`, `avg`, `sum`, `std-dev`, `variance`, `q1`, `median`, `q3`, `min-length`, `max-length`, `avg-length`, `freshness`
+
+### Results (check outcomes)
 
 ```bash
-# Recent results (default: 10, sorted by date desc)
-sodacli results list
+# Recent results
+sodacli results list --output json
 
-# Filter by status
-sodacli results list --status failing
-
-# Filter by dataset
-sodacli results list --dataset <dataset-id>
-sodacli results list --dataset-name orders
-
-# Date range
-sodacli results list --from 2026-03-01 --until 2026-03-13
+# Filter by dataset, status, date
+sodacli results list --dataset <id> --status failing --output json
+sodacli results list --dataset-name "orders" --from 2026-03-01 --until 2026-03-31 --output json
 
 # Sort and paginate
-sodacli results list --limit 50 --sort name --order asc
+sodacli results list --limit 50 --sort name --order asc --output json
 ```
 
-### 7. Set up dataset permissions
+### Permissions
 
 ```bash
-# List available roles
-sodacli iam role list
+# List roles and users (to find IDs)
+sodacli iam role list --output json
+sodacli iam user list --output json
 
-# List users to find user IDs
-sodacli iam user list
+# List dataset permissions
+sodacli dataset permissions list <dataset-id> --output json
 
-# List current permissions
-sodacli dataset permissions list <dataset-id>
-
-# Grant a role
-sodacli dataset permissions assign <dataset-id> --role <role-id> --user <user-email>
-
-# Grant to a group
-sodacli dataset permissions assign <dataset-id> --role <role-id> --group <group-id>
-
-# Revoke
-sodacli dataset permissions revoke <dataset-id> --role <role-id> --user <user-email>
+# Grant / revoke
+sodacli dataset permissions assign <dataset-id> --role <role-id> --user <user-id>
+sodacli dataset permissions revoke <dataset-id> --role <role-id> --user <user-id>
 ```
 
-### 8. Configure profiling and diagnostics
+### Groups
 
 ```bash
-# Enable profiling
-sodacli dataset profiling <dataset-id> --enable --schedule "0 6 * * *" --sampling-rows 1000000
-
-# View profiling data
-sodacli dataset profiling <dataset-id>
-
-# Set time-partition column
-sodacli dataset time-partition <dataset-id> --column created_at
-
-# Configure diagnostics warehouse
-sodacli dataset diagnostics <dataset-id> --collect-results --collect-failed-rows
+sodacli iam group list --output json
+sodacli iam group create --name "Data Engineers" --member alice@co.com --member bob@co.com
+sodacli iam group update <id> --add-member carol@co.com
+sodacli iam group update <id> --remove-member bob@co.com
+sodacli iam group delete <id>
 ```
 
-### 9. Manage users and groups
-
-```bash
-# List users
-sodacli iam user list
-
-# Create a group with initial members
-sodacli iam group create --name "Data Engineers" --member alice@example.com --member bob@example.com
-
-# Add/remove members
-sodacli iam group update <group-id> --add-member carol@example.com
-sodacli iam group update <group-id> --remove-member bob@example.com
-
-# List groups
-sodacli iam group list
-```
-
-### 10. View job logs
+### Job logs
 
 ```bash
 sodacli job logs <scan-id>
 sodacli job logs <scan-id> --follow    # stream live
 ```
 
-## CI/CD Pattern
-
-For non-interactive pipelines, always use `--no-interactive` and `--output json`:
+### Profiling and diagnostics
 
 ```bash
+# Enable profiling
+sodacli dataset profiling <dataset-id> --enable --schedule "0 6 * * *" --sampling-rows 1000000
+
+# View profiling data
+sodacli dataset profiling <dataset-id> --output json
+
+# Set time-partition column
+sodacli dataset time-partition <dataset-id> --column created_at
+
+# Configure diagnostics
+sodacli dataset diagnostics <dataset-id> --collect-results --collect-failed-rows
+```
+
+## CI/CD Pattern
+
+```bash
+# Authenticate (non-interactive)
 sodacli auth login --host cloud.soda.io \
   --api-key-id "$SODA_API_KEY_ID" \
   --api-key-secret "$SODA_API_KEY_SECRET" \
   --no-interactive
 
-sodacli contract verify contracts/ --push --no-interactive --output json
+# Run contract checks
+sodacli contract verify contracts/orders.yml --no-interactive --output json
 
-# Check exit code
+# Exit codes drive pipeline:
 # 0 = all checks passed
-# 1 = one or more checks failed
-# 2 = execution error
-# 3 = authentication error
+# 1 = checks failed  →  fail the pipeline
+# 2 = execution error →  retry or alert
+# 3 = auth error      →  check credentials
 ```
 
-## Datasource Config File Format
+## Global Flags (all commands)
 
-```yaml
-type: snowflake           # snowflake, postgres, bigquery, mysql, redshift, etc.
-name: my_warehouse        # must match ^[a-zA-Z_][0-9a-zA-Z_]+ (no hyphens)
-connection:
-  host: account.snowflakecomputing.com
-  database: ANALYTICS
-  schema: PUBLIC
-  user: soda_user
-  password: secret
-  role: SODA_ROLE
-  warehouse: COMPUTE_WH
-```
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--output table\|json\|csv` | `-o` | Output format (auto-detects TTY vs pipe) |
+| `--profile <name>` | | Override active auth profile |
+| `--no-color` | | Disable color output |
+| `--quiet` | `-q` | Suppress non-essential output |
+| `--verbose` | `-v` | Show detailed output |
+| `--no-interactive` | | Never prompt; fail with clear error if input missing |
 
 ## Full Command Reference
 
