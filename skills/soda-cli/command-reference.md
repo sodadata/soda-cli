@@ -203,23 +203,46 @@ Pull a contract by dataset qualified name (`datasource/db/schema/table`). Saves 
 ### `sodacli contract diff [file]`
 Show unified diff between local contract and Soda Cloud version.
 
-### `sodacli contract lint [file]` (alias: `validate`)
-Validate contract syntax locally (no network required).
+### `sodacli contract lint [file...]` (alias: `validate`)
+Validate contract YAML files against the Soda data contract JSON schema. No network or auth required.
+
+Supports multiple files and glob patterns. Defaults to `contracts/*.yml` if no arguments given.
+
+Exit codes: 0=valid, 2=validation errors found.
+
+```bash
+sodacli contract lint orders.yml                    # single file
+sodacli contract lint contracts/*.yml               # glob pattern
+sodacli contract lint orders.yml users.yml          # multiple files
+sodacli contract lint --output json                 # structured output
+```
 
 ### `sodacli contract verify <file>`
-Push contract to cloud + trigger verification via Runner + poll for results.
+Run data quality checks defined in a contract file. By default, pushes the contract to Soda Cloud and verifies via a Runner.
+
+With `--local`, runs verification locally via soda-core (must be installed on PATH). In local mode, `--datasource` is required and no Soda Cloud auth is needed (unless `--push` is also set).
 
 | Flag | Description |
 |------|-------------|
-| `--push` | Push results to Soda Cloud |
-| `--datasource <file>` | Datasource config file override |
-| `--runner` | Delegate execution to Soda Runner |
-| `--no-wait` | Start verification and return immediately |
+| `--local` | Run locally via soda-core (requires soda-core on PATH) |
+| `--datasource <file>` | Datasource config file (required with `--local`) |
+| `--push` | Push results to Soda Cloud (useful with `--local`) |
+| `--no-wait` | Start verification and return immediately (cloud mode only) |
 | `--set key=value` | Runtime variable overrides (repeatable) |
 
 Exit codes: 0=pass, 1=checks failed, 2=error, 3=auth error.
 
-**Debugging exit code 2:** The output may only show "0 checks passed" without details. Use `sodacli job logs <scan-id>` (scan ID is printed in the verify output) to see the actual SQL or runtime error. Common cause: copilot-generated regex checks on Postgres UUID columns — remove `invalid`/`valid_format` checks on UUID columns since the data type already enforces format.
+```bash
+# Cloud mode (default)
+sodacli contract verify orders.yml
+sodacli contract verify orders.yml --no-wait
+
+# Local mode (via soda-core)
+sodacli contract verify orders.yml --local --datasource datasource.yml
+sodacli contract verify orders.yml --local --datasource datasource.yml --push
+```
+
+**Debugging exit code 2 (cloud mode):** The output may only show "0 checks passed" without details. Use `sodacli job logs <scan-id>` (scan ID is printed in the verify output) to see the actual SQL or runtime error. Common cause: copilot-generated regex checks on Postgres UUID columns — remove `invalid`/`valid_format` checks on UUID columns since the data type already enforces format.
 
 ### `sodacli contract copilot` — Blocked
 Not yet available.

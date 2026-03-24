@@ -17,13 +17,13 @@ The CLI is functional for core workflows. Here's where things stand:
 | Auth (login, logout, status, profiles) | Working |
 | Datasource (list, get, create, delete, onboard) | Working |
 | Dataset (list, get, update, delete, profiling, permissions, onboard) | Working |
-| Contract (list, push, pull, diff, create, verify via cloud) | Working |
+| Contract (list, push, pull, diff, create, lint, verify via cloud or local) | Working |
 | Monitor (list, config, add column/custom, update, delete) | Working |
 | Results (list with filtering, sorting, date ranges) | Working |
 | Runner (list, get, create, delete) | Working |
 | IAM (user list, group CRUD, role list) | Working |
 | Job logs | Working |
-| Contract verify (local via soda-core) | Planned |
+| Contract verify (local via soda-core) | Working |
 | Incidents | Planned |
 | Notifications, Secrets | Planned |
 | Dashboard | Planned |
@@ -104,8 +104,11 @@ sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts 
 ### 3. Verify a contract
 
 ```bash
-# Run checks against your data
+# Run checks via Soda Cloud Runner
 sodacli contract verify orders.yml
+
+# Or run locally via soda-core (no cloud needed)
+sodacli contract verify orders.yml --local --datasource datasource.yml
 
 # Check results
 sodacli results list --status failing
@@ -155,10 +158,12 @@ sodacli contract create --dataset ds/db/schema/table --mode copilot      # AI-ge
 sodacli contract pull ds/db/schema/table                                 # download from cloud
 sodacli contract push my_table.yml                                       # upload to cloud
 sodacli contract diff my_table.yml                                       # local vs cloud diff
-sodacli contract lint my_table.yml                                       # validate syntax
+sodacli contract lint my_table.yml                                       # validate syntax (offline)
+sodacli contract lint contracts/*.yml                                    # lint multiple files
 sodacli contract verify my_table.yml                                     # run checks via cloud Runner
 sodacli contract verify my_table.yml --no-wait                           # fire and forget
-sodacli contract verify my_table.yml --runner soda-core --datasource config.yml  # run locally (planned)
+sodacli contract verify my_table.yml --local --datasource config.yml     # run locally via soda-core
+sodacli contract verify my_table.yml --local --datasource config.yml --push  # run locally + push results to cloud
 ```
 
 ### Monitors
@@ -212,8 +217,11 @@ sodacli auth login \
   --api-key-secret "$SODA_API_KEY_SECRET" \
   --no-interactive
 
-# Run contract checks
+# Run contract checks (via cloud Runner)
 sodacli contract verify contracts/orders.yml --no-interactive --output json
+
+# Or run locally (no cloud auth needed, just soda-core on PATH)
+sodacli contract verify contracts/orders.yml --local --datasource datasource.yml
 
 # Exit codes
 # 0 = all checks passed
@@ -288,8 +296,6 @@ The CLI code is written for these. They'll work as soon as the API endpoints shi
 
 ### Planned Features
 
-- **Local contract execution.** `sodacli contract verify --runner soda-core` runs checks locally via the soda-core Python engine, no Soda Cloud needed.
-- **Real contract linting.** `sodacli contract lint` using soda-core for full schema validation.
 - **Dashboard.** Org-level overview of datasets, results, and incidents.
 - **Contract proposals.** PR-style review flow for contract changes.
 
@@ -306,3 +312,15 @@ The goal is one CLI that covers the full data quality lifecycle:
 7. **Govern.** `sodacli iam` and `sodacli dataset permissions` control who can do what.
 
 All of this works the same way for humans typing commands and for AI agents calling them programmatically. Same interface, same exit codes, same JSON output.
+
+## Soda CLI vs soda-core
+
+| | Soda CLI (`sodacli`) | soda-core (`soda`) |
+|---|---|---|
+| **Language** | Go (single binary, no dependencies) | Python (requires pip + DB connectors) |
+| **Execution** | Cloud via Soda Runner, or local via `--local` | Local only |
+| **Scope** | Full platform: datasources, datasets, contracts, monitors, results, IAM, incidents | Contract verification and data source testing |
+| **Contract generation** | `contract create --mode copilot` (AI) or `skeleton` | Manual authoring only |
+| **CI/CD** | `--no-interactive`, `--output json`, structured exit codes | Basic exit codes |
+
+**Why use Soda CLI?** If you only need to run checks locally, soda-core is enough. If you want to manage your entire data quality lifecycle from one tool — generate contracts with AI, monitor anomalies, track results, control permissions, and integrate with CI/CD — use sodacli. It shells out to soda-core for local execution when needed (`--local`), so you get both.

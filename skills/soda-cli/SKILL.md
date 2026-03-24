@@ -18,7 +18,7 @@ When calling `sodacli` from an agent, **always pass `--output json`** to get str
 - `auth` — login, logout, status, switch profiles
 - `datasource` — list, get, create, delete, onboard (full wizard)
 - `dataset` — list (with filters), update, profiling, diagnostics, permissions, onboard
-- `contract` — list, push, pull, diff, lint, create (skeleton/copilot), verify
+- `contract` — list, push, pull, diff, lint (JSON schema validation), create (skeleton/copilot), verify (cloud or local via soda-core)
 - `monitor` — list, config, add (column/custom), update, delete
 - `results` — list (with all filters, sorting, date ranges)
 - `job` — logs
@@ -147,13 +147,17 @@ sodacli contract push my_table.yml
 # Compare local vs cloud
 sodacli contract diff my_table.yml
 
-# Validate syntax (no network)
+# Validate syntax (offline, no auth needed)
 sodacli contract lint my_table.yml
+sodacli contract lint contracts/*.yml               # glob support
 
 # Run checks via cloud Runner
 sodacli contract verify my_table.yml --output json
 
-# Fire and forget (returns immediately)
+# Run checks locally via soda-core (no cloud auth needed)
+sodacli contract verify my_table.yml --local --datasource datasource.yml
+
+# Fire and forget (returns immediately, cloud mode only)
 sodacli contract verify my_table.yml --no-wait
 ```
 
@@ -254,14 +258,17 @@ sodacli dataset diagnostics <dataset-id> --collect-results --collect-failed-rows
 ## CI/CD Pattern
 
 ```bash
-# Authenticate (non-interactive)
+# Option 1: Cloud mode (needs auth)
 sodacli auth login --host cloud.soda.io \
   --api-key-id "$SODA_API_KEY_ID" \
   --api-key-secret "$SODA_API_KEY_SECRET" \
   --no-interactive
+sodacli contract lint contracts/*.yml                                        # validate syntax first
+sodacli contract verify contracts/orders.yml --no-interactive --output json   # verify via cloud Runner
 
-# Run contract checks
-sodacli contract verify contracts/orders.yml --no-interactive --output json
+# Option 2: Local mode (needs soda-core on PATH, no cloud auth)
+sodacli contract lint contracts/*.yml
+sodacli contract verify contracts/orders.yml --local --datasource datasource.yml
 
 # Exit codes drive pipeline:
 # 0 = all checks passed

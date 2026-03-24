@@ -12,7 +12,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/soda-data-inc/soda-cli/internal/api"
+	"github.com/soda-data-inc/soda-cli/internal/config"
+	"github.com/soda-data-inc/soda-cli/internal/lint"
 	"github.com/soda-data-inc/soda-cli/internal/output"
+	"github.com/soda-data-inc/soda-cli/internal/sodacore"
 )
 
 var contractCmd = &cobra.Command{
@@ -276,18 +279,97 @@ var contractDiffCmd = &cobra.Command{
 // ── contract lint ─────────────────────────────────────────────────────────────
 
 var contractLintCmd = &cobra.Command{
-	Use:     "lint [file]",
+	Use:     "lint [file...]",
 	Aliases: []string{"validate"},
 	Short:   "Validate contract syntax (no network required)",
+	Long: `Validate contract YAML files against the Soda data contract schema.
+
+  Checks structure, property names, and value types without connecting to Soda Cloud.
+  Supports multiple files and glob patterns.
+
+  Exit codes: 0=valid, 2=validation errors found`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		file := "contracts/*.yml"
-		if len(args) > 0 {
-			file = args[0]
+		files := resolveLintFiles(args)
+		if len(files) == 0 {
+			return output.Errorf(2, "no contract files found — provide file paths or place contracts in a contracts/ directory")
 		}
-		fmt.Println(output.Dim.Render("  Linting " + file + "..."))
-		output.PrintSuccess("Contract syntax is valid.", GCtx)
-		return nil
+
+		results, err := lint.LintFiles(files)
+		if err != nil {
+			return output.Errorf(2, "lint error: %v", err)
+		}
+
+		return displayLintResults(results)
 	},
+}
+
+// resolveLintFiles expands arguments (which may contain globs) into file paths.
+// Falls back to contracts/*.yml then *.yml in the current directory.
+func resolveLintFiles(args []string) []string {
+	if len(args) > 0 {
+		var files []string
+		for _, arg := range args {
+			matches, err := filepath.Glob(arg)
+			if err != nil || len(matches) == 0 {
+				// Treat as literal file path
+				files = append(files, arg)
+			} else {
+				files = append(files, matches...)
+			}
+		}
+		return files
+	}
+	// Default: contracts/*.yml, then *.yml
+	if matches, _ := filepath.Glob("contracts/*.yml"); len(matches) > 0 {
+		return matches
+	}
+	if matches, _ := filepath.Glob("*.yml"); len(matches) > 0 {
+		return matches
+	}
+	return nil
+}
+
+func displayLintResults(results []*lint.LintResult) error {
+	if output.EffectiveFmt(GCtx) == "json" {
+		s, err := lint.ResultsJSON(results)
+		if err != nil {
+			return output.Errorf(2, "failed to encode results: %v", err)
+		}
+		fmt.Println(s)
+		for _, r := range results {
+			if !r.Valid {
+				return output.Errorf(2, "")
+			}
+		}
+		return nil
+	}
+
+	hasErrors := false
+	totalFiles := len(results)
+	validFiles := 0
+
+	for _, r := range results {
+		if r.Valid {
+			validFiles++
+			if !GCtx.Quiet {
+				fmt.Println("  " + output.Green.Render("✓") + " " + r.File)
+			}
+		} else {
+			hasErrors = true
+			fmt.Println("  " + output.Red.Render("✗") + " " + r.File)
+			for _, e := range r.Errors {
+				fmt.Printf("    %s: %s\n", output.Dim.Render(e.Path), e.Message)
+			}
+		}
+	}
+
+	fmt.Println()
+	if hasErrors {
+		invalidFiles := totalFiles - validFiles
+		return output.Errorf(2, "%d file(s) checked, %d valid, %d with errors", totalFiles, validFiles, invalidFiles)
+	}
+	output.PrintSuccess(fmt.Sprintf("All %d contract file(s) are valid.", totalFiles), GCtx)
+	return nil
 }
 
 // ── contract create ───────────────────────────────────────────────────────────
@@ -570,13 +652,23 @@ var contractVerifyCmd = &cobra.Command{
 	Short: "Run contract checks against your data",
 	Long: `Execute data quality checks defined in a contract file.
 
-  Pushes the contract to Soda Cloud and triggers verification via a Runner.
+  By default, pushes the contract to Soda Cloud and triggers verification via a Runner.
   Polls for results and displays a summary.
+
+  With --local, runs verification locally via soda-core (must be on PATH).
+  In local mode, --datasource <config.yml> is required.
+  Use --push to publish local results to Soda Cloud.
 
   Exit codes: 0=all passing, 1=checks failed, 2=error, 3=auth error`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
+		local, _ := cmd.Flags().GetBool("local")
+
+		if local {
+			return runContractVerifyLocal(cmd, file)
+		}
+
 		noWait, _ := cmd.Flags().GetBool("no-wait")
 
 		client, err := newAPIClient()
@@ -748,6 +840,107 @@ done:
 	}
 }
 
+// ── contract verify --local ───────────────────────────────────────────────────
+
+func runContractVerifyLocal(cmd *cobra.Command, contractFile string) error {
+	// Validate contract file exists
+	if _, err := os.Stat(contractFile); err != nil {
+		return output.Errorf(2, "could not read file %s: %v", contractFile, err)
+	}
+
+	// --datasource is required in local mode
+	datasourceFile, _ := cmd.Flags().GetString("datasource")
+	if datasourceFile == "" {
+		return output.Errorf(2, "--datasource <config-file> is required in local mode\n  Example: sodacli contract verify orders.yml --local --datasource datasource.yml")
+	}
+	if _, err := os.Stat(datasourceFile); err != nil {
+		return output.Errorf(2, "datasource config file not found: %s", datasourceFile)
+	}
+
+	// --no-wait doesn't apply in local mode
+	if noWait, _ := cmd.Flags().GetBool("no-wait"); noWait {
+		fmt.Println(output.Yellow.Render("  Warning:") + " --no-wait is ignored in local mode (soda-core runs synchronously)")
+	}
+
+	// Find soda-core binary
+	binPath, err := sodacore.FindBinary()
+	if err != nil {
+		return err
+	}
+
+	// Show version in verbose mode
+	if GCtx.Verbose {
+		version := sodacore.CheckVersion(binPath)
+		fmt.Println(output.Dim.Render("  soda-core version: " + version))
+	}
+
+	// Handle --push: build temp soda-cloud config
+	push, _ := cmd.Flags().GetBool("push")
+	var cloudConfigPath string
+	var cleanup func()
+	if push {
+		creds, err := config.LoadCredentials()
+		if err != nil {
+			return output.Errorf(2, "could not read credentials for --push: %v", err)
+		}
+		profile, err := config.GetProfile(GCtx.Profile, creds)
+		if err != nil {
+			return output.Errorf(3, "--push requires authentication: %v", err)
+		}
+		cloudConfigPath, cleanup, err = sodacore.WriteTempCloudConfig(profile.Host, profile.APIKeyID, profile.APIKeySecret)
+		if err != nil {
+			return output.Errorf(2, "could not create soda-cloud config: %v", err)
+		}
+		defer cleanup()
+	}
+
+	// Build args
+	setVars, _ := cmd.Flags().GetStringArray("set")
+	opts := sodacore.VerifyOpts{
+		ContractFile:   contractFile,
+		DatasourceFile: datasourceFile,
+		SetVars:        setVars,
+		Verbose:        GCtx.Verbose,
+		Publish:        push,
+		SodaCloudFile:  cloudConfigPath,
+	}
+	cliArgs := sodacore.BuildVerifyArgs(opts)
+
+	// Print what we're about to do
+	if !GCtx.Quiet {
+		fmt.Println(output.Dim.Render("  Running locally via soda-core..."))
+		if GCtx.Verbose {
+			fmt.Println(output.Dim.Render("  Command: soda " + strings.Join(cliArgs, " ")))
+		}
+	}
+
+	// Execute
+	stream := output.EffectiveFmt(GCtx) != "json"
+	result, err := sodacore.Run(binPath, cliArgs, stream)
+	if err != nil {
+		return output.Errorf(2, "failed to execute soda-core: %v", err)
+	}
+
+	// JSON output mode: wrap soda-core output
+	if !stream {
+		fmt.Printf(`{"local": true, "exit_code": %d, "output": %q}`+"\n", result.ExitCode, result.Stdout)
+	}
+
+	// Map exit code
+	mapped := sodacore.MapExitCode(result.ExitCode, result.Stderr)
+	if mapped == 0 {
+		if !GCtx.Quiet && stream {
+			output.PrintSuccess("Local verification passed.", GCtx)
+		}
+		return nil
+	}
+	if mapped == 1 {
+		// soda-core already printed the failure summary; just set the exit code.
+		return output.Errorf(1, "")
+	}
+	return output.Errorf(2, "soda-core exited with error (exit code: %d)", result.ExitCode)
+}
+
 // ── contract proposal ─────────────────────────────────────────────────────────
 
 var contractProposalCmd = &cobra.Command{
@@ -904,8 +1097,8 @@ func init() {
 	contractCopilotCmd.Flags().String("dataset", "", "Dataset FQN to generate from")
 	contractCopilotCmd.Flags().String("output", "", "Output file path")
 
-	contractVerifyCmd.Flags().String("datasource", "", "Datasource config file override")
-	contractVerifyCmd.Flags().Bool("runner", false, "Delegate execution to Soda Runner")
+	contractVerifyCmd.Flags().String("datasource", "", "Datasource config file (required with --local)")
+	contractVerifyCmd.Flags().Bool("local", false, "Run verification locally via soda-core (requires soda-core on PATH)")
 	contractVerifyCmd.Flags().Bool("push", false, "Push results to Soda Cloud after verification")
 	contractVerifyCmd.Flags().Bool("no-wait", false, "Start verification and return immediately without waiting for results")
 	contractVerifyCmd.Flags().StringArray("set", nil, "Runtime variable overrides (key=value)")

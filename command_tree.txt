@@ -93,8 +93,10 @@ sodacli
   │   │   [--no-wait]                 # start generation and return immediately (copilot mode only)
   │   │   # skeleton → async: POST /contracts/actions/createSkeleton → poll status → fetch contract
   │   │   # copilot  → async: POST /contracts/actions/generate → poll status → fetch contract (requires license)
-  │   ├── lint (alias: validate)  [<file>]           # validate contract YAML via soda-core  🔌 [requires soda-core on PATH]
-  │   │   # uses soda-core for real schema validation; falls back to basic YAML parse if not installed
+  │   ├── lint (alias: validate)  [<file...>]         # validate contract YAML against JSON schema  🏠
+  │   │   # validates structure, properties, and types against embedded contract schema
+  │   │   # supports multiple files and glob patterns; defaults to contracts/*.yml
+  │   │   # no auth or network required
   │   ├── push      [<file>]                         # push contract definition to cloud (upsert)  ✅
   │   │   # reads 'dataset:' field from file to find/create the contract
   │   ├── pull      <identifier>                      # pull contract from cloud → <table>.yml  ✅
@@ -108,15 +110,13 @@ sodacli
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
   │   ├── verify    <file>                                    # verify contract checks against data
-  │   │   [--datasource <file>]            # explicit datasource config override
-  │   │   [--runner <name>]                # execution target:
-  │   │   │                                #   (omitted) → push to Soda Cloud, verify via cloud Runner  ✅
-  │   │   │                                #   soda-core → run locally via soda-core engine  🔌 [requires soda-core on PATH]
-  │   │   [--push]                         # push results to Soda Cloud (useful with --runner soda-core)
+  │   │   [--datasource <file>]            # datasource config file (required with --local)
+  │   │   [--local]                        # run locally via soda-core  🔌 [requires soda-core on PATH]
+  │   │   [--push]                         # push results to Soda Cloud (useful with --local)
   │   │   [--no-wait]                      # start verification and return immediately (cloud mode only)  ✅
   │   │   [--set key=value]               # runtime variable overrides (repeatable)
-  │   │   # cloud mode: push contract → POST /contracts/{id}/verify → poll GET /scans/{id} → results
-  │   │   # local mode: shell out to soda-core, requires --datasource or soda.yml, prompts install if missing
+  │   │   # default: push contract → POST /contracts/{id}/verify → poll GET /scans/{id} → results  ✅
+  │   │   # --local: shell out to soda-core, requires --datasource, prompts install if missing
   │   │   # exit codes: 0=pass 1=checks failed 2=error 3=auth error
   │   └── proposal                         # PR flow for published contracts  ❌ [NOT YET IMPLEMENTABLE - API work required]
   │       ├── list   [--status open|done|all]
