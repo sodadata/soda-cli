@@ -8,7 +8,7 @@ Previously this was split between `soda-core` (local execution) and the Soda Clo
 
 ## Current Status
 
-**Version:** `0.1.0-dev` (active development)
+**Version:** `v0.2.0` (active development)
 
 The CLI is functional for core workflows. Here's where things stand:
 
