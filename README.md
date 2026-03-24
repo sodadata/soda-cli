@@ -52,9 +52,13 @@ brew install sodacli
 curl -sSL https://raw.githubusercontent.com/sodadata/soda-cli/main/install.sh | sh
 ```
 
-### Download binary
+### Windows
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/sodadata/soda-cli/releases), extract, and move to your PATH.
+Download the latest `.zip` for your architecture from [GitHub Releases](https://github.com/sodadata/soda-cli/releases), extract `sodacli.exe`, and add it to your PATH.
+
+### Download binary (any platform)
+
+Grab the archive for your OS/arch from [GitHub Releases](https://github.com/sodadata/soda-cli/releases), extract, and add to your PATH. Available for Linux, macOS, and Windows (amd64 + arm64).
 
 ### From source (Go 1.22+)
 
@@ -62,7 +66,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 git clone https://github.com/sodadata/soda-cli.git
 cd soda-cli/go
 go build -o sodacli .
-sudo mv sodacli /usr/local/bin/
+sudo mv sodacli /usr/local/bin/   # macOS/Linux
 ```
 
 ### Verify
