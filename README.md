@@ -1,10 +1,10 @@
 # Soda CLI
 
-<p align="center">
-  <img src="assets/hero.png" alt="Soda CLI" width="720">
-</p>
-
 A single command-line tool for [Soda](https://www.soda.io) data quality. Manage datasources, datasets, contracts, monitors, incidents, and permissions from your terminal or pipeline.
+
+<p align="center">
+  <img src="assets/hero.png" alt="Soda CLI" width="580">
+</p>
 
 Previously this was split between `soda-core` (local execution) and the Soda Cloud web UI (cloud management). Soda CLI unifies both into one `sodacli <resource> <action>` interface.
 
