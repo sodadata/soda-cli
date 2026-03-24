@@ -13,7 +13,7 @@ var GCtx = &ctx.GlobalCtx{}
 var rootCmd = &cobra.Command{
 	Use:           "sodacli",
 	Short:         "Soda — data quality CLI",
-	Long:          "Run checks, manage contracts, and monitor your data.\n\nDocs: https://docs.soda.io/soda-cli",
+	Long:          "Run checks, manage contracts, and monitor your data.\n\nDocs: https://github.com/sodadata/soda-cli",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
