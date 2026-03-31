@@ -19,17 +19,19 @@ The CLI is functional for core workflows. Here's where things stand:
 | Area | Status |
 |---|---|
 | Auth (login, logout, status, profiles) | Working |
-| Datasource (list, get, create, delete, onboard) | Working |
-| Dataset (list, get, update, delete, profiling, permissions, onboard) | Working |
+| Datasource (list, get, create, update, delete, onboard, test-connection, diagnostics) | Working |
+| Dataset (list, get, update, delete, profiling, diagnostics, permissions, onboard) | Working |
 | Contract (list, push, pull, diff, create, lint, verify via cloud or local) | Working |
 | Monitor (list, config, add column/custom, update, delete) | Working |
 | Results (list with filtering, sorting, date ranges) | Working |
 | Runner (list, get, create, delete) | Working |
-| IAM (user list, group CRUD, role list) | Working |
-| Job logs | Working |
+| IAM (user list, user invite, group CRUD, role list) | Working |
+| Job (status, logs) | Working |
+| Secrets (list, get, create, update, delete — client-side encrypted) | Working |
 | Contract verify (local via soda-core) | Working |
-| Incidents | Planned |
-| Notifications, Secrets | Planned |
+| Incidents (list, get, update) | Wired, waiting on API deploy |
+| Dataset attributes | Wired, waiting on API deploy |
+| Notifications | Planned |
 | Dashboard | Planned |
 
 Per-command status is tracked in [`command_tree.txt`](command_tree.txt):
@@ -141,6 +143,11 @@ sodacli datasource list
 sodacli datasource get <id>
 sodacli datasource create config.yml                          # register from YAML config
 sodacli datasource onboard config.yml --monitoring --profiling --contracts skeleton  # full setup
+sodacli datasource update <id> --label "Production DW"        # change label, runner, or connection
+sodacli datasource test-connection config.yml                  # async connection test via Runner
+sodacli datasource diagnostics <id>                            # view diagnostics warehouse config
+sodacli datasource diagnostics <id> --enable --warehouse same --collect-results --collect-failed-rows
+sodacli datasource diagnostics <id> --max-failed-rows 5000 --expose-failed-rows-query
 sodacli datasource delete <id>
 ```
 
@@ -150,6 +157,7 @@ sodacli datasource delete <id>
 sodacli dataset list --datasource <name> --status onboarded --limit 50
 sodacli dataset get <id>
 sodacli dataset update <id> --tag production --tag critical
+sodacli dataset attributes <id>                                # list dataset attributes
 sodacli dataset profiling <id> --enable --schedule "0 6 * * *"
 sodacli dataset time-partition <id> --column created_at
 sodacli dataset diagnostics <id> --collect-results --collect-failed-rows
@@ -187,11 +195,26 @@ sodacli monitor update <monitor-id> --dataset <id> --disable
 sodacli monitor delete <monitor-id> --dataset <id>
 ```
 
+### Secrets
+
+```bash
+sodacli secret list
+sodacli secret get <id>
+sodacli secret create --name DB_PASSWORD                       # masked interactive prompt
+sodacli secret create --name DB_PASSWORD --value "s3cret"      # via flag (visible in shell history)
+echo "s3cret" | sodacli secret create --name DB_PASSWORD       # via stdin pipe
+sodacli secret update <id>                                     # masked prompt for new value
+sodacli secret delete <id>
+# Values are encrypted client-side (AES-256-GCM + RSA-OAEP) — Soda never sees plaintext.
+# Reference in datasource configs: ${secret.DB_PASSWORD}
+```
+
 ### Results & Jobs
 
 ```bash
 sodacli results list
 sodacli results list --dataset-name "orders" --status failing --from 2026-03-01 --limit 20
+sodacli job status <scan-id>
 sodacli job logs <scan-id>
 ```
 
@@ -199,6 +222,7 @@ sodacli job logs <scan-id>
 
 ```bash
 sodacli iam user list
+sodacli iam user invite --email alice@co.com --email bob@co.com   # invite up to 10 users
 sodacli iam group create --name "Data Engineers" --member alice@co.com --member bob@co.com
 sodacli iam group update <id> --add-member carol@co.com
 sodacli iam role list --scope dataset
@@ -294,13 +318,10 @@ export SODACLI_TELEMETRY=false
 
 The CLI code is written for these. They'll work as soon as the API endpoints ship:
 
-- **Incidents** (list, get, update)
+- **Incidents** (list, get, update) — documented in OpenAPI spec but still returns HTML
 - **Notifications** (rules and integrations CRUD)
-- **Secrets** (CRUD for cloud-stored secrets)
 - **Job list** (scan history)
 - **Job cancel** (cancel running scans)
-- **Datasource update** (change labels, runners, connection configs)
-- **Datasource test-connection** (async connection test)
 
 ### Planned Features
 
