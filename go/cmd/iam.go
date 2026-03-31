@@ -126,7 +126,36 @@ var iamUserInviteCmd = &cobra.Command{
 	Use:   "invite",
 	Short: "Invite a user to the organization",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return output.Errorf(2, "iam user invite is not yet available in the public API")
+		emails, _ := cmd.Flags().GetStringArray("email")
+		if len(emails) == 0 {
+			return output.Errorf(2, "--email is required (repeatable, max 10)")
+		}
+		if len(emails) > 10 {
+			return output.Errorf(2, "maximum 10 emails per invite")
+		}
+
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		result, err := client.InviteUsers(api.InviteUsersRequest{Emails: emails})
+		if err != nil {
+			return err
+		}
+
+		if len(result.ValidInvitations) > 0 {
+			output.PrintSuccess(fmt.Sprintf("Invited %d user(s).", len(result.ValidInvitations)), GCtx)
+		}
+		if len(result.FailedInvitations) > 0 {
+			for _, f := range result.FailedInvitations {
+				reason := f.Reason
+				if reason == "" {
+					reason = "unknown"
+				}
+				fmt.Printf("  %s %s: %s\n", output.Yellow.Render("!"), f.Email, reason)
+			}
+		}
+		return nil
 	},
 }
 
@@ -325,7 +354,7 @@ func init() {
 	iamRoleCmd.AddCommand(iamRoleListCmd, iamRoleCreateCmd, iamRoleDeleteCmd, iamRoleShowCmd)
 
 	// user
-	iamUserInviteCmd.Flags().String("email", "", "User email address (required)")
+	iamUserInviteCmd.Flags().StringArray("email", nil, "User email address (repeatable, max 10)")
 	iamUserAssignCmd.Flags().String("role", "", "Role ID (required)")
 	iamUserRevokeCmd.Flags().String("role", "", "Role ID (required)")
 	iamUserCmd.AddCommand(iamUserListCmd, iamUserInviteCmd, iamUserRemoveCmd, iamUserAssignCmd, iamUserRevokeCmd)
