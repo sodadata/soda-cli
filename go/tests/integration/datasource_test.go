@@ -126,13 +126,9 @@ func TestDatasourceUpdate(t *testing.T) {
 	skipIfNoCredentials(t)
 	loginForTest(t)
 
-	// API returns 404 — this should fail gracefully
-	t.Run("blocked_by_api", func(t *testing.T) {
+	t.Run("update_label", func(t *testing.T) {
 		r := run(t, "datasource", "update", testDatasourceID(), "--label", "test-label")
-		// Expect error since API returns 404
-		if r.ExitCode == 0 {
-			t.Log("datasource update succeeded (API may have been unblocked)")
-		}
+		t.Logf("datasource update exit=%d output=%s", r.ExitCode, r.Output())
 	})
 }
 
@@ -145,11 +141,19 @@ func TestDatasourceTestConnection(t *testing.T) {
 		t.Skip("SODA_TEST_DS_CONFIG not set")
 	}
 
-	// API returns HTML — this should fail gracefully
-	t.Run("blocked_by_api", func(t *testing.T) {
+	t.Run("test_connection", func(t *testing.T) {
 		r := run(t, "datasource", "test-connection", dsConfig)
-		// May fail due to API returning HTML
 		t.Logf("test-connection exit=%d output=%s", r.ExitCode, r.Output())
+	})
+}
+
+func TestDatasourceDiagnostics(t *testing.T) {
+	skipIfNoCredentials(t)
+	loginForTest(t)
+
+	t.Run("get", func(t *testing.T) {
+		r := run(t, "datasource", "diagnostics", testDatasourceID())
+		t.Logf("datasource diagnostics exit=%d output=%s", r.ExitCode, r.Output())
 	})
 }
 

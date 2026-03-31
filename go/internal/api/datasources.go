@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
@@ -63,7 +64,7 @@ type UpdateDatasourceRequest struct {
 }
 
 func (c *Client) UpdateDatasource(datasourceID string, req UpdateDatasourceRequest) (*Datasource, error) {
-	resp, err := c.patch("/api/v1/datasources/"+datasourceID, req)
+	resp, err := c.post("/api/v1/datasources/"+datasourceID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -198,21 +199,50 @@ type TestConnectionResponse struct {
 }
 
 type TestConnectionStatus struct {
-	OperationID string `json:"operationId"`
-	State       string `json:"state"` // "running", "succeeded", "failed"
-	Message     string `json:"message"`
+	ID      string `json:"id"`
+	State   string `json:"state"` // queued, processing, completed, failed, cancelled
+	Message string `json:"message"`
+	Started string `json:"started"`
 }
 
-func (c *Client) TestConnection(req TestConnectionRequest) (*TestConnectionResponse, error) {
+func (c *Client) TestConnection(req TestConnectionRequest) (string, error) {
 	resp, err := c.post("/api/v1/datasources/actions/testConnection", req)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+	return decodeAsyncTestConnection(resp)
+}
+
+// decodeAsyncTestConnection handles the 202 + Location response, falling back
+// to a JSON body with operationId if the header is absent.
+func decodeAsyncTestConnection(resp *http.Response) (string, error) {
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		return "", &output.ExitError{Code: 3, Msg: "authentication failed — run `sodacli auth login`"}
+	}
+	if resp.StatusCode >= 400 {
+		var apiErr struct {
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return "", &output.ExitError{Code: 2, Msg: apiErr.Message}
+		}
+		return "", &output.ExitError{Code: 2, Msg: fmt.Sprintf("API error %d: %s", resp.StatusCode, string(body))}
+	}
+	// Try Location header first
+	if loc := resp.Header.Get("Location"); loc != "" {
+		parts := strings.Split(strings.TrimRight(loc, "/"), "/")
+		return parts[len(parts)-1], nil
+	}
+	// Fall back to JSON body
 	var result TestConnectionResponse
-	if err := decode(resp, &result); err != nil {
-		return nil, err
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &result); err == nil && result.OperationID != "" {
+			return result.OperationID, nil
+		}
 	}
-	return &result, nil
+	return "", &output.ExitError{Code: 2, Msg: "test-connection request succeeded but no operation ID was returned"}
 }
 
 func (c *Client) GetTestConnectionStatus(operationID string) (*TestConnectionStatus, error) {
@@ -221,6 +251,78 @@ func (c *Client) GetTestConnectionStatus(operationID string) (*TestConnectionSta
 		return nil, err
 	}
 	var result TestConnectionStatus
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ── Datasource diagnostics warehouse ─────────────────────────────────────────
+
+type DatasourceDiagnosticsActionButton struct {
+	Enabled bool   `json:"enabled"`
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+}
+
+type DatasourceDiagnosticsFailedRows struct {
+	Enabled                      bool                              `json:"enabled"`
+	ExposeQueries                bool                              `json:"exposeQueries"`
+	MaxRowCount                  int                               `json:"maxRowCount"`
+	FailedRowsCollectionStrategy string                            `json:"failedRowsCollectionStrategy"`
+	LocationMessage              string                            `json:"locationMessage"`
+	ActionButton                 DatasourceDiagnosticsActionButton `json:"actionButton"`
+}
+
+type DatasourceDiagnosticsScanResults struct {
+	Enabled bool `json:"enabled"`
+}
+
+type DatasourceDiagnosticsWarehouse struct {
+	Enabled                     bool                              `json:"enabled"`
+	ReuseDatasource             bool                              `json:"reuseDatasource"`
+	TableNameTemplate           string                            `json:"tableNameTemplate"`
+	FailedRowsConfiguration     *DatasourceDiagnosticsFailedRows  `json:"failedRowsConfiguration"`
+	ScanAndResultsConfiguration *DatasourceDiagnosticsScanResults `json:"scanAndResultsConfiguration"`
+}
+
+func (c *Client) GetDatasourceDiagnostics(datasourceID string) (*DatasourceDiagnosticsWarehouse, error) {
+	resp, err := c.get("/api/v1/datasources/"+datasourceID+"/diagnosticsWarehouse", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result DatasourceDiagnosticsWarehouse
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// Update request types — use pointers + omitempty to send only changed fields.
+
+type UpdateFailedRowsConfig struct {
+	Enabled       *bool `json:"enabled,omitempty"`
+	ExposeQueries *bool `json:"exposeQueries,omitempty"`
+}
+
+type UpdateScanResultsConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type UpdateDatasourceDiagnosticsRequest struct {
+	Enabled                     *bool                    `json:"enabled,omitempty"`
+	ReuseDatasource             *bool                    `json:"reuseDatasource,omitempty"`
+	ConfigurationFileContents   string                   `json:"configurationFileContents,omitempty"`
+	FailedRowsConfiguration     *UpdateFailedRowsConfig  `json:"failedRowsConfiguration,omitempty"`
+	ScanAndResultsConfiguration *UpdateScanResultsConfig `json:"scanAndResultsConfiguration,omitempty"`
+}
+
+func (c *Client) UpdateDatasourceDiagnostics(datasourceID string, req UpdateDatasourceDiagnosticsRequest) (*DatasourceDiagnosticsWarehouse, error) {
+	resp, err := c.post("/api/v1/datasources/"+datasourceID+"/diagnosticsWarehouse", req)
+	if err != nil {
+		return nil, err
+	}
+	var result DatasourceDiagnosticsWarehouse
 	if err := decode(resp, &result); err != nil {
 		return nil, err
 	}

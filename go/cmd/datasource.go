@@ -194,7 +194,7 @@ var dsTestConnectionCmd = &cobra.Command{
 
 		fmt.Println(output.Dim.Render("  Testing connection from " + configFile + "..."))
 
-		result, err := client.TestConnection(api.TestConnectionRequest{
+		operationID, err := client.TestConnection(api.TestConnectionRequest{
 			AgentID:                   runnerID,
 			ConfigurationFileContents: string(configBytes),
 		})
@@ -210,14 +210,14 @@ var dsTestConnectionCmd = &cobra.Command{
 		for {
 			select {
 			case <-timeout:
-				return output.Errorf(2, "test-connection timed out after 2 minutes (operation: %s)", result.OperationID)
+				return output.Errorf(2, "test-connection timed out after 2 minutes (operation: %s)", operationID)
 			case <-ticker.C:
-				status, err := client.GetTestConnectionStatus(result.OperationID)
+				status, err := client.GetTestConnectionStatus(operationID)
 				if err != nil {
 					return err
 				}
 				switch status.State {
-				case "succeeded":
+				case "completed":
 					output.PrintSuccess("Connection successful.", GCtx)
 					return nil
 				case "failed":
@@ -226,6 +226,8 @@ var dsTestConnectionCmd = &cobra.Command{
 						msg = status.Message
 					}
 					return output.Errorf(1, msg)
+				case "cancelled":
+					return output.Errorf(2, "connection test was cancelled")
 				}
 				// still running — continue polling
 			}
@@ -326,47 +328,147 @@ var dsDiagnosticsCmd = &cobra.Command{
 		enable, _ := cmd.Flags().GetBool("enable")
 		disable, _ := cmd.Flags().GetBool("disable")
 		warehouse, _ := cmd.Flags().GetString("warehouse")
-		schema, _ := cmd.Flags().GetString("schema")
 		collectResults, _ := cmd.Flags().GetBool("collect-results")
 		noCollectResults, _ := cmd.Flags().GetBool("no-collect-results")
 		collectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
 		noCollectFailedRows, _ := cmd.Flags().GetBool("no-collect-failed-rows")
-		tablePrefix, _ := cmd.Flags().GetString("table-prefix")
-		tableSuffix, _ := cmd.Flags().GetString("table-suffix")
-		failedRowsDesc, _ := cmd.Flags().GetString("failed-rows-description")
 		exposeQuery, _ := cmd.Flags().GetBool("expose-failed-rows-query")
 		noExposeQuery, _ := cmd.Flags().GetBool("no-expose-failed-rows-query")
-		cta, _ := cmd.Flags().GetBool("failed-rows-cta")
-		noCta, _ := cmd.Flags().GetBool("no-failed-rows-cta")
 
-		changed := enable || disable || warehouse != "" || schema != "" ||
+		changed := enable || disable || warehouse != "" ||
 			collectResults || noCollectResults ||
 			collectFailedRows || noCollectFailedRows ||
-			tablePrefix != "" || tableSuffix != "" ||
-			failedRowsDesc != "" ||
-			exposeQuery || noExposeQuery ||
-			cta || noCta
+			exposeQuery || noExposeQuery
 
 		if !changed {
-			// no flags → same as get
 			return runDsDiagnosticsGet(args[0])
 		}
 
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+
+		// Read-modify-write: the API replaces the entire config,
+		// so we fetch current state and only change what the user specified.
+		current, err := client.GetDatasourceDiagnostics(args[0])
+		if err != nil {
+			return err
+		}
+
+		req := api.UpdateDatasourceDiagnosticsRequest{
+			Enabled:         &current.Enabled,
+			ReuseDatasource: &current.ReuseDatasource,
+		}
+		if current.ScanAndResultsConfiguration != nil {
+			req.ScanAndResultsConfiguration = &api.UpdateScanResultsConfig{
+				Enabled: &current.ScanAndResultsConfiguration.Enabled,
+			}
+		}
+		if current.FailedRowsConfiguration != nil {
+			req.FailedRowsConfiguration = &api.UpdateFailedRowsConfig{
+				Enabled:       &current.FailedRowsConfiguration.Enabled,
+				ExposeQueries: &current.FailedRowsConfiguration.ExposeQueries,
+			}
+		}
+
+		// Apply user overrides
+		if enable {
+			t := true
+			req.Enabled = &t
+		} else if disable {
+			f := false
+			req.Enabled = &f
+		}
+
+		if warehouse == "same" {
+			t := true
+			req.ReuseDatasource = &t
+		} else if warehouse != "" {
+			f := false
+			req.ReuseDatasource = &f
+			configBytes, err := os.ReadFile(warehouse)
+			if err != nil {
+				return output.Errorf(2, "could not read warehouse config file: %v", err)
+			}
+			req.ConfigurationFileContents = string(configBytes)
+		}
+
+		if collectResults || noCollectResults {
+			enabled := collectResults
+			if req.ScanAndResultsConfiguration == nil {
+				req.ScanAndResultsConfiguration = &api.UpdateScanResultsConfig{}
+			}
+			req.ScanAndResultsConfiguration.Enabled = &enabled
+		}
+
+		if collectFailedRows || noCollectFailedRows {
+			enabled := collectFailedRows
+			if req.FailedRowsConfiguration == nil {
+				req.FailedRowsConfiguration = &api.UpdateFailedRowsConfig{}
+			}
+			req.FailedRowsConfiguration.Enabled = &enabled
+		}
+		if exposeQuery || noExposeQuery {
+			expose := exposeQuery
+			if req.FailedRowsConfiguration == nil {
+				req.FailedRowsConfiguration = &api.UpdateFailedRowsConfig{}
+			}
+			req.FailedRowsConfiguration.ExposeQueries = &expose
+		}
+
+		if _, err := client.UpdateDatasourceDiagnostics(args[0], req); err != nil {
+			return err
+		}
 		output.PrintSuccess(fmt.Sprintf("Diagnostics warehouse config updated for datasource '%s'.", args[0]), GCtx)
 		return nil
 	},
 }
 
-
 func runDsDiagnosticsGet(id string) error {
+	client, err := newAPIClient()
+	if err != nil {
+		return err
+	}
+	result, err := client.GetDatasourceDiagnostics(id)
+	if err != nil {
+		return err
+	}
+
+	enabled := output.Red.Render("disabled")
+	if result.Enabled {
+		enabled = output.Green.Render("enabled")
+	}
 	fmt.Printf("  %-32s %s\n", output.Bold.Render("Datasource"), id)
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Diagnostics warehouse"), output.Green.Render("enabled"))
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Warehouse"), "same connection as datasource")
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Schema"), "soda_diagnostics")
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect results & scans"), "yes")
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect failed rows"), "yes")
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Table prefix"), output.Dim.Render("(none)"))
-	fmt.Printf("  %-32s %s\n", output.Bold.Render("Table suffix"), output.Dim.Render("(none)"))
+	fmt.Printf("  %-32s %s\n", output.Bold.Render("Diagnostics warehouse"), enabled)
+	if result.ReuseDatasource {
+		fmt.Printf("  %-32s %s\n", output.Bold.Render("Warehouse"), "same connection as datasource")
+	} else {
+		fmt.Printf("  %-32s %s\n", output.Bold.Render("Warehouse"), "separate connection")
+	}
+	if result.TableNameTemplate != "" {
+		fmt.Printf("  %-32s %s\n", output.Bold.Render("Table name template"), result.TableNameTemplate)
+	}
+	if result.ScanAndResultsConfiguration != nil {
+		v := output.Red.Render("disabled")
+		if result.ScanAndResultsConfiguration.Enabled {
+			v = output.Green.Render("enabled")
+		}
+		fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect results & scans"), v)
+	}
+	if result.FailedRowsConfiguration != nil {
+		v := output.Red.Render("disabled")
+		if result.FailedRowsConfiguration.Enabled {
+			v = output.Green.Render("enabled")
+		}
+		fmt.Printf("  %-32s %s\n", output.Bold.Render("Collect failed rows"), v)
+		if result.FailedRowsConfiguration.MaxRowCount > 0 {
+			fmt.Printf("  %-32s %d\n", output.Bold.Render("Max failed rows"), result.FailedRowsConfiguration.MaxRowCount)
+		}
+		if result.FailedRowsConfiguration.ExposeQueries {
+			fmt.Printf("  %-32s %s\n", output.Bold.Render("Expose queries"), output.Green.Render("yes"))
+		}
+	}
 	return nil
 }
 
@@ -391,18 +493,12 @@ func init() {
 	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")
 	dsDiagnosticsCmd.Flags().Bool("disable", false, "Disable the diagnostics warehouse")
 	dsDiagnosticsCmd.Flags().String("warehouse", "", "Warehouse connection: same|<config-file>")
-	dsDiagnosticsCmd.Flags().String("schema", "", "Schema for diagnostic tables (default: soda_diagnostics)")
 	dsDiagnosticsCmd.Flags().Bool("collect-results", false, "Store check results and scan history")
 	dsDiagnosticsCmd.Flags().Bool("no-collect-results", false, "Disable storing check results and scan history")
 	dsDiagnosticsCmd.Flags().Bool("collect-failed-rows", false, "Store failed rows")
 	dsDiagnosticsCmd.Flags().Bool("no-collect-failed-rows", false, "Disable storing failed rows")
-	dsDiagnosticsCmd.Flags().String("table-prefix", "", "Prefix for diagnostic table names")
-	dsDiagnosticsCmd.Flags().String("table-suffix", "", "Suffix for diagnostic table names")
-	dsDiagnosticsCmd.Flags().String("failed-rows-description", "", "Description for failed rows storage context")
 	dsDiagnosticsCmd.Flags().Bool("expose-failed-rows-query", false, "Expose the failed rows SQL query in Cloud")
 	dsDiagnosticsCmd.Flags().Bool("no-expose-failed-rows-query", false, "Hide the failed rows SQL query in Cloud")
-	dsDiagnosticsCmd.Flags().Bool("failed-rows-cta", false, "Show a call-to-action link to where failed rows can be found")
-	dsDiagnosticsCmd.Flags().Bool("no-failed-rows-cta", false, "Hide the call-to-action link for failed rows")
 	dsDiagnosticsCmd.AddCommand(dsDiagnosticsTestConnectionCmd)
 
 	datasourceCmd.AddCommand(dsOnboardCmd, dsCreateCmd, dsTestConnectionCmd, dsListCmd, dsGetCmd, dsUpdateCmd, dsDiagnosticsCmd, dsDeleteCmd)
