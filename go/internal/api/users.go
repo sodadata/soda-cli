@@ -30,6 +30,34 @@ func (c *Client) ListUsers() (*UsersResponse, error) {
 	return &result, nil
 }
 
+// ── Invite users ─────────────────────────────────────────────────────────
+
+type InviteUsersRequest struct {
+	Emails []string `json:"emails"`
+}
+
+type FailedInvitation struct {
+	Email  string `json:"email"`
+	Reason string `json:"reason"`
+}
+
+type InviteUsersResponse struct {
+	ValidInvitations  []string           `json:"validInvitations"`
+	FailedInvitations []FailedInvitation `json:"failedInvitations"`
+}
+
+func (c *Client) InviteUsers(req InviteUsersRequest) (*InviteUsersResponse, error) {
+	resp, err := c.post("/api/v1/users", req)
+	if err != nil {
+		return nil, err
+	}
+	var result InviteUsersResponse
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ── User groups ───────────────────────────────────────────────────────────────
 
 type UserGroup struct {

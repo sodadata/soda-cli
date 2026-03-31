@@ -55,6 +55,15 @@ func (c *Client) ListContracts(page, size int) (*ContractPage, error) {
 	return &result, nil
 }
 
+// GetContract fetches a single contract by ID, returning the full YAML contents.
+func (c *Client) GetContract(contractID string) (*Contract, error) {
+	resp, err := c.get("/api/v1/contracts/"+contractID, nil)
+	if err != nil {
+		return nil, err
+	}
+	return decodeContractResponse(resp)
+}
+
 // FindContractByDataset fetches pages until it finds a contract matching the
 // given datasetQualifiedName, or exhausts all pages.
 func (c *Client) FindContractByDataset(qualifiedName string) (*Contract, error) {

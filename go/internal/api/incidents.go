@@ -84,7 +84,7 @@ func (c *Client) GetIncident(incidentID string) (*Incident, error) {
 }
 
 func (c *Client) UpdateIncident(incidentID string, req UpdateIncidentRequest) (*Incident, error) {
-	resp, err := c.patch("/api/v1/incidents/"+incidentID, req)
+	resp, err := c.post("/api/v1/incidents/"+incidentID, req)
 	if err != nil {
 		return nil, err
 	}

@@ -69,6 +69,72 @@ var jobLogsCmd = &cobra.Command{
 	},
 }
 
+var jobStatusCmd = &cobra.Command{
+	Use:   "status <id>",
+	Short: "Show the status of a scan/job",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		status, err := client.GetScanStatus(args[0])
+		if err != nil {
+			return err
+		}
+
+		if output.EffectiveFmt(GCtx) == "json" {
+			item := map[string]string{
+				"id":       status.ID,
+				"state":    status.State,
+				"started":  status.Started,
+				"ended":    status.Ended,
+				"checks":   fmt.Sprintf("%d", len(status.Checks)),
+				"failures": fmt.Sprintf("%d", status.Failures),
+				"warnings": fmt.Sprintf("%d", status.Warnings),
+				"errors":   fmt.Sprintf("%d", status.Errors),
+				"cloudUrl": status.CloudURL,
+			}
+			keys := []string{"id", "state", "started", "ended", "checks", "failures", "warnings", "errors", "cloudUrl"}
+			output.RenderOne(item, keys, GCtx)
+			return nil
+		}
+
+		fmt.Printf("  %-18s %s\n", output.Bold.Render("ID"), output.FmtID(status.ID))
+		fmt.Printf("  %-18s %s\n", output.Bold.Render("State"), output.FmtStatus(status.State))
+		if status.Started != "" {
+			fmt.Printf("  %-18s %s\n", output.Bold.Render("Started"), output.FmtTime(status.Started))
+		}
+		if status.Ended != "" {
+			fmt.Printf("  %-18s %s\n", output.Bold.Render("Ended"), output.FmtTime(status.Ended))
+		}
+		if status.Failures > 0 || status.Warnings > 0 || status.Errors > 0 {
+			fmt.Printf("  %-18s %d failures, %d warnings, %d errors\n",
+				output.Bold.Render("Results"), status.Failures, status.Warnings, status.Errors)
+		}
+		if status.CloudURL != "" {
+			fmt.Printf("  %-18s %s\n", output.Bold.Render("Cloud URL"), status.CloudURL)
+		}
+
+		if len(status.Checks) > 0 {
+			// The scan status API returns only id + evaluationStatus per check.
+			// Show a summary breakdown rather than a table of empty names.
+			counts := map[string]int{}
+			for _, ch := range status.Checks {
+				counts[ch.EvaluationStatus]++
+			}
+			fmt.Printf("  %-18s %d total", output.Bold.Render("Checks"), len(status.Checks))
+			for _, s := range []string{"pass", "fail", "warn", "notEvaluated", "excluded"} {
+				if c, ok := counts[s]; ok && c > 0 {
+					fmt.Printf(", %d %s", c, s)
+				}
+			}
+			fmt.Println()
+		}
+		return nil
+	},
+}
+
 var jobCancelCmd = &cobra.Command{
 	Use:   "cancel <id>",
 	Short: "Cancel a running scan",
@@ -89,5 +155,5 @@ var jobCancelCmd = &cobra.Command{
 func init() {
 	jobLogsCmd.Flags().Bool("follow", false, "Stream logs as they arrive")
 
-	jobCmd.AddCommand(jobListCmd, jobLogsCmd, jobCancelCmd)
+	jobCmd.AddCommand(jobListCmd, jobStatusCmd, jobLogsCmd, jobCancelCmd)
 }
