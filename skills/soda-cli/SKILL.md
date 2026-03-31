@@ -1,6 +1,6 @@
 ---
 name: soda-cli
-description: How to use the Soda CLI for data quality management — authentication, datasources, datasets, contracts, monitors, results, permissions, and CI/CD integration. Use when working with Soda, data quality, or the sodacli command.
+description: How to use the Soda CLI for data quality management — authentication, datasources, datasets, contracts, monitors, results, secrets, permissions, and CI/CD integration. Use when working with Soda, data quality, or the sodacli command.
 allowed-tools: Read, Bash(sodacli *), Bash(cat *), Glob, Grep
 ---
 
@@ -16,22 +16,21 @@ When calling `sodacli` from an agent, **always pass `--output json`** to get str
 
 **Fully working (tested against live API):**
 - `auth` — login, logout, status, switch profiles
-- `datasource` — list, get, create, delete, onboard (full wizard)
-- `dataset` — list (with filters), update, profiling, diagnostics, permissions, onboard
+- `datasource` — list, get, create, update, delete, onboard (full wizard), test-connection, diagnostics
+- `dataset` — list (with filters), get, update, profiling, diagnostics, permissions, onboard
 - `contract` — list, push, pull, diff, lint (JSON schema validation), create (skeleton/copilot), verify (cloud or local via soda-core)
 - `monitor` — list, config, add (column/custom), update, delete
 - `results` — list (with all filters, sorting, date ranges)
-- `job` — logs
-- `runner` — list, create (returns API keys for Kubernetes deployment)
-- `iam` — user list, group CRUD, role list
+- `job` — status, logs
+- `runner` — list, get, create (returns API keys for Kubernetes deployment), delete
+- `iam` — user list, user invite, group CRUD, role list
+- `secret` — list, get, create, update, delete (client-side encrypted with AES-256-GCM + RSA-OAEP)
 
 **Not yet available (API blocked):**
-- `incident` — list, get, update (API returns HTML)
+- `incident` — list, get, update (documented in OpenAPI spec but still returns HTML on dev)
+- `dataset attributes` — (documented in OpenAPI spec but still returns HTML on dev)
 - `notification` — rules and integrations
-- `secret` — CRUD
 - `job list`, `job cancel`
-- `dataset get` (API returns HTML instead of JSON)
-- `datasource update`, `datasource test-connection`
 - `contract proposal` — list, pull, push, close
 - `monitor add --type dataset` (dataset monitors exist by default, no write endpoint)
 
@@ -69,6 +68,9 @@ Credentials stored in `~/.soda/credentials`. Generate API keys at https://docs.s
 # List datasources
 sodacli datasource list --output json
 
+# Get datasource details
+sodacli datasource get <id> --output json
+
 # List datasets (default limit: 10)
 sodacli dataset list --output json
 sodacli dataset list --datasource <name> --status onboarded --limit 50 --output json
@@ -76,11 +78,11 @@ sodacli dataset list --datasource <name> --status onboarded --limit 50 --output 
 # Filter datasets by name, date range, tag
 sodacli dataset list --filter "orders" --from 2026-01-01 --until 2026-12-31 --output json
 
+# Get dataset details
+sodacli dataset get <dataset-id> --output json
+
 # View profiling data (column stats, row count, missing %)
 sodacli dataset profiling <dataset-id> --output json
-
-# NOTE: `sodacli dataset get <id>` is NOT available yet (API returns HTML).
-# Use `dataset list` with filters to find dataset details instead.
 ```
 
 ### Onboard a datasource (end-to-end)
@@ -232,14 +234,64 @@ sodacli iam group update <id> --remove-member bob@co.com
 sodacli iam group delete <id>
 ```
 
-### Job logs
+### Jobs (scan status & logs)
 
 ```bash
+# Check scan/job status (shows state, timing, check summary)
+sodacli job status <scan-id> --output json
+
+# View logs
 sodacli job logs <scan-id>
 sodacli job logs <scan-id> --follow    # stream live
 ```
 
-### Profiling and diagnostics
+### Secrets (encrypted credentials)
+
+```bash
+# List secrets
+sodacli secret list --output json
+
+# Create — value is encrypted client-side (AES-256-GCM + RSA-OAEP) before sending
+sodacli secret create --name DB_PASSWORD                       # masked interactive prompt
+sodacli secret create --name DB_PASSWORD --value "s3cret"      # via flag
+echo "s3cret" | sodacli secret create --name DB_PASSWORD       # via stdin pipe
+
+# Update value
+sodacli secret update <id>                                     # masked prompt
+sodacli secret update <id> --value "new-value"                 # via flag
+
+# Delete
+sodacli secret delete <id>
+
+# Reference in datasource configs: ${secret.DB_PASSWORD}
+```
+
+### User invite
+
+```bash
+sodacli iam user invite --email alice@co.com --email bob@co.com   # up to 10 per call
+```
+
+### Datasource connection & diagnostics
+
+```bash
+# Test a datasource connection (async via Runner)
+sodacli datasource test-connection config.yml
+
+# Update datasource label, runner, or connection
+sodacli datasource update <id> --label "Production DW"
+
+# View diagnostics warehouse config
+sodacli datasource diagnostics <id>
+
+# Configure diagnostics warehouse
+sodacli datasource diagnostics <id> --enable --warehouse same --collect-results --collect-failed-rows
+sodacli datasource diagnostics <id> --max-failed-rows 5000 --expose-failed-rows-query
+sodacli datasource diagnostics <id> --table-template "soda_{dataset_name}"
+sodacli datasource diagnostics <id> --failed-rows-cta --failed-rows-cta-title "View in Snowflake" --failed-rows-cta-url "https://app.snowflake.com"
+```
+
+### Profiling and dataset diagnostics
 
 ```bash
 # Enable profiling
@@ -251,7 +303,7 @@ sodacli dataset profiling <dataset-id> --output json
 # Set time-partition column
 sodacli dataset time-partition <dataset-id> --column created_at
 
-# Configure diagnostics
+# Configure dataset-level diagnostics overrides
 sodacli dataset diagnostics <dataset-id> --collect-results --collect-failed-rows
 ```
 

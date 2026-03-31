@@ -70,22 +70,41 @@ When all action flags provided, runs fully non-interactively (no prompts). When 
 ### `sodacli datasource delete <id>`
 Schedule a datasource for deletion.
 
-### `sodacli datasource update <id>` — Blocked
-API returns 404.
+### `sodacli datasource update <id>` — Working
+Update a datasource's label, runner, or connection config.
 
-### `sodacli datasource test-connection <config-file>` — Blocked
-API returns HTML instead of JSON.
+| Flag | Description |
+|------|-------------|
+| `--label <text>` | New label |
+| `--runner <id>` | New runner ID |
+| `--config <file>` | Updated YAML connection config |
 
-### `sodacli datasource diagnostics <id>`
-View or configure the diagnostics warehouse. No flags = view current config.
+### `sodacli datasource test-connection <config-file>` — Working
+Test a datasource connection via Soda Runner. Async: polls until completed/failed (2 minute timeout).
+
+| Flag | Description |
+|------|-------------|
+| `--runner <id>` | Soda Runner ID (auto-detects if only one) |
+
+### `sodacli datasource diagnostics <id>` — Working
+View or configure the diagnostics warehouse. No flags = view current config. Uses read-modify-write (changing one flag preserves all others).
 
 | Flag | Description |
 |------|-------------|
 | `--enable` / `--disable` | Toggle diagnostics warehouse |
 | `--warehouse same\|<config-file>` | Warehouse connection |
-| `--schema <name>` | Schema for diagnostic tables |
+| `--table-template <tpl>` | Table name template (e.g. `{dataset_name}`) |
 | `--collect-results` / `--no-collect-results` | Store check results |
 | `--collect-failed-rows` / `--no-collect-failed-rows` | Store failed rows |
+| `--expose-failed-rows-query` / `--no-expose-failed-rows-query` | Expose SQL queries in Cloud |
+| `--max-failed-rows <n>` | Maximum failed rows to store |
+| `--failed-rows-location <text>` | Message about where to find failed rows |
+| `--failed-rows-cta` / `--no-failed-rows-cta` | Toggle CTA button in Cloud |
+| `--failed-rows-cta-title <text>` | CTA button title |
+| `--failed-rows-cta-url <url>` | CTA button URL |
+| `--failed-rows-strategy <type>` | `useDefaultMaxRowCount\|absolute\|percentage` |
+| `--failed-rows-threshold <n>` | Threshold (required for absolute/percentage, >= 1) |
+| `--failed-rows-threshold-condition` | `greaterThan\|lessThan` (default: greaterThan) |
 
 ---
 
@@ -105,8 +124,8 @@ List datasets (onboarded + discovered-not-yet-onboarded).
 | `--until <date>` | | Updated on or before (YYYY-MM-DD) |
 | `--tag <tag>` | | Filter by tag |
 
-### `sodacli dataset get <id>` — Blocked
-API returns HTML instead of JSON. Use `sodacli dataset list` with filters to find dataset details.
+### `sodacli dataset get <id>` — Working
+Show dataset details: name, qualified name, datasource, DQ status, checks, incidents, partition column, tags, cloud URL.
 
 ### `sodacli dataset update <id>`
 
@@ -337,8 +356,11 @@ List check results across datasets.
 
 ## job (alias: scan) — Partially Working
 
-### `sodacli job logs <id>`
-Show logs for a scan/job. Working.
+### `sodacli job status <id>` — Working
+Show scan/job status: state, timing, check summary (pass/fail counts), cloud URL.
+
+### `sodacli job logs <id>` — Working
+Show logs for a scan/job.
 
 | Flag | Description |
 |------|-------------|
@@ -402,11 +424,55 @@ List roles. Working.
 |------|-------------|
 | `--scope global\|dataset` | Filter by scope |
 
+### `sodacli iam user invite` — Working
+Invite users to the organization.
+
+| Flag | Description |
+|------|-------------|
+| `--email <email>` | User email (repeatable, max 10 per call) |
+
+Reports valid and failed invitations separately.
+
 ### Blocked IAM commands
 - `sodacli iam role create/delete/show`
-- `sodacli iam user invite/remove/assign/revoke`
+- `sodacli iam user remove/assign/revoke`
 - `sodacli iam group assign/revoke` (role assignment)
 - `sodacli iam service-account *`
+
+---
+
+## secret — Working
+
+### `sodacli secret list`
+List all secrets. Returns: id, name, created, updated.
+
+### `sodacli secret get <id>`
+Show secret details by ID.
+
+### `sodacli secret create`
+Create a new secret. Values are encrypted client-side using AES-256-GCM + RSA-OAEP before sending — Soda never sees plaintext. Decryption happens only during scan execution within the runner.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Secret name (required, no whitespace, unique per org) |
+| `--value <value>` | Secret value (omit for masked prompt, or pipe via stdin) |
+
+Three ways to provide the value:
+1. `sodacli secret create --name X` — masked interactive prompt (default)
+2. `sodacli secret create --name X --value "val"` — via flag (visible in shell history)
+3. `echo "val" | sodacli secret create --name X` — via stdin pipe
+
+Reference in datasource configs: `${secret.NAME}`
+
+### `sodacli secret update <id>`
+Update a secret's value. Same encryption and input methods as create.
+
+| Flag | Description |
+|------|-------------|
+| `--value <value>` | New value (omit for masked prompt, or pipe via stdin) |
+
+### `sodacli secret delete <id>`
+Delete a secret.
 
 ---
 
@@ -414,10 +480,8 @@ List roles. Working.
 
 | Command | Status |
 |---------|--------|
-| `sodacli incident *` | API returns HTML |
+| `sodacli incident *` | Documented in OpenAPI spec but returns HTML on dev |
+| `sodacli dataset attributes <id>` | Documented in OpenAPI spec but returns HTML on dev |
 | `sodacli notification *` | No API endpoint |
-| `sodacli secret *` | No API endpoint |
-| `sodacli dashboard` | Returns mock data |
-| `sodacli contract proposal *` | API returns HTML |
-| `sodacli datasource update` | API returns 404 |
-| `sodacli datasource test-connection` | API returns HTML |
+| `sodacli dashboard` | No API endpoint |
+| `sodacli contract proposal *` | No API endpoint |

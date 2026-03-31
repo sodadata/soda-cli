@@ -54,33 +54,34 @@ sodacli
   │   │   # returns datasource ID + discovery scan ID
   │   │   # after success, suggests next steps: sodacli datasource onboard <id> or sodacli dataset onboard <dataset-id>
   │   │
-  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  🔌 [CLI wired, API returns HTML]
+  │   ├── test-connection  <config-file>                # test connection via Soda Runner (async poll)  ✅
   │   │   [--runner <runner-id>]                      # route through a specific runner (auto-detects if only one)
   │   │
   │   ├── list                                          # list datasources  ✅
   │   │
   │   ├── get  <id>                                     # show datasource details  ✅
   │   │
-  │   ├── update  <id>                                  # update a datasource  🔌 [CLI wired, API returns 404]
+  │   ├── update  <id>                                  # update a datasource  ✅
   │   │   [--label <text>]                             # new label
   │   │   [--runner <runner-id>]                       # change runner
   │   │   [--config <file>]                            # update connection config
   │   │
-  │   ├── diagnostics  <id>                             # view or configure diagnostics warehouse  ❌
+  │   ├── diagnostics  <id>                             # view or configure diagnostics warehouse  ✅
   │       [--enable|--disable]                          # toggle diagnostics warehouse on/off
   │       [--warehouse same|<config-file>]              # reuse datasource connection or provide a separate config
-  │       [--schema <name>]                             # schema for diagnostic tables (default: soda_diagnostics)
-  │       [--collect-results]                            # store check results and scan history
-  │       [--no-collect-results]
-  │       [--collect-failed-rows]                       # store failed rows
-  │       [--no-collect-failed-rows]
-  │       [--table-prefix <prefix>]                     # prefix for diagnostic table names
-  │       [--table-suffix <suffix>]                     # suffix for diagnostic table names
-  │       [--failed-rows-description <text>]            # description shown in Cloud for failed rows storage context
-  │       [--expose-failed-rows-query]                  # expose the failed rows SQL query in Cloud
-  │       [--no-expose-failed-rows-query]
-  │       [--failed-rows-cta]                           # show a call-to-action link to where failed rows can be found
-  │       [--no-failed-rows-cta]
+  │       [--table-template <tpl>]                      # table name template (e.g. {dataset_name})
+  │       [--collect-results|--no-collect-results]      # store check results and scan history
+  │       [--collect-failed-rows|--no-collect-failed-rows]  # store failed rows
+  │       [--expose-failed-rows-query|--no-expose-failed-rows-query]
+  │       [--max-failed-rows <n>]                       # max failed rows to store
+  │       [--failed-rows-location <text>]               # message about where failed rows can be found
+  │       [--failed-rows-cta|--no-failed-rows-cta]      # enable/disable CTA button in Cloud
+  │       [--failed-rows-cta-title <text>]              # CTA button title
+  │       [--failed-rows-cta-url <url>]                 # CTA button URL
+  │       [--failed-rows-strategy <type>]               # useDefaultMaxRowCount|absolute|percentage
+  │       [--failed-rows-threshold <n>]                # threshold value (required for absolute|percentage, >= 1)
+  │       [--failed-rows-threshold-condition <cond>]   # greaterThan|lessThan (default: greaterThan)
+  │       # uses read-modify-write: fetches current config, applies changes, posts back
   │       └── test-connection   <id>                    # test the diagnostics warehouse connection  ❌
   │
   │   └── delete  <id>  ✅
@@ -135,6 +136,7 @@ sodacli
   │   │   # sc_abc123   pg_prod       orders      contract  ✗ failing  2026-03-05 08:12
   │   │   # sc_def456   pg_prod       users       monitor   ✓ passing  2026-03-05 06:45
   │   │
+  │   ├── status  <id>              # show scan/job status, checks, timing  ✅
   │   ├── logs    <id>  [--follow]  ✅
   │   └── cancel  <id>              # cancel a running scan  🔌 [CLI wired, API returns 404]
   │
@@ -166,6 +168,8 @@ sodacli
   │   │   # --owner takes a user ID (use `sodacli iam user list` to find it)
   │   ├── delete  <id>  ✅
   │   │
+  │   ├── attributes  <id>                              # list dataset attributes  🔌 [CLI wired, API documented but returns HTML on dev]
+  │   │
   │   ├── time-partition  <id>  --column <col>  ✅
   │   │   # affects both profiling and metric monitoring (anomaly detection window)
   │   │   # no --column → view current partition column (via GET /datasets/{id})
@@ -180,13 +184,6 @@ sodacli
   │   │   # no flags → show current settings (GET /api/v1/datasets/{id}/diagnosticsWarehouse)
   │   │   [--collect-results|--no-collect-results]      # store check results and scan history  ✅
   │   │   [--collect-failed-rows|--no-collect-failed-rows]  ✅
-  │   │   # flags below accepted but not yet in public API (silently ignored):
-  │   │   [--schema <name>]  ❌
-  │   │   [--table-prefix <prefix>]  ❌
-  │   │   [--table-suffix <suffix>]  ❌
-  │   │   [--failed-rows-description <text>]  ❌
-  │   │   [--expose-failed-rows-query|--no-expose-failed-rows-query]  ❌
-  │   │   [--failed-rows-cta|--no-failed-rows-cta]  ❌
   │   │
   │   ├── onboard  <id>                                  # guided setup for an existing dataset  ✅
   │   │   [--monitoring]                                # enable default metric monitors  ✅
@@ -246,9 +243,9 @@ sodacli
   │       # looks up monitor type from dataset config, then calls appropriate DELETE
   │
   ├── incident
-  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌 [CLI wired, API returns HTML]
-  │   ├── get     <id>  🔌 [CLI wired, API returns HTML]
-  │   └── update  <id>  🔌 [CLI wired, API returns HTML]
+  │   ├── list    [--status reported|investigating|fixing|resolved]  [--dataset <id>]  🔌 [CLI wired, API documented but returns HTML on dev]
+  │   ├── get     <id>  🔌
+  │   └── update  <id>  🔌
   │       [--title <text>]
   │       [--severity minor|major|critical]
   │       [--description <text>]
@@ -299,7 +296,7 @@ sodacli
   │   │
   │   ├── user
   │   │   ├── list  ✅
-  │   │   ├── invite  --email <email>                    # invite user to org  ❌
+  │   │   ├── invite  --email <email>                    # invite user to org (repeatable, max 10)  ✅
   │   │   ├── remove  <user-id>                          # remove user from org  ❌
   │   │   ├── assign  <user-id>  --role <role-id>  ❌
   │   │   └── revoke  <user-id>  --role <role-id>  ❌
@@ -326,8 +323,14 @@ sodacli
   │   └── delete  <runner-id>  ✅
   │
   ├── secret
-  │   ├── create  --name <n>  --value <v>  ❌ [NOT YET IMPLEMENTABLE - API work required]
-  │   ├── update  <id>        --value <v>  ❌
-  │   └── delete  <id>  ❌
+  │   ├── list                             # list all secrets  ✅
+  │   ├── get     <id>                     # show secret details  ✅
+  │   ├── create  --name <n>  [--value <v>]  ✅
+  │   │   # value encrypted client-side (AES-256-GCM + RSA-OAEP) before sending
+  │   │   # --value omitted → masked interactive prompt (or pipe via stdin)
+  │   │   # reference in configs: ${secret.NAME}
+  │   ├── update  <id>  [--value <v>]  ✅
+  │   │   # same input methods as create: --value flag, stdin pipe, or masked prompt
+  │   └── delete  <id>  ✅
   │
   └── completion  bash|zsh|fish  🏠
