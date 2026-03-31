@@ -31,6 +31,36 @@ type DatasetPage struct {
 	Last          bool      `json:"last"`
 }
 
+// ── Attributes ───────────────────────────────────────────────────────────
+
+type DatasetAttribute struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type DatasetAttributesPage struct {
+	Content       []DatasetAttribute `json:"content"`
+	TotalElements int                `json:"totalElements"`
+	TotalPages    int                `json:"totalPages"`
+	Number        int                `json:"number"`
+	Last          bool               `json:"last"`
+}
+
+func (c *Client) GetDatasetAttributes(datasetID string) (*DatasetAttributesPage, error) {
+	params := url.Values{}
+	params.Set("size", "1000")
+	resp, err := c.get("/api/v1/datasets/"+datasetID+"/attributes", params)
+	if err != nil {
+		return nil, err
+	}
+	var result DatasetAttributesPage
+	if err := decode(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ── Profiling ─────────────────────────────────────────────────────────────────
 
 type ScanSchedule struct {
