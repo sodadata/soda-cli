@@ -265,11 +265,18 @@ type DatasourceDiagnosticsActionButton struct {
 	URL     string `json:"url"`
 }
 
+type FailedRowsCollectionStrategy struct {
+	Type               string  `json:"type"`               // useDefaultMaxRowCount, absolute, percentage
+	Threshold          float64 `json:"threshold"`
+	ThresholdCondition string  `json:"thresholdCondition"` // greaterThan, lessThan
+	MaxRowCountOverride int    `json:"maxRowCountOverride,omitempty"`
+}
+
 type DatasourceDiagnosticsFailedRows struct {
 	Enabled                      bool                              `json:"enabled"`
 	ExposeQueries                bool                              `json:"exposeQueries"`
 	MaxRowCount                  int                               `json:"maxRowCount"`
-	FailedRowsCollectionStrategy string                            `json:"failedRowsCollectionStrategy"`
+	FailedRowsCollectionStrategy *FailedRowsCollectionStrategy     `json:"failedRowsCollectionStrategy,omitempty"`
 	LocationMessage              string                            `json:"locationMessage"`
 	ActionButton                 DatasourceDiagnosticsActionButton `json:"actionButton"`
 }
@@ -300,9 +307,19 @@ func (c *Client) GetDatasourceDiagnostics(datasourceID string) (*DatasourceDiagn
 
 // Update request types — use pointers + omitempty to send only changed fields.
 
+type UpdateActionButton struct {
+	Enabled *bool  `json:"enabled,omitempty"`
+	Title   string `json:"title,omitempty"`
+	URL     string `json:"url,omitempty"`
+}
+
 type UpdateFailedRowsConfig struct {
-	Enabled       *bool `json:"enabled,omitempty"`
-	ExposeQueries *bool `json:"exposeQueries,omitempty"`
+	Enabled                      *bool                         `json:"enabled,omitempty"`
+	ExposeQueries                *bool                         `json:"exposeQueries,omitempty"`
+	MaxRowCount                  *int                          `json:"maxRowCount,omitempty"`
+	LocationMessage              string                        `json:"locationMessage,omitempty"`
+	ActionButton                 *UpdateActionButton           `json:"actionButton,omitempty"`
+	FailedRowsCollectionStrategy *FailedRowsCollectionStrategy `json:"failedRowsCollectionStrategy,omitempty"`
 }
 
 type UpdateScanResultsConfig struct {
@@ -313,6 +330,7 @@ type UpdateDatasourceDiagnosticsRequest struct {
 	Enabled                     *bool                    `json:"enabled,omitempty"`
 	ReuseDatasource             *bool                    `json:"reuseDatasource,omitempty"`
 	ConfigurationFileContents   string                   `json:"configurationFileContents,omitempty"`
+	TableNameTemplate           string                   `json:"tableNameTemplate,omitempty"`
 	FailedRowsConfiguration     *UpdateFailedRowsConfig  `json:"failedRowsConfiguration,omitempty"`
 	ScanAndResultsConfiguration *UpdateScanResultsConfig `json:"scanAndResultsConfiguration,omitempty"`
 }
