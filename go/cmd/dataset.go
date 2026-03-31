@@ -302,6 +302,39 @@ var datasetDeleteCmd = &cobra.Command{
 	},
 }
 
+// ── dataset attributes ───────────────────────────────────────────────────
+
+var datasetAttributesCmd = &cobra.Command{
+	Use:   "attributes <id>",
+	Short: "List attributes for a dataset",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := newAPIClient()
+		if err != nil {
+			return err
+		}
+		page, err := client.GetDatasetAttributes(args[0])
+		if err != nil {
+			return err
+		}
+		if len(page.Content) == 0 {
+			fmt.Println(output.Dim.Render("  No attributes found for this dataset."))
+			return nil
+		}
+		rows := make([]map[string]string, len(page.Content))
+		for i, a := range page.Content {
+			rows[i] = map[string]string{
+				"id":    a.ID,
+				"name":  a.Name,
+				"value": a.Value,
+			}
+		}
+		cols := []string{"id", "name", "value"}
+		output.Render(rows, cols, nil, GCtx)
+		return nil
+	},
+}
+
 // ── dataset time-partition ────────────────────────────────────────────────────
 
 var datasetTimePartitionCmd = &cobra.Command{
@@ -770,6 +803,7 @@ func init() {
 		datasetGetCmd,
 		datasetUpdateCmd,
 		datasetDeleteCmd,
+		datasetAttributesCmd,
 		datasetTimePartitionCmd,
 		datasetProfilingCmd,
 		datasetDiagnosticsCmd,
