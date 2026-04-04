@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -806,6 +807,28 @@ done:
 				checkDetails[c.ID] = c
 			}
 		}
+
+		sort.SliceStable(finalStatus.Checks, func(i, j int) bool {
+			a, b := finalStatus.Checks[i], finalStatus.Checks[j]
+			ca, cb := a.Column, b.Column
+			if d, ok := checkDetails[a.ID]; ok && d.Column != "" {
+				ca = d.Column
+			}
+			if d, ok := checkDetails[b.ID]; ok && d.Column != "" {
+				cb = d.Column
+			}
+			if ca != cb {
+				return ca < cb
+			}
+			na, nb := a.Name, b.Name
+			if d, ok := checkDetails[a.ID]; ok && d.Name != "" {
+				na = d.Name
+			}
+			if d, ok := checkDetails[b.ID]; ok && d.Name != "" {
+				nb = d.Name
+			}
+			return na < nb
+		})
 
 		rows := make([]map[string]string, len(finalStatus.Checks))
 		for i, chk := range finalStatus.Checks {

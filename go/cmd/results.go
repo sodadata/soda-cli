@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,13 +45,10 @@ var resultsListCmd = &cobra.Command{
 
 		// Validate sort column
 		validSortCols := map[string]bool{
-			"dataset": true, "name": true, "column": true, "status": true, "date": true,
+			"status": true, "date": true,
 		}
 		if sortCol != "" && !validSortCols[sortCol] {
-			return output.Errorf(2, "invalid --sort value '%s' — use: dataset, name, column, status, date", sortCol)
-		}
-		if sortCol == "" {
-			sortCol = "date"
+			return output.Errorf(2, "invalid --sort value '%s' — use: status, date", sortCol)
 		}
 
 		// Validate order
@@ -151,32 +149,38 @@ var resultsListCmd = &cobra.Command{
 		// Sort
 		sort.SliceStable(checks, func(i, j int) bool {
 			a, b := checks[i], checks[j]
-			var less bool
+			da, db := "", ""
+			if len(a.Datasets) > 0 {
+				da = a.Datasets[0].Name
+			}
+			if len(b.Datasets) > 0 {
+				db = b.Datasets[0].Name
+			}
 			switch sortCol {
 			case "date":
 				ta, _ := time.Parse(time.RFC3339, a.LastCheckRunTime)
 				tb, _ := time.Parse(time.RFC3339, b.LastCheckRunTime)
-				less = ta.Before(tb)
-			case "dataset":
-				qa, qb := "", ""
-				if len(a.Datasets) > 0 {
-					qa = a.Datasets[0].QualifiedName
+				if order == "desc" {
+					return ta.After(tb)
 				}
-				if len(b.Datasets) > 0 {
-					qb = b.Datasets[0].QualifiedName
-				}
-				less = qa < qb
-			case "name":
-				less = a.Name < b.Name
-			case "column":
-				less = a.Column < b.Column
+				return ta.Before(tb)
 			case "status":
-				less = a.EvaluationStatus < b.EvaluationStatus
+				if a.EvaluationStatus != b.EvaluationStatus {
+					less := a.EvaluationStatus < b.EvaluationStatus
+					if order == "desc" {
+						return !less
+					}
+					return less
+				}
 			}
-			if order == "desc" {
-				return !less
+			// Default: dataset → column → check
+			if da != db {
+				return da < db
 			}
-			return less
+			if a.Column != b.Column {
+				return a.Column < b.Column
+			}
+			return a.Name < b.Name
 		})
 
 		// Apply limit
@@ -192,29 +196,34 @@ var resultsListCmd = &cobra.Command{
 
 		rows := make([]map[string]string, len(checks))
 		for i, c := range checks {
-			datasetID := ""
-			qualifiedName := ""
+			datasetName := ""
 			if len(c.Datasets) > 0 {
-				datasetID = c.Datasets[0].ID
-				if c.Datasets[0].QualifiedName != "" {
-					qualifiedName = c.Datasets[0].QualifiedName
-				} else {
-					qualifiedName = c.Datasets[0].Name
-				}
+				datasetName = c.Datasets[0].Name
 			}
 
+			value := ""
+			if c.LastCheckResultValue != nil && c.LastCheckResultValue.Value != nil {
+				f := *c.LastCheckResultValue.Value
+				if f == float64(int64(f)) {
+					value = strconv.FormatFloat(f, 'f', 0, 64)
+				} else {
+					value = strconv.FormatFloat(f, 'f', 2, 64)
+				}
+			}
 			rows[i] = map[string]string{
-				"dataset id": datasetID,
-				"dataset":    qualifiedName,
-				"type":       "check",
-				"name":       c.Name,
+				"id":         c.ID,
+				"dataset":    datasetName,
+				"type":       c.CheckType,
+				"check":      c.Name,
 				"column":     c.Column,
+				"definition": c.Definition,
+				"value":      value,
 				"status":     fmtCheckStatus(c.EvaluationStatus),
 				"date":       fmtCheckTime(c.LastCheckRunTime),
 			}
 		}
 
-		cols := []string{"dataset id", "dataset", "type", "name", "column", "status", "date"}
+		cols := []string{"dataset", "column", "check", "value", "status", "date"}
 		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
 
 		if total > len(checks) || !result.Last {
@@ -237,10 +246,6 @@ func parseDate(s string) (time.Time, error) {
 // fmtCheckStatus maps API evaluation status values to display values.
 func fmtCheckStatus(s string) string {
 	switch s {
-	case "pass":
-		return "passing"
-	case "fail":
-		return "failing"
 	case "notEvaluated":
 		return "n/a"
 	default:
@@ -267,7 +272,7 @@ func init() {
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")
 	resultsListCmd.Flags().Int("limit", 10, "Maximum number of results to show")
-	resultsListCmd.Flags().String("sort", "date", "Sort by column: dataset|name|column|status|date")
+	resultsListCmd.Flags().String("sort", "", "Override sort: status|date (default: dataset → column → check)")
 	resultsListCmd.Flags().String("order", "desc", "Sort order: asc|desc")
 	resultsListCmd.Flags().String("from", "", "Show results on or after this date (YYYY-MM-DD or ISO8601)")
 	resultsListCmd.Flags().String("until", "", "Show results on or before this date (YYYY-MM-DD or ISO8601)")
