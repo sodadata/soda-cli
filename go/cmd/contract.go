@@ -650,13 +650,12 @@ func runCopilotImprove(file, prompt string) error {
 var contractVerifyCmd = &cobra.Command{
 	Use:   "verify <file|dqn>",
 	Short: "Run contract checks against your data",
-	Long: `Execute data quality checks defined in a contract.
+	Long: `Execute data quality checks defined in a contract file.
 
-  Accepts either a local contract file path (e.g. orders.yml) or a dataset DQN
-  (datasource/db/schema/table). When a DQN is provided, the latest contract stored
-  in Soda Cloud is verified via the Runner — no local file needed.
-
-  By default, verification runs via the cloud Runner and polls for results.
+  By default, pushes the contract to Soda Cloud and triggers verification via a Runner.
+  Polls for results and displays a summary.
+  Also accepts a dataset DQN (datasource/db/schema/table) to fetch and verify an existing
+  contract from Soda Cloud without a local file.
 
   With --local, runs verification locally via soda-core (must be on PATH).
   In local mode, --datasource <config.yml> is required and a contract file is expected.
