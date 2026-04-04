@@ -35,6 +35,7 @@ func init() {
 		datasourceCmd,
 		datasetCmd,
 		contractCmd,
+		checkCmd,
 		monitorCmd,
 		resultsCmd,
 		jobCmd,
