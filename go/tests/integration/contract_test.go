@@ -207,6 +207,35 @@ func TestContractVerify(t *testing.T) {
 	})
 }
 
+func TestContractVerifyDQN(t *testing.T) {
+	t.Run("local_rejects_dqn", func(t *testing.T) {
+		// Error path — no credentials needed.
+		r := run(t, "contract", "verify", "datasource/db/schema/table", "--local", "--datasource", "ds.yml")
+		assertExitCode(t, r, 2)
+		assertOutputContains(t, r, "--local requires a contract file")
+	})
+
+	t.Run("nonexistent_dqn", func(t *testing.T) {
+		skipIfNoCredentials(t)
+		loginForTest(t)
+		r := run(t, "contract", "verify", "fake/ds/no/exist", "--no-wait")
+		assertExitCode(t, r, 2)
+		assertOutputContains(t, r, "no contract found")
+	})
+
+	t.Run("verify_by_dqn", func(t *testing.T) {
+		skipIfNoCredentials(t)
+		dqn := testDatasetDQN()
+		if dqn == "" {
+			t.Skip("SODA_TEST_DATASET_DQN not set")
+		}
+		loginForTest(t)
+		r := run(t, "contract", "verify", dqn, "--no-wait")
+		assertExitCode(t, r, 0)
+		assertOutputContains(t, r, "Verification started")
+	})
+}
+
 func TestContractVerifyLocal(t *testing.T) {
 	// Local verify error paths don't need credentials.
 

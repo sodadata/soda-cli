@@ -648,15 +648,17 @@ func runCopilotImprove(file, prompt string) error {
 // ── contract verify ───────────────────────────────────────────────────────────
 
 var contractVerifyCmd = &cobra.Command{
-	Use:   "verify <file>",
+	Use:   "verify <file|dqn>",
 	Short: "Run contract checks against your data",
 	Long: `Execute data quality checks defined in a contract file.
 
   By default, pushes the contract to Soda Cloud and triggers verification via a Runner.
   Polls for results and displays a summary.
+  Also accepts a dataset DQN (datasource/db/schema/table) to fetch and verify an existing
+  contract from Soda Cloud without a local file.
 
   With --local, runs verification locally via soda-core (must be on PATH).
-  In local mode, --datasource <config.yml> is required.
+  In local mode, --datasource <config.yml> is required and a contract file is expected.
   Use --push to publish local results to Soda Cloud.
 
   Exit codes: 0=all passing, 1=checks failed, 2=error, 3=auth error`,
@@ -664,7 +666,11 @@ var contractVerifyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
 		local, _ := cmd.Flags().GetBool("local")
+		isDQN := !strings.HasSuffix(file, ".yml") && !strings.HasSuffix(file, ".yaml")
 
+		if local && isDQN {
+			return output.Errorf(2, "--local requires a contract file (.yml/.yaml), not a dataset DQN")
+		}
 		if local {
 			return runContractVerifyLocal(cmd, file)
 		}
@@ -684,6 +690,15 @@ var contractVerifyCmd = &cobra.Command{
 // polls for results, and displays a summary. Reused by the verify command
 // and both onboard flows.
 func runContractVerify(client *api.Client, file string, noWait bool) error {
+	if strings.HasSuffix(file, ".yml") || strings.HasSuffix(file, ".yaml") {
+		return runContractVerifyByYAML(client, file, noWait)
+	}
+	return runContractVerifyByDQN(client, file, noWait)
+}
+
+// runContractVerifyByYAML reads a local contract YAML, pushes it to Soda Cloud,
+// triggers verification via a Runner, and polls for results.
+func runContractVerifyByYAML(client *api.Client, file string, noWait bool) error {
 	contents, err := os.ReadFile(file)
 	if err != nil {
 		return output.Errorf(2, "could not read file %s: %v", file, err)
@@ -731,6 +746,34 @@ func runContractVerify(client *api.Client, file string, noWait bool) error {
 	}
 	fmt.Println(output.Dim.Render("  Scan ID: " + scanID))
 
+	return pollAndDisplayVerification(client, scanID, noWait)
+}
+
+// runContractVerifyByDQN looks up an existing contract in Soda Cloud by dataset DQN,
+// triggers verification via a Runner, and polls for results. No local file is required.
+func runContractVerifyByDQN(client *api.Client, dqn string, noWait bool) error {
+	fmt.Println(output.Dim.Render("  Looking up contract for " + dqn + "..."))
+	contract, err := client.FindContractByDataset(dqn)
+	if err != nil {
+		return err
+	}
+	if contract == nil {
+		return output.Errorf(2, "no contract found for dataset %s", dqn)
+	}
+
+	// Trigger verification
+	fmt.Println(output.Dim.Render("  Triggering verification..."))
+	scanID, err := client.VerifyContract(contract.ID)
+	if err != nil {
+		return err
+	}
+	fmt.Println(output.Dim.Render("  Scan ID: " + scanID))
+
+	return pollAndDisplayVerification(client, scanID, noWait)
+}
+
+// pollAndDisplayVerification waits for a scan to complete and prints the results.
+func pollAndDisplayVerification(client *api.Client, scanID string, noWait bool) error {
 	if noWait {
 		output.PrintSuccess(fmt.Sprintf("Verification started (scan: %s). Running in background.", scanID), GCtx)
 		fmt.Println(output.Dim.Render("  Check status:  sodacli job logs " + scanID))

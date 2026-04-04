@@ -114,8 +114,11 @@ sodacli datasource onboard <datasource-id> --monitoring --profiling --contracts 
 ### 3. Verify a contract
 
 ```bash
-# Run checks via Soda Cloud Runner
+# Run checks via Soda Cloud Runner (local file)
 sodacli contract verify orders.yml
+
+# Run checks via Soda Cloud Runner using dataset DQN — no local file needed
+sodacli contract verify datasource/db/schema/table
 
 # Or run locally via soda-core (no cloud needed)
 sodacli contract verify orders.yml --local --datasource datasource.yml
@@ -176,7 +179,8 @@ sodacli contract push my_table.yml                                       # uploa
 sodacli contract diff my_table.yml                                       # local vs cloud diff
 sodacli contract lint my_table.yml                                       # validate syntax (offline)
 sodacli contract lint contracts/*.yml                                    # lint multiple files
-sodacli contract verify my_table.yml                                     # run checks via cloud Runner
+sodacli contract verify my_table.yml                                     # run checks via cloud Runner (local file)
+sodacli contract verify datasource/db/schema/table                       # run checks via cloud Runner (DQN, no local file)
 sodacli contract verify my_table.yml --no-wait                           # fire and forget
 sodacli contract verify my_table.yml --local --datasource config.yml     # run locally via soda-core
 sodacli contract verify my_table.yml --local --datasource config.yml --push  # run locally + push results to cloud

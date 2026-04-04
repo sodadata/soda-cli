@@ -153,8 +153,11 @@ sodacli contract diff my_table.yml
 sodacli contract lint my_table.yml
 sodacli contract lint contracts/*.yml               # glob support
 
-# Run checks via cloud Runner
+# Run checks via cloud Runner (local file)
 sodacli contract verify my_table.yml --output json
+
+# Run checks via cloud Runner using dataset DQN — no local file needed
+sodacli contract verify datasource/db/schema/table --output json
 
 # Run checks locally via soda-core (no cloud auth needed)
 sodacli contract verify my_table.yml --local --datasource datasource.yml

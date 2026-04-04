@@ -57,6 +57,7 @@ func testKeySecret() string { return env("SODA_TEST_API_KEY_SECRET") }
 func testDatasourceID() string   { return env("SODA_TEST_DATASOURCE_ID") }
 func testDatasourceName() string { return env("SODA_TEST_DATASOURCE_NAME") }
 func testDatasetID() string      { return env("SODA_TEST_DATASET_ID") }
+func testDatasetDQN() string     { return env("SODA_TEST_DATASET_DQN") }
 func testDSConfig() string {
 	v := env("SODA_TEST_DS_CONFIG")
 	if v == "" {
