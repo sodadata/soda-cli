@@ -650,7 +650,7 @@ func runCopilotImprove(file, prompt string) error {
 var contractVerifyCmd = &cobra.Command{
 	Use:   "verify <file|dqn>",
 	Short: "Run contract checks against your data",
-	Long: `Execute data quality checks defined in a contract file or stored in Soda Cloud.
+	Long: `Execute data quality checks defined in a contract.
 
   Accepts either a local contract file path (e.g. orders.yml) or a dataset DQN
   (datasource/db/schema/table). When a DQN is provided, the latest contract stored
@@ -683,8 +683,9 @@ var contractVerifyCmd = &cobra.Command{
 	},
 }
 
-// runContractVerify pushes a contract to Soda Cloud, triggers verification via a Runner,
-// polls for results, and displays a summary. Reused by the verify command and both onboard flows.
+// runContractVerify pushes a contract file to cloud, triggers verification,
+// polls for results, and displays a summary. Reused by the verify command
+// and both onboard flows.
 func runContractVerify(client *api.Client, file string, noWait bool) error {
 	if strings.HasSuffix(file, ".yml") || strings.HasSuffix(file, ".yaml") {
 		return runContractVerifyByYAML(client, file, noWait)
@@ -707,6 +708,7 @@ func runContractVerifyByYAML(client *api.Client, file string, noWait bool) error
 		return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
 	}
 
+	// Push/update contract to cloud
 	fmt.Println(output.Dim.Render("  Pushing contract for " + qualifiedName + "..."))
 	existing, err := client.FindContractByDataset(qualifiedName)
 	if err != nil {
