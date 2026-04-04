@@ -24,6 +24,7 @@ var resultsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID, _  := cmd.Flags().GetString("dataset")
 		datasetName, _ := cmd.Flags().GetString("dataset-name")
+		exact, _       := cmd.Flags().GetBool("exact")
 		ids, _        := cmd.Flags().GetString("ids")
 		status, _     := cmd.Flags().GetString("status")
 		resType, _    := cmd.Flags().GetString("type")
@@ -120,7 +121,7 @@ var resultsListCmd = &cobra.Command{
 				if len(c.Datasets) > 0 {
 					qn = strings.ToLower(c.Datasets[0].QualifiedName)
 				}
-				if strings.Contains(qn, needle) {
+				if (exact && qn == needle) || (!exact && strings.Contains(qn, needle)) {
 					filtered = append(filtered, c)
 				}
 			}
@@ -192,7 +193,7 @@ var resultsListCmd = &cobra.Command{
 		if total > len(checks) || !result.Last {
 			shown := len(checks)
 			apiTotal := result.TotalElements
-			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d results.\n"), shown, apiTotal)
+			fmt.Fprintf(cmd.ErrOrStderr(), output.Dim.Render("  Showing %d of %d results.")+"\n", shown, apiTotal)
 		}
 		return nil
 	},
@@ -202,9 +203,10 @@ var resultsListCmd = &cobra.Command{
 func renderCheckRows(checks []api.Check) {
 	rows := make([]map[string]string, len(checks))
 	for i, c := range checks {
-		datasetName := ""
+		datasetName, qualifiedName := "", ""
 		if len(c.Datasets) > 0 {
 			datasetName = c.Datasets[0].Name
+			qualifiedName = c.Datasets[0].QualifiedName
 		}
 		value := ""
 		if c.LastCheckResultValue != nil && c.LastCheckResultValue.Value != nil {
@@ -216,10 +218,11 @@ func renderCheckRows(checks []api.Check) {
 			}
 		}
 		rows[i] = map[string]string{
-			"id":         c.ID,
-			"dataset":    datasetName,
+			"id":                c.ID,
+			"dataset":           datasetName,
+			"dqn":               qualifiedName,
 			"type":       c.CheckType,
-			"check":      c.Name,
+			"name":       c.Name,
 			"column":     c.Column,
 			"definition": c.Definition,
 			"value":      value,
@@ -227,7 +230,7 @@ func renderCheckRows(checks []api.Check) {
 			"date":       fmtCheckTime(c.LastCheckRunTime),
 		}
 	}
-	output.Render(rows, []string{"dataset", "column", "check", "value", "status", "date"}, map[string]bool{"status": true}, GCtx)
+	output.Render(rows, []string{"dataset", "column", "name", "value", "status", "date"}, map[string]bool{"status": true}, GCtx)
 }
 
 // parseDate accepts YYYY-MM-DD or any RFC3339 timestamp.
@@ -268,6 +271,7 @@ func init() {
 	resultsListCmd.Flags().String("dataset", "", "Filter by dataset ID")
 	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch")
 	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (substring match)")
+	resultsListCmd.Flags().Bool("exact", false, "Use exact match for --dataset-name instead of substring")
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")
 	resultsListCmd.Flags().Int("limit", 10, "Maximum number of results to show")
