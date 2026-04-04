@@ -665,9 +665,10 @@ var contractVerifyCmd = &cobra.Command{
   Exit codes: 0=all passing, 1=checks failed, 2=error, 3=auth error`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		file := args[0]
 		local, _ := cmd.Flags().GetBool("local")
 		if local {
-			return runContractVerifyLocal(cmd, args[0])
+			return runContractVerifyLocal(cmd, file)
 		}
 
 		noWait, _ := cmd.Flags().GetBool("no-wait")
@@ -676,24 +677,23 @@ var contractVerifyCmd = &cobra.Command{
 			return err
 		}
 
-		return runContractVerify(client, args[0], noWait)
+		return runContractVerify(client, file, noWait)
 	},
 }
 
-// runContractVerify triggers cloud Runner verification and polls for results.
-// The input may be a local contract file path (*.yml / *.yaml) or a dataset DQN
-// (datasource/db/schema/table). Reused by the verify command and both onboard flows.
-func runContractVerify(client *api.Client, fileOrDQN string, noWait bool) error {
+// runContractVerify pushes a contract to Soda Cloud, triggers verification via a Runner,
+// polls for results, and displays a summary. Reused by the verify command and both onboard flows.
+func runContractVerify(client *api.Client, file string, noWait bool) error {
 	var contractID string
 	var err error
 
-	if strings.HasSuffix(fileOrDQN, ".yml") || strings.HasSuffix(fileOrDQN, ".yaml") {
-		contractID, err = runContractVerifyByFile(client, fileOrDQN)
+	if strings.HasSuffix(file, ".yml") || strings.HasSuffix(file, ".yaml") {
+		contractID, err = runContractVerifyByYAML(client, file)
 		if err != nil {
 			return err
 		}
 	} else {
-		contractID, err = runContractVerifyByDQN(client, fileOrDQN)
+		contractID, err = runContractVerifyByDQN(client, file)
 		if err != nil {
 			return err
 		}
@@ -710,9 +710,9 @@ func runContractVerify(client *api.Client, fileOrDQN string, noWait bool) error 
 	return pollAndDisplayVerification(client, scanID, noWait)
 }
 
-// runContractVerifyByFile reads a local contract file, pushes it to Soda Cloud,
+// runContractVerifyByYAML reads a local contract YAML, pushes it to Soda Cloud,
 // and returns the contract ID to use for verification.
-func runContractVerifyByFile(client *api.Client, file string) (string, error) {
+func runContractVerifyByYAML(client *api.Client, file string) (string, error) {
 	contents, err := os.ReadFile(file)
 	if err != nil {
 		return "", output.Errorf(2, "could not read file %s: %v", file, err)
