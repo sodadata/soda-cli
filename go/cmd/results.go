@@ -24,7 +24,7 @@ var resultsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID, _  := cmd.Flags().GetString("dataset")
 		datasetName, _ := cmd.Flags().GetString("dataset-name")
-		ids, _         := cmd.Flags().GetString("ids")
+		ids, _        := cmd.Flags().GetString("ids")
 		status, _     := cmd.Flags().GetString("status")
 		resType, _    := cmd.Flags().GetString("type")
 		limit, _      := cmd.Flags().GetInt("limit")
@@ -32,10 +32,6 @@ var resultsListCmd = &cobra.Command{
 		order, _      := cmd.Flags().GetString("order")
 		fromStr, _    := cmd.Flags().GetString("from")
 		untilStr, _   := cmd.Flags().GetString("until")
-
-		if ids != "" && (datasetID != "" || datasetName != "" || status != "" || fromStr != "" || untilStr != "") {
-			return output.Errorf(2, "--ids cannot be combined with other filters")
-		}
 
 		// Monitor results not yet available
 		if resType == "monitor" {
@@ -245,6 +241,10 @@ func parseDate(s string) (time.Time, error) {
 // fmtCheckStatus maps API evaluation status values to display values.
 func fmtCheckStatus(s string) string {
 	switch s {
+	case "pass":
+		return "passing"
+	case "fail":
+		return "failing"
 	case "notEvaluated":
 		return "n/a"
 	default:
@@ -266,7 +266,7 @@ func fmtCheckTime(s string) string {
 
 func init() {
 	resultsListCmd.Flags().String("dataset", "", "Filter by dataset ID")
-	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch (cannot combine with other filters)")
+	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch")
 	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (substring match)")
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")

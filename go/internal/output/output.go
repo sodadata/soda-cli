@@ -41,12 +41,12 @@ func EffectiveFmt(gctx *ctx.GlobalCtx) string {
 // FmtStatus applies color + symbol to known status values.
 func FmtStatus(s string) string {
 	switch s {
-	case "pass", "passing":
+	case "passing":
 		return Green.Render("✓") + " " + s
-	case "fail", "failing":
+	case "failing":
 		return Red.Render("✗") + " " + s
 	case "warn":
-		return Yellow.Render("⚠") + " " + s
+		return Yellow.Render("⚠") + " warning"
 	case "error":
 		return Yellow.Render("⚠") + " " + s
 	case "alert":
