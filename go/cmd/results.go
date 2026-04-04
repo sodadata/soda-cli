@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ var resultsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID, _  := cmd.Flags().GetString("dataset")
 		datasetName, _ := cmd.Flags().GetString("dataset-name")
+		ids, _         := cmd.Flags().GetString("ids")
 		status, _     := cmd.Flags().GetString("status")
 		resType, _    := cmd.Flags().GetString("type")
 		limit, _      := cmd.Flags().GetInt("limit")
@@ -30,6 +32,10 @@ var resultsListCmd = &cobra.Command{
 		order, _      := cmd.Flags().GetString("order")
 		fromStr, _    := cmd.Flags().GetString("from")
 		untilStr, _   := cmd.Flags().GetString("until")
+
+		if ids != "" && (datasetID != "" || datasetName != "" || status != "" || fromStr != "" || untilStr != "") {
+			return output.Errorf(2, "--ids cannot be combined with other filters")
+		}
 
 		// Monitor results not yet available
 		if resType == "monitor" {
@@ -89,10 +95,10 @@ var resultsListCmd = &cobra.Command{
 
 		// Fetch more when client-side filters are active
 		fetchSize := limit
-		if statusFilter != "" || datasetName != "" || fromStr != "" || untilStr != "" {
+		if ids == "" && (statusFilter != "" || datasetName != "" || fromStr != "" || untilStr != "") {
 			fetchSize = 500
 		}
-		result, err := client.ListChecks(api.ListChecksParams{Size: fetchSize, DatasetID: datasetID})
+		result, err := client.ListChecks(api.ListChecksParams{Size: fetchSize, DatasetID: datasetID, CheckIDs: ids})
 		if err != nil {
 			return err
 		}
@@ -185,32 +191,7 @@ var resultsListCmd = &cobra.Command{
 			return nil
 		}
 
-		rows := make([]map[string]string, len(checks))
-		for i, c := range checks {
-			datasetID := ""
-			qualifiedName := ""
-			if len(c.Datasets) > 0 {
-				datasetID = c.Datasets[0].ID
-				if c.Datasets[0].QualifiedName != "" {
-					qualifiedName = c.Datasets[0].QualifiedName
-				} else {
-					qualifiedName = c.Datasets[0].Name
-				}
-			}
-
-			rows[i] = map[string]string{
-				"dataset id": datasetID,
-				"dataset":    qualifiedName,
-				"type":       "check",
-				"name":       c.Name,
-				"column":     c.Column,
-				"status":     fmtCheckStatus(c.EvaluationStatus),
-				"date":       fmtCheckTime(c.LastCheckRunTime),
-			}
-		}
-
-		cols := []string{"dataset id", "dataset", "type", "name", "column", "status", "date"}
-		output.Render(rows, cols, map[string]bool{"status": true}, GCtx)
+		renderCheckRows(checks)
 
 		if total > len(checks) || !result.Last {
 			shown := len(checks)
@@ -219,6 +200,38 @@ var resultsListCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// renderCheckRows renders a slice of Check as a table/json/csv.
+func renderCheckRows(checks []api.Check) {
+	rows := make([]map[string]string, len(checks))
+	for i, c := range checks {
+		datasetName := ""
+		if len(c.Datasets) > 0 {
+			datasetName = c.Datasets[0].Name
+		}
+		value := ""
+		if c.LastCheckResultValue != nil && c.LastCheckResultValue.Value != nil {
+			f := *c.LastCheckResultValue.Value
+			if f == float64(int64(f)) {
+				value = strconv.FormatFloat(f, 'f', 0, 64)
+			} else {
+				value = strconv.FormatFloat(f, 'f', 2, 64)
+			}
+		}
+		rows[i] = map[string]string{
+			"id":         c.ID,
+			"dataset":    datasetName,
+			"type":       c.CheckType,
+			"check":      c.Name,
+			"column":     c.Column,
+			"definition": c.Definition,
+			"value":      value,
+			"status":     fmtCheckStatus(c.EvaluationStatus),
+			"date":       fmtCheckTime(c.LastCheckRunTime),
+		}
+	}
+	output.Render(rows, []string{"dataset", "column", "check", "value", "status", "date"}, map[string]bool{"status": true}, GCtx)
 }
 
 // parseDate accepts YYYY-MM-DD or any RFC3339 timestamp.
@@ -232,10 +245,6 @@ func parseDate(s string) (time.Time, error) {
 // fmtCheckStatus maps API evaluation status values to display values.
 func fmtCheckStatus(s string) string {
 	switch s {
-	case "pass":
-		return "passing"
-	case "fail":
-		return "failing"
 	case "notEvaluated":
 		return "n/a"
 	default:
@@ -257,6 +266,7 @@ func fmtCheckTime(s string) string {
 
 func init() {
 	resultsListCmd.Flags().String("dataset", "", "Filter by dataset ID")
+	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch (cannot combine with other filters)")
 	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (substring match)")
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")
