@@ -57,7 +57,12 @@ var checkListCmd = &cobra.Command{
 		for i, c := range result.Content {
 			value := ""
 			if c.LastCheckResultValue != nil && c.LastCheckResultValue.Value != nil {
-				value = strconv.FormatFloat(*c.LastCheckResultValue.Value, 'f', 2, 64)
+				f := *c.LastCheckResultValue.Value
+			if f == float64(int64(f)) {
+				value = strconv.FormatFloat(f, 'f', 0, 64)
+			} else {
+				value = strconv.FormatFloat(f, 'f', 2, 64)
+			}
 			}
 			rows[i] = map[string]string{
 				"id":     c.ID,
