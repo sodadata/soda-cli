@@ -110,7 +110,7 @@ sodacli
   │   │   # file + prompt    → improve existing contract
   │   │   # --no-interactive → fails with clear error describing what's missing
   │   │   --output <file>
-  │   ├── verify    <file>                                    # verify contract checks against data
+  │   ├── verify    <file|dqn>                                 # verify contract checks against data
   │   │   [--datasource <file>]            # datasource config file (required with --local)
   │   │   [--local]                        # run locally via soda-core  🔌 [requires soda-core on PATH]
   │   │   [--push]                         # push results to Soda Cloud (useful with --local)

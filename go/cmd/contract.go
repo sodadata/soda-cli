@@ -666,7 +666,11 @@ var contractVerifyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
 		local, _ := cmd.Flags().GetBool("local")
+		isDQN := !strings.HasSuffix(file, ".yml") && !strings.HasSuffix(file, ".yaml")
 
+		if local && isDQN {
+			return output.Errorf(2, "--local requires a contract file (.yml/.yaml), not a dataset DQN")
+		}
 		if local {
 			return runContractVerifyLocal(cmd, file)
 		}
