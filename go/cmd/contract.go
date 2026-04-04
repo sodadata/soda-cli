@@ -667,11 +667,13 @@ var contractVerifyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
 		local, _ := cmd.Flags().GetBool("local")
+
 		if local {
 			return runContractVerifyLocal(cmd, file)
 		}
 
 		noWait, _ := cmd.Flags().GetBool("no-wait")
+
 		client, err := newAPIClient()
 		if err != nil {
 			return err
@@ -684,19 +686,51 @@ var contractVerifyCmd = &cobra.Command{
 // runContractVerify pushes a contract to Soda Cloud, triggers verification via a Runner,
 // polls for results, and displays a summary. Reused by the verify command and both onboard flows.
 func runContractVerify(client *api.Client, file string, noWait bool) error {
-	var contractID string
-	var err error
-
 	if strings.HasSuffix(file, ".yml") || strings.HasSuffix(file, ".yaml") {
-		contractID, err = runContractVerifyByYAML(client, file)
+		return runContractVerifyByYAML(client, file, noWait)
+	}
+	return runContractVerifyByDQN(client, file, noWait)
+}
+
+// runContractVerifyByYAML reads a local contract YAML, pushes it to Soda Cloud,
+// triggers verification via a Runner, and polls for results.
+func runContractVerifyByYAML(client *api.Client, file string, noWait bool) error {
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		return output.Errorf(2, "could not read file %s: %v", file, err)
+	}
+	qualifiedName, err := parseDatasetField(contents)
+	if err != nil {
+		return output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
+	}
+	if qualifiedName == "" {
+		return output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
+	}
+
+	fmt.Println(output.Dim.Render("  Pushing contract for " + qualifiedName + "..."))
+	existing, err := client.FindContractByDataset(qualifiedName)
+	if err != nil {
+		return err
+	}
+
+	req := api.ContractRequest{
+		DatasetQualifiedName: qualifiedName,
+		Contents:             string(contents),
+	}
+
+	var contractID string
+	if existing != nil {
+		result, err := client.UpdateContract(existing.ID, req)
 		if err != nil {
 			return err
 		}
+		contractID = result.ID
 	} else {
-		contractID, err = runContractVerifyByDQN(client, file)
+		result, err := client.CreateContract(req)
 		if err != nil {
 			return err
 		}
+		contractID = result.ID
 	}
 
 	// Trigger verification
@@ -710,58 +744,27 @@ func runContractVerify(client *api.Client, file string, noWait bool) error {
 	return pollAndDisplayVerification(client, scanID, noWait)
 }
 
-// runContractVerifyByYAML reads a local contract YAML, pushes it to Soda Cloud,
-// and returns the contract ID to use for verification.
-func runContractVerifyByYAML(client *api.Client, file string) (string, error) {
-	contents, err := os.ReadFile(file)
-	if err != nil {
-		return "", output.Errorf(2, "could not read file %s: %v", file, err)
-	}
-	qualifiedName, err := parseDatasetField(contents)
-	if err != nil {
-		return "", output.Errorf(2, "could not parse 'dataset:' field from %s: %v", file, err)
-	}
-	if qualifiedName == "" {
-		return "", output.Errorf(2, "contract file %s must have a 'dataset:' field", file)
-	}
-
-	fmt.Println(output.Dim.Render("  Pushing contract for " + qualifiedName + "..."))
-	existing, err := client.FindContractByDataset(qualifiedName)
-	if err != nil {
-		return "", err
-	}
-
-	req := api.ContractRequest{
-		DatasetQualifiedName: qualifiedName,
-		Contents:             string(contents),
-	}
-
-	if existing != nil {
-		result, err := client.UpdateContract(existing.ID, req)
-		if err != nil {
-			return "", err
-		}
-		return result.ID, nil
-	}
-	result, err := client.CreateContract(req)
-	if err != nil {
-		return "", err
-	}
-	return result.ID, nil
-}
-
-// runContractVerifyByDQN looks up an existing contract in Soda Cloud by dataset DQN
-// and returns its contract ID for verification. No local file is required.
-func runContractVerifyByDQN(client *api.Client, dqn string) (string, error) {
+// runContractVerifyByDQN looks up an existing contract in Soda Cloud by dataset DQN,
+// triggers verification via a Runner, and polls for results. No local file is required.
+func runContractVerifyByDQN(client *api.Client, dqn string, noWait bool) error {
 	fmt.Println(output.Dim.Render("  Looking up contract for " + dqn + "..."))
 	contract, err := client.FindContractByDataset(dqn)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if contract == nil {
-		return "", output.Errorf(2, "no contract found for dataset %s", dqn)
+		return output.Errorf(2, "no contract found for dataset %s", dqn)
 	}
-	return contract.ID, nil
+
+	// Trigger verification
+	fmt.Println(output.Dim.Render("  Triggering verification..."))
+	scanID, err := client.VerifyContract(contract.ID)
+	if err != nil {
+		return err
+	}
+	fmt.Println(output.Dim.Render("  Scan ID: " + scanID))
+
+	return pollAndDisplayVerification(client, scanID, noWait)
 }
 
 // pollAndDisplayVerification waits for a scan to complete and prints the results.
