@@ -23,6 +23,7 @@ var resultsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID, _  := cmd.Flags().GetString("dataset")
 		datasetName, _ := cmd.Flags().GetString("dataset-name")
+		ids, _         := cmd.Flags().GetString("ids")
 		status, _     := cmd.Flags().GetString("status")
 		resType, _    := cmd.Flags().GetString("type")
 		limit, _      := cmd.Flags().GetInt("limit")
@@ -30,6 +31,10 @@ var resultsListCmd = &cobra.Command{
 		order, _      := cmd.Flags().GetString("order")
 		fromStr, _    := cmd.Flags().GetString("from")
 		untilStr, _   := cmd.Flags().GetString("until")
+
+		if ids != "" && (datasetID != "" || datasetName != "" || status != "" || fromStr != "" || untilStr != "") {
+			return output.Errorf(2, "--ids cannot be combined with other filters")
+		}
 
 		// Monitor results not yet available
 		if resType == "monitor" {
@@ -89,10 +94,10 @@ var resultsListCmd = &cobra.Command{
 
 		// Fetch more when client-side filters are active
 		fetchSize := limit
-		if statusFilter != "" || datasetName != "" || fromStr != "" || untilStr != "" {
+		if ids == "" && (statusFilter != "" || datasetName != "" || fromStr != "" || untilStr != "") {
 			fetchSize = 500
 		}
-		result, err := client.ListChecks(api.ListChecksParams{Size: fetchSize, DatasetID: datasetID})
+		result, err := client.ListChecks(api.ListChecksParams{Size: fetchSize, DatasetID: datasetID, CheckIDs: ids})
 		if err != nil {
 			return err
 		}
@@ -257,6 +262,7 @@ func fmtCheckTime(s string) string {
 
 func init() {
 	resultsListCmd.Flags().String("dataset", "", "Filter by dataset ID")
+	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch (cannot combine with other filters)")
 	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (substring match)")
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")

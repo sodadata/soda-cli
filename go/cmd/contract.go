@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -793,24 +794,50 @@ done:
 	fmt.Println(summary)
 
 	if len(finalStatus.Checks) > 0 {
+		// Enrich scan check results with full check details (name, column, value)
+		// by looking up all check IDs in one call.
+		checkDetails := map[string]api.Check{}
+		ids := make([]string, len(finalStatus.Checks))
+		for i, chk := range finalStatus.Checks {
+			ids[i] = chk.ID
+		}
+		if details, err := client.ListChecks(api.ListChecksParams{CheckIDs: strings.Join(ids, ",")}); err == nil {
+			for _, c := range details.Content {
+				checkDetails[c.ID] = c
+			}
+		}
+
 		rows := make([]map[string]string, len(finalStatus.Checks))
 		for i, chk := range finalStatus.Checks {
-			name := chk.Name
+			column, name, value := chk.Column, chk.Name, ""
+			if d, ok := checkDetails[chk.ID]; ok {
+				if d.Column != "" {
+					column = d.Column
+				}
+				if d.Name != "" {
+					name = d.Name
+				}
+				if d.LastCheckResultValue != nil && d.LastCheckResultValue.Value != nil {
+					f := *d.LastCheckResultValue.Value
+					if f == float64(int64(f)) {
+						value = strconv.FormatFloat(f, 'f', 0, 64)
+					} else {
+						value = strconv.FormatFloat(f, 'f', 2, 64)
+					}
+				}
+			}
 			if name == "" {
 				name = chk.Definition
 			}
-			if name == "" {
-				name = chk.ID
-			}
 			rows[i] = map[string]string{
-				"type":   chk.Type,
-				"column": chk.Column,
+				"column": column,
 				"name":   name,
+				"value":  value,
 				"status": fmtCheckStatus(chk.EvaluationStatus),
 			}
 		}
 		fmt.Println()
-		output.Render(rows, []string{"type", "column", "name", "status"}, map[string]bool{"status": true}, GCtx)
+		output.Render(rows, []string{"column", "name", "value", "status"}, map[string]bool{"status": true}, GCtx)
 	}
 
 	if finalStatus.CloudURL != "" {

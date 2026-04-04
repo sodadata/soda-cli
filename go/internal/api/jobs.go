@@ -3,12 +3,13 @@ package api
 // ── Scan status ──────────────────────────────────────────────────────────────
 
 type ScanCheck struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	Type             string `json:"type"`   // dataset or column
-	Column           string `json:"column"` // column name if type=column
-	Definition       string `json:"definition"`
-	EvaluationStatus string `json:"evaluationStatus"` // pass|warn|fail|notEvaluated|excluded
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Type             string   `json:"type"`   // dataset or column
+	Column           string   `json:"column"` // column name if type=column
+	Definition       string   `json:"definition"`
+	EvaluationStatus string   `json:"evaluationStatus"` // pass|warn|fail|notEvaluated|excluded
+	Value            *float64 `json:"value"`
 }
 
 type ScanStatus struct {
