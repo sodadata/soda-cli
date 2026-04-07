@@ -136,6 +136,34 @@ func run(t *testing.T, args ...string) Result {
 	}
 }
 
+// runInDir executes sodacli with the given args in the specified directory.
+func runInDir(t *testing.T, dir string, args ...string) Result {
+	t.Helper()
+	bin := ensureBinary(t)
+
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			t.Fatalf("failed to run command: %v", err)
+		}
+	}
+
+	return Result{
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
+		ExitCode: exitCode,
+	}
+}
+
 // Output returns combined stdout+stderr for simple checks.
 func (r Result) Output() string {
 	return r.Stdout + r.Stderr
