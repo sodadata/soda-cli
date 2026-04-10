@@ -21,12 +21,8 @@ type Client struct {
 }
 
 func New(p config.Profile) *Client {
-	host := p.Host
-	if host == "" {
-		host = "cloud.soda.io"
-	}
 	return &Client{
-		baseURL:      "https://" + host,
+		baseURL:      p.BaseURL(),
 		apiKeyID:     p.APIKeyID,
 		apiKeySecret: p.APIKeySecret,
 		http:         &http.Client{Timeout: 30 * time.Second},

@@ -12,6 +12,20 @@ type Profile struct {
 	Host         string `yaml:"host"`
 	APIKeyID     string `yaml:"api_key_id"`
 	APIKeySecret string `yaml:"api_key_secret"`
+	Scheme       string `yaml:"scheme,omitempty"` // "http" or "https" (default: "https")
+}
+
+// BaseURL returns the full base URL for the profile (e.g. "https://cloud.soda.io").
+func (p Profile) BaseURL() string {
+	host := p.Host
+	if host == "" {
+		host = "cloud.soda.io"
+	}
+	scheme := p.Scheme
+	if scheme == "" {
+		scheme = "https"
+	}
+	return scheme + "://" + host
 }
 
 type Credentials map[string]Profile
