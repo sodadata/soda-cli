@@ -24,14 +24,13 @@ var authLoginCmd = &cobra.Command{
 		host, _ := cmd.Flags().GetString("host")
 		apiKeyID, _ := cmd.Flags().GetString("api-key-id")
 		apiKeySecret, _ := cmd.Flags().GetString("api-key-secret")
-		scheme, _ := cmd.Flags().GetString("scheme")
 
-		anyFlagSet := cmd.Flags().Changed("host") || cmd.Flags().Changed("api-key-id") || cmd.Flags().Changed("api-key-secret") || cmd.Flags().Changed("scheme")
+		anyFlagSet := cmd.Flags().Changed("host") || cmd.Flags().Changed("api-key-id") || cmd.Flags().Changed("api-key-secret")
 
 		if anyFlagSet {
 			// Non-interactive: flags were explicitly provided
 			if host == "" {
-				host = "cloud.soda.io"
+				host = "https://cloud.soda.io"
 			}
 
 			if apiKeyID == "" || apiKeySecret == "" {
@@ -95,13 +94,13 @@ var authLoginCmd = &cobra.Command{
 			}
 
 			if host == "" {
-				host = "cloud.soda.io"
+				host = "https://cloud.soda.io"
 			}
 
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewInput().
 					Title("Soda Cloud host").
-					Description("EU: cloud.soda.io · US: cloud.us.soda.io").
+					Description("EU: https://cloud.soda.io · US: https://cloud.us.soda.io").
 					Value(&host),
 				huh.NewInput().
 					Title("API key ID").
@@ -117,11 +116,11 @@ var authLoginCmd = &cobra.Command{
 		}
 
 		if host == "" {
-			host = "cloud.soda.io"
+			host = "https://cloud.soda.io"
 		}
 
 		// Test connection before saving
-		testProfile := config.Profile{Host: host, APIKeyID: apiKeyID, APIKeySecret: apiKeySecret, Scheme: scheme}
+		testProfile := config.Profile{Host: host, APIKeyID: apiKeyID, APIKeySecret: apiKeySecret}
 		fmt.Println(output.Dim.Render("  Testing connection to " + testProfile.BaseURL() + "..."))
 		if err := api.New(testProfile).Ping(); err != nil {
 			return err
@@ -215,10 +214,9 @@ var authSwitchCmd = &cobra.Command{
 }
 
 func init() {
-	authLoginCmd.Flags().String("host", "", "Soda Cloud host (default: cloud.soda.io)")
+	authLoginCmd.Flags().String("host", "", "Soda Cloud host (default: https://cloud.soda.io)")
 	authLoginCmd.Flags().String("api-key-id", "", "Soda Cloud API key ID")
 	authLoginCmd.Flags().String("api-key-secret", "", "Soda Cloud API key secret")
-	authLoginCmd.Flags().String("scheme", "", `URL scheme: "http" or "https" (default: "https")`)
 
 	authCmd.AddCommand(authLoginCmd, authLogoutCmd, authStatusCmd, authSwitchCmd)
 }

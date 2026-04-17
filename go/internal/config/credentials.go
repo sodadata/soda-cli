@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -12,20 +13,20 @@ type Profile struct {
 	Host         string `yaml:"host"`
 	APIKeyID     string `yaml:"api_key_id"`
 	APIKeySecret string `yaml:"api_key_secret"`
-	Scheme       string `yaml:"scheme,omitempty"` // "http" or "https" (default: "https")
 }
 
 // BaseURL returns the full base URL for the profile (e.g. "https://cloud.soda.io").
+// If Host already contains a scheme (http:// or https://), it is used as-is.
+// Otherwise, https:// is prepended.
 func (p Profile) BaseURL() string {
 	host := p.Host
 	if host == "" {
-		host = "cloud.soda.io"
+		host = "https://cloud.soda.io"
 	}
-	scheme := p.Scheme
-	if scheme == "" {
-		scheme = "https"
+	if strings.HasPrefix(host, "http://") || strings.HasPrefix(host, "https://") {
+		return strings.TrimRight(host, "/")
 	}
-	return scheme + "://" + host
+	return "https://" + strings.TrimRight(host, "/")
 }
 
 type Credentials map[string]Profile
