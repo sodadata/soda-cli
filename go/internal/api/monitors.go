@@ -61,12 +61,6 @@ type MetricMonitoringConfig struct {
 	CustomSqlMetricMonitors                []CustomSqlMonitor        `json:"customSqlMetricMonitors"`
 }
 
-type UpdateMetricMonitoringRequest struct {
-	Enabled                            *bool                     `json:"enabled,omitempty"`
-	ScanSchedule                       *ScanSchedule             `json:"scanSchedule,omitempty"`
-	DatasetMetricMonitorsConfiguration []DatasetMetricMonitorCfg `json:"datasetMetricMonitorsConfiguration,omitempty"`
-}
-
 func (c *Client) GetMetricMonitoring(datasetID string) (*MetricMonitoringConfig, error) {
 	resp, err := c.get("/api/v1/datasets/"+datasetID+"/metricMonitoring", nil)
 	if err != nil {
@@ -79,16 +73,22 @@ func (c *Client) GetMetricMonitoring(datasetID string) (*MetricMonitoringConfig,
 	return &result, nil
 }
 
-func (c *Client) UpdateMetricMonitoring(datasetID string, req UpdateMetricMonitoringRequest) (*MetricMonitoringConfig, error) {
-	resp, err := c.post("/api/v1/datasets/"+datasetID+"/metricMonitoring", req)
+func (c *Client) UpdateMetricMonitoring(datasetID string, req MetricMonitoringSettings) (*MetricMonitoringConfig, error) {
+	// Use the dataset update endpoint (POST /api/v1/datasets/{id}) with the
+	// metricMonitoring field — the dedicated /metricMonitoring sub-resource
+	// is not available on all deployments.
+	updateReq := UpdateDatasetRequest{MetricMonitoring: &req}
+	resp, err := c.post("/api/v1/datasets/"+datasetID, updateReq)
 	if err != nil {
 		return nil, err
 	}
-	var result MetricMonitoringConfig
-	if err := decode(resp, &result); err != nil {
+	// Drain and close body — the POST returns a Dataset, not MetricMonitoringConfig.
+	var discard Dataset
+	if err := decode(resp, &discard); err != nil {
 		return nil, err
 	}
-	return &result, nil
+	// Re-fetch the monitoring config in the expected shape.
+	return c.GetMetricMonitoring(datasetID)
 }
 
 // EnableDefaultMonitoring enables all dataset-level metric monitors for a dataset.

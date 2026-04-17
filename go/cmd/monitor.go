@@ -239,7 +239,7 @@ var monitorConfigCmd = &cobra.Command{
 
 		timezone, _ := cmd.Flags().GetString("timezone")
 
-		req := api.UpdateMetricMonitoringRequest{}
+		req := api.MetricMonitoringSettings{}
 		if enable {
 			t := true
 			req.Enabled = &t

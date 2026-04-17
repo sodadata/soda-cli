@@ -30,7 +30,7 @@ var authLoginCmd = &cobra.Command{
 		if anyFlagSet {
 			// Non-interactive: flags were explicitly provided
 			if host == "" {
-				host = "cloud.soda.io"
+				host = "https://cloud.soda.io"
 			}
 
 			if apiKeyID == "" || apiKeySecret == "" {
@@ -94,13 +94,13 @@ var authLoginCmd = &cobra.Command{
 			}
 
 			if host == "" {
-				host = "cloud.soda.io"
+				host = "https://cloud.soda.io"
 			}
 
 			form := huh.NewForm(huh.NewGroup(
 				huh.NewInput().
 					Title("Soda Cloud host").
-					Description("EU: cloud.soda.io · US: cloud.us.soda.io").
+					Description("EU: https://cloud.soda.io · US: https://cloud.us.soda.io").
 					Value(&host),
 				huh.NewInput().
 					Title("API key ID").
@@ -116,13 +116,12 @@ var authLoginCmd = &cobra.Command{
 		}
 
 		if host == "" {
-			host = "cloud.soda.io"
+			host = "https://cloud.soda.io"
 		}
-
-		fmt.Println(output.Dim.Render("  Testing connection to " + host + "..."))
 
 		// Test connection before saving
 		testProfile := config.Profile{Host: host, APIKeyID: apiKeyID, APIKeySecret: apiKeySecret}
+		fmt.Println(output.Dim.Render("  Testing connection to " + testProfile.BaseURL() + "..."))
 		if err := api.New(testProfile).Ping(); err != nil {
 			return err
 		}
@@ -183,13 +182,10 @@ var authStatusCmd = &cobra.Command{
 			return output.Errorf(2, "could not read credentials: %v", err)
 		}
 		p, ok := creds[profileName]
-		host := p.Host
-		if host == "" {
-			host = "cloud.soda.io"
-		}
+		baseURL := p.BaseURL()
 
 		fmt.Printf("  %-20s %s\n", output.Bold.Render("Profile"), profileName)
-		fmt.Printf("  %-20s %s\n", output.Bold.Render("Host"), host)
+		fmt.Printf("  %-20s %s\n", output.Bold.Render("Host"), baseURL)
 
 		if !ok || p.APIKeyID == "" {
 			fmt.Printf("  %-20s %s\n", output.Bold.Render("Connection"), output.Dim.Render("not configured — run `sodacli auth login`"))
@@ -218,7 +214,7 @@ var authSwitchCmd = &cobra.Command{
 }
 
 func init() {
-	authLoginCmd.Flags().String("host", "", "Soda Cloud host (default: cloud.soda.io)")
+	authLoginCmd.Flags().String("host", "", "Soda Cloud host (default: https://cloud.soda.io)")
 	authLoginCmd.Flags().String("api-key-id", "", "Soda Cloud API key ID")
 	authLoginCmd.Flags().String("api-key-secret", "", "Soda Cloud API key secret")
 

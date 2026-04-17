@@ -190,8 +190,7 @@ type TimePartitionRequest struct {
 // ── Metric monitoring (via dataset update) ────────────────────────────────────
 
 // MetricMonitoringSettings is the shape of the `metricMonitoring` field inside
-// POST /api/v1/datasets/{id}. It is separate from UpdateMetricMonitoringRequest
-// which targets the (unavailable) /metricMonitoring sub-resource.
+// POST /api/v1/datasets/{id}.
 type MetricMonitoringSettings struct {
 	Enabled                                *bool                     `json:"enabled,omitempty"`
 	ScanSchedule                           *ScanSchedule             `json:"scanSchedule,omitempty"`
