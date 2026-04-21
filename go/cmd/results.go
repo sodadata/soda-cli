@@ -24,7 +24,6 @@ var resultsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		datasetID, _  := cmd.Flags().GetString("dataset")
 		datasetName, _ := cmd.Flags().GetString("dataset-name")
-		exact, _       := cmd.Flags().GetBool("exact")
 		ids, _        := cmd.Flags().GetString("ids")
 		status, _     := cmd.Flags().GetString("status")
 		resType, _    := cmd.Flags().GetString("type")
@@ -121,7 +120,7 @@ var resultsListCmd = &cobra.Command{
 				if len(c.Datasets) > 0 {
 					qn = strings.ToLower(c.Datasets[0].QualifiedName)
 				}
-				if (exact && qn == needle) || (!exact && strings.Contains(qn, needle)) {
+				if qn == needle {
 					filtered = append(filtered, c)
 				}
 			}
@@ -270,8 +269,7 @@ func fmtCheckTime(s string) string {
 func init() {
 	resultsListCmd.Flags().String("dataset", "", "Filter by dataset ID")
 	resultsListCmd.Flags().String("ids", "", "Comma-separated list of check IDs to fetch")
-	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (substring match)")
-	resultsListCmd.Flags().Bool("exact", false, "Use exact match for --dataset-name instead of substring")
+	resultsListCmd.Flags().String("dataset-name", "", "Filter by dataset qualified name (exact DQN match, case-insensitive)")
 	resultsListCmd.Flags().String("status", "", "Filter by status: passing|failing|error")
 	resultsListCmd.Flags().String("type", "check", "Filter by type: check|monitor|all")
 	resultsListCmd.Flags().Int("limit", 10, "Maximum number of results to show")
