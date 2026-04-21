@@ -303,6 +303,7 @@ No flags = view current config. Shows enabled/disabled, schedule, monitor count.
 | `--column <col>` | Column name (required) |
 | `--metric <type>` | Metric (required) — see list below |
 | `--group-by <col>` | Partition by column values (repeatable) |
+| `--exclude-values <col=v1,v2>` | Exclude values from a `--group-by` column (repeatable) |
 
 Metrics: `count`, `missing-pct`, `duplicate-pct`, `distinct-count`, `min`, `max`, `avg`, `sum`, `std-dev`, `variance`, `q1`, `median`, `q3`, `min-length`, `max-length`, `avg-length`, `freshness`
 

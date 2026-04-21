@@ -221,6 +221,7 @@ sodacli
   │   │     #   min, max, avg, sum, std-dev, variance, q1, median, q3,
   │   │     #   min-length, max-length, avg-length, freshness
   │   │     # [--group-by <col>]               (repeatable; partitions monitor by column values)
+  │   │     # [--exclude-values <col=v1,v2>]   (repeatable; excludes values from a --group-by column)
   │   │
   │   │     # --type dataset  ❌ [no write endpoint in public API]
   │   │     # --metric <metric-type>

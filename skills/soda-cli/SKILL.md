@@ -182,6 +182,10 @@ sodacli monitor config <dataset-id> --enable --schedule "0 6 * * *" --timezone "
 sodacli monitor add --dataset <id> --type column --column revenue --metric avg
 sodacli monitor add --dataset <id> --type column --column order_id --metric count --group-by region
 
+# Group-by with excluded values (skip specific partitions)
+sodacli monitor add --dataset <id> --type column --column amount --metric avg \
+  --group-by region --exclude-values region=EU,APAC
+
 # Add custom SQL monitor
 sodacli monitor add --dataset <id> --type custom \
   --name "dup check" \

@@ -2,12 +2,49 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
+
+// parseExcludeValues parses repeated --exclude-values "column=v1,v2" entries
+// into a per-column map. Each key must appear in groupByCols; empty values
+// are dropped. Whitespace around values is trimmed.
+func parseExcludeValues(entries, groupByCols []string) (map[string][]string, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+	groupBySet := make(map[string]struct{}, len(groupByCols))
+	for _, c := range groupByCols {
+		groupBySet[c] = struct{}{}
+	}
+	result := make(map[string][]string)
+	for _, e := range entries {
+		key, rawVals, ok := strings.Cut(e, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			return nil, output.Errorf(2, "--exclude-values must be in the form 'column=val1,val2' (got %q)", e)
+		}
+		if _, in := groupBySet[key]; !in {
+			return nil, output.Errorf(2, "--exclude-values references column %q which is not in --group-by", key)
+		}
+		var vals []string
+		for _, v := range strings.Split(rawVals, ",") {
+			v = strings.TrimSpace(v)
+			if v != "" {
+				vals = append(vals, v)
+			}
+		}
+		if len(vals) == 0 {
+			return nil, output.Errorf(2, "--exclude-values for column %q has no values", key)
+		}
+		result[key] = append(result[key], vals...)
+	}
+	return result, nil
+}
 
 // ── Metric type mapping ───────────────────────────────────────────────────────
 // CLI uses kebab-case; API uses camelCase. Map in both directions.
@@ -153,6 +190,9 @@ var monitorListCmd = &cobra.Command{
 						groupBy += ","
 					}
 					groupBy += g.ColumnName
+					if len(g.ExcludedValues) > 0 {
+						groupBy += "[excl: " + strings.Join(g.ExcludedValues, ",") + "]"
+					}
 				}
 				col := m.ColumnName
 				if groupBy != "" {
@@ -310,6 +350,7 @@ func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID strin
 	column, _ := cmd.Flags().GetString("column")
 	metric, _ := cmd.Flags().GetString("metric")
 	groupByCols, _ := cmd.Flags().GetStringArray("group-by")
+	excludeValues, _ := cmd.Flags().GetStringArray("exclude-values")
 
 	if column == "" {
 		return output.Errorf(2, "--column is required for type column")
@@ -323,9 +364,17 @@ func runMonitorAddColumn(cmd *cobra.Command, client *api.Client, datasetID strin
 		return output.Errorf(2, "unknown metric '%s'\n\n  Valid values: %s", metric, columnMetricHelpList())
 	}
 
+	excludedByCol, err := parseExcludeValues(excludeValues, groupByCols)
+	if err != nil {
+		return err
+	}
+
 	cfg := api.ColumnMonitorConfig{IsEnabled: true}
 	for _, col := range groupByCols {
-		cfg.GroupByColumns = append(cfg.GroupByColumns, api.GroupByColumn{ColumnName: col})
+		cfg.GroupByColumns = append(cfg.GroupByColumns, api.GroupByColumn{
+			ColumnName:     col,
+			ExcludedValues: excludedByCol[col],
+		})
 	}
 
 	req := api.CreateColumnMonitorRequest{
@@ -606,6 +655,7 @@ func init() {
 		columnMetricHelpList(), datasetMetricHelpList(),
 	))
 	monitorAddCmd.Flags().StringArray("group-by", nil, "Group-by column (repeatable, for type column)")
+	monitorAddCmd.Flags().StringArray("exclude-values", nil, "Exclude values from a group-by column, format 'column=val1,val2' (repeatable)")
 	monitorAddCmd.Flags().String("name", "", "Monitor name (required for type custom)")
 	monitorAddCmd.Flags().String("sql", "", "SQL query (required for type custom, unless --sql-file)")
 	monitorAddCmd.Flags().String("sql-file", "", "Path to SQL file (for type custom)")

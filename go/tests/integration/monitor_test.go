@@ -174,6 +174,68 @@ func TestMonitorAddErrors(t *testing.T) {
 		r := run(t, "monitor", "add", "--type", "column", "--column", "x", "--metric", "count")
 		assertExitCode(t, r, 2)
 	})
+
+	t.Run("exclude_values_bad_format", func(t *testing.T) {
+		r := run(t, "monitor", "add",
+			"--dataset", testDatasetID(),
+			"--type", "column",
+			"--column", "CLOSING_BALANCE",
+			"--metric", "avg",
+			"--group-by", "CLOSING_BALANCE",
+			"--exclude-values", "no-equals-sign",
+		)
+		assertExitCode(t, r, 2)
+		assertOutputContains(t, r, "column=val1,val2")
+	})
+
+	t.Run("exclude_values_unknown_column", func(t *testing.T) {
+		r := run(t, "monitor", "add",
+			"--dataset", testDatasetID(),
+			"--type", "column",
+			"--column", "CLOSING_BALANCE",
+			"--metric", "avg",
+			"--group-by", "CLOSING_BALANCE",
+			"--exclude-values", "NOT_IN_GROUP_BY=a,b",
+		)
+		assertExitCode(t, r, 2)
+		assertOutputContains(t, r, "not in --group-by")
+	})
+}
+
+func TestMonitorAddColumnWithExcludeValues(t *testing.T) {
+	skipIfNoCredentials(t)
+	loginForTest(t)
+
+	// Create a group-by monitor with excluded values. Use CLOSING_BALANCE for
+	// both the metric column and the group-by column — the API accepts this
+	// and it avoids depending on a second known column name.
+	r := run(t, "monitor", "add",
+		"--dataset", testDatasetID(),
+		"--type", "column",
+		"--column", "CLOSING_BALANCE",
+		"--metric", "avg",
+		"--group-by", "CLOSING_BALANCE",
+		"--exclude-values", "CLOSING_BALANCE=0,100",
+	)
+	if r.ExitCode != 0 {
+		t.Fatalf("monitor add with exclude-values failed: %s", r.Output())
+	}
+	assertOutputContains(t, r, "created")
+
+	// Verify the excluded values round-trip by listing with JSON output.
+	list := run(t, "monitor", "list", "--dataset", testDatasetID(), "--type", "column", "--output", "json")
+	assertExitCode(t, list, 0)
+	if !strings.Contains(list.Stdout, "excl: 0,100") {
+		t.Errorf("expected excluded values to round-trip in list output, got:\n%s", list.Stdout)
+	}
+
+	// Clean up: find and delete the monitor we just created.
+	monitorID := findMonitorID(t, testDatasetID(), "column", "avg")
+	if monitorID == "" {
+		t.Fatal("could not find created group-by monitor ID from list")
+	}
+	r = run(t, "monitor", "delete", monitorID, "--dataset", testDatasetID())
+	assertExitCode(t, r, 0)
 }
 
 func TestMonitorDeleteBadID(t *testing.T) {
