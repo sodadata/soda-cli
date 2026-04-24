@@ -55,7 +55,42 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}
 		}
 		if datasetName == "" {
-			return output.Errorf(2, "dataset '%s' not found", datasetID)
+			// Not onboarded yet — look across discovered datasets and promote on the fly.
+			dsPage, dsErr := client.ListDatasources(0, 500)
+			if dsErr != nil {
+				return dsErr
+			}
+			var foundDatasourceID, foundDatasourceName string
+			var foundDiscovered *api.DiscoveredDataset
+			for _, ds := range dsPage.Content {
+				discPage, discErr := client.ListDiscoveredDatasets(ds.ID, 0, 500)
+				if discErr != nil {
+					continue
+				}
+				for i := range discPage.Content {
+					d := &discPage.Content[i]
+					if d.ID == datasetID {
+						foundDatasourceID = ds.ID
+						foundDatasourceName = ds.Name
+						foundDiscovered = d
+						break
+					}
+				}
+				if foundDiscovered != nil {
+					break
+				}
+			}
+			if foundDiscovered == nil {
+				return output.Errorf(2, "dataset '%s' not found", datasetID)
+			}
+			fmt.Println(output.Dim.Render("  Onboarding dataset..."))
+			if err := client.OnboardDiscoveredDatasets(foundDatasourceID, api.OnboardDatasetsRequest{
+				DiscoveredDatasetIDs: []string{datasetID},
+			}); err != nil {
+				return err
+			}
+			datasetName = foundDiscovered.Name
+			qualifiedName = foundDatasourceName + "/" + strings.ReplaceAll(foundDiscovered.QualifiedName, ".", "/")
 		}
 		fmt.Printf("  Dataset: %s\n\n", output.Bold.Render(datasetName))
 
