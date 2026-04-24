@@ -26,6 +26,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		hasMonitoring := cmd.Flags().Changed("monitoring") || cmd.Flags().Changed("no-monitoring")
 		hasProfiling := cmd.Flags().Changed("profiling") || cmd.Flags().Changed("no-profiling")
 		hasContracts := cmd.Flags().Changed("contracts")
+		hasFailedRows := cmd.Flags().Changed("collect-failed-rows") || cmd.Flags().Changed("no-collect-failed-rows") || cmd.Flags().Changed("unique-keys")
 		noInteractive := GCtx.NoInteractive || (hasMonitoring && hasProfiling && hasContracts)
 
 		enableMonitoring, _ := cmd.Flags().GetBool("monitoring")
@@ -33,6 +34,8 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 		enableProfiling, _ := cmd.Flags().GetBool("profiling")
 		noProfiling, _ := cmd.Flags().GetBool("no-profiling")
 		contractsMode, _ := cmd.Flags().GetString("contracts")
+		enableCollectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
+		uniqueKeys, _ := cmd.Flags().GetStringSlice("unique-keys")
 
 		client, err := newAPIClient()
 		if err != nil {
@@ -96,7 +99,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 
 		// ── Determine settings ──────────────────────────────────────────────
 
-		if !hasMonitoring && !hasProfiling && !hasContracts {
+		if !hasMonitoring && !hasProfiling && !hasContracts && !hasFailedRows {
 			if noInteractive {
 				return output.Errorf(2, "flags required in non-interactive mode: --monitoring/--no-monitoring, --profiling/--no-profiling, --contracts copilot|skeleton|none")
 			}
@@ -104,39 +107,67 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			monitoringChoice := "yes"
 			profilingChoice := "yes"
 			contractChoice := "none"
+			failedRowsChoice := "no"
+			uniqueKeysInput := ""
 
-			form := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Enable default metric monitoring?").
-					Description("Row count, row count change, freshness, schema changes,\npartition row count, most recent timestamp.").
-					Options(
-						huh.NewOption("Yes", "yes"),
-						huh.NewOption("No", "no"),
-					).
-					Value(&monitoringChoice),
-				huh.NewSelect[string]().
-					Title("Enable dataset profiling?").
-					Description("Column stats, row counts, and data type distribution.").
-					Options(
-						huh.NewOption("Yes", "yes"),
-						huh.NewOption("No", "no"),
-					).
-					Value(&profilingChoice),
-				huh.NewSelect[string]().
-					Title("Set up a data contract?").
-					Options(
-						huh.NewOption("AI-generated contract (Copilot)", "copilot"),
-						huh.NewOption("Skeleton contract (empty template)", "skeleton"),
-						huh.NewOption("No contract", "none"),
-					).
-					Value(&contractChoice),
-			))
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Enable default metric monitoring?").
+						Description("Row count, row count change, freshness, schema changes,\npartition row count, most recent timestamp.").
+						Options(
+							huh.NewOption("Yes", "yes"),
+							huh.NewOption("No", "no"),
+						).
+						Value(&monitoringChoice),
+					huh.NewSelect[string]().
+						Title("Enable dataset profiling?").
+						Description("Column stats, row counts, and data type distribution.").
+						Options(
+							huh.NewOption("Yes", "yes"),
+							huh.NewOption("No", "no"),
+						).
+						Value(&profilingChoice),
+					huh.NewSelect[string]().
+						Title("Set up a data contract?").
+						Options(
+							huh.NewOption("AI-generated contract (Copilot)", "copilot"),
+							huh.NewOption("Skeleton contract (empty template)", "skeleton"),
+							huh.NewOption("No contract", "none"),
+						).
+						Value(&contractChoice),
+					huh.NewSelect[string]().
+						Title("Enable failed rows collection?").
+						Description("Store rows that fail checks in the diagnostics warehouse.\nRequires unique key columns.").
+						Options(
+							huh.NewOption("Yes", "yes"),
+							huh.NewOption("No", "no"),
+						).
+						Value(&failedRowsChoice),
+				),
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Unique key columns").
+						Description("Comma-separated list, e.g. id,customer_email").
+						Value(&uniqueKeysInput),
+				).WithHideFunc(func() bool {
+					return failedRowsChoice != "yes"
+				}),
+			)
 			if err := form.Run(); err != nil {
 				return output.Errorf(2, "onboarding cancelled")
 			}
 			enableMonitoring = monitoringChoice == "yes"
 			enableProfiling = profilingChoice == "yes"
 			contractsMode = contractChoice
+			enableCollectFailedRows = failedRowsChoice == "yes"
+			if enableCollectFailedRows {
+				for _, k := range strings.Split(uniqueKeysInput, ",") {
+					if k = strings.TrimSpace(k); k != "" {
+						uniqueKeys = append(uniqueKeys, k)
+					}
+				}
+			}
 		} else {
 			if noMonitoring {
 				enableMonitoring = false
@@ -147,6 +178,14 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			if contractsMode == "" {
 				contractsMode = "none"
 			}
+			// Treat --unique-keys alone as implicit --collect-failed-rows.
+			if len(uniqueKeys) > 0 {
+				enableCollectFailedRows = true
+			}
+		}
+
+		if enableCollectFailedRows && len(uniqueKeys) == 0 {
+			return output.Errorf(2, "--unique-keys is required when --collect-failed-rows is set (failed rows collection won't work without unique key columns)")
 		}
 
 		// ── Execute ─────────────────────────────────────────────────────────
@@ -172,7 +211,29 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			fmt.Println(output.Dim.Render("  Skipping monitoring and profiling setup."))
 		}
 
-		// Step 2: Contracts
+		// Step 2: Failed rows collection
+		if enableCollectFailedRows {
+			fmt.Println(output.Dim.Render("  Enabling failed rows collection..."))
+			enabled := true
+			cfg := api.DiagnosticsWarehouseConfig{
+				ScanAndResultsConfiguration: &api.DiagnosticsScanConfig{Enabled: &enabled},
+				FailedRowsConfiguration: &api.DiagnosticsFailedRowsConfig{
+					Enabled:              &enabled,
+					UniqueKeyColumnNames: uniqueKeys,
+				},
+			}
+			if _, err := client.UpdateDatasetDiagnostics(datasetID, cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "  %s Could not enable failed rows collection: %v\n", output.Yellow.Render("⚠"), err)
+				if isNotEnabledOnDatasource(err) {
+					fmt.Fprintf(os.Stderr, "  %s\n", output.Dim.Render("Set up the diagnostics warehouse on the datasource first:"))
+					fmt.Fprintf(os.Stderr, "  %s\n", output.Dim.Render("  sodacli datasource diagnostics <datasource-id> --enable"))
+				}
+			} else {
+				fmt.Println(output.Green.Render("  ✓") + fmt.Sprintf(" Failed rows collection enabled (keys: %s).", strings.Join(uniqueKeys, ", ")))
+			}
+		}
+
+		// Step 3: Contracts
 		var contractFile string
 		switch contractsMode {
 		case "copilot":
@@ -203,7 +264,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			return output.Errorf(2, "unknown contracts mode '%s' — use copilot, skeleton, or none", contractsMode)
 		}
 
-		// Step 3: Verify contract
+		// Step 4: Verify contract
 		if contractFile != "" {
 			fmt.Println()
 			fmt.Println(output.Dim.Render("  Verifying contract..."))
@@ -234,6 +295,9 @@ func init() {
 	datasetOnboardCmd.Flags().Bool("profiling", false, "Enable dataset profiling")
 	datasetOnboardCmd.Flags().Bool("no-profiling", false, "Skip profiling setup")
 	datasetOnboardCmd.Flags().String("contracts", "", "Generate contract: copilot|skeleton|none")
+	datasetOnboardCmd.Flags().Bool("collect-failed-rows", false, "Enable failed rows collection (requires --unique-keys)")
+	datasetOnboardCmd.Flags().Bool("no-collect-failed-rows", false, "Skip failed rows collection setup")
+	datasetOnboardCmd.Flags().StringSlice("unique-keys", nil, "Unique key columns for failed rows collection (comma-separated or repeated)")
 
 	datasetCmd.AddCommand(datasetOnboardCmd)
 }
