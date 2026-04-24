@@ -523,6 +523,8 @@ var datasetDiagnosticsCmd = &cobra.Command{
 		noCollectResults, _ := cmd.Flags().GetBool("no-collect-results")
 		collectFailedRows, _ := cmd.Flags().GetBool("collect-failed-rows")
 		noCollectFailedRows, _ := cmd.Flags().GetBool("no-collect-failed-rows")
+		uniqueKeys, _ := cmd.Flags().GetStringSlice("unique-keys")
+		hasUniqueKeys := cmd.Flags().Changed("unique-keys")
 		// flags not yet in the public API — fail fast with a clear message
 		unsupportedFlags := []string{"schema", "table-prefix", "table-suffix", "failed-rows-description",
 			"expose-failed-rows-query", "no-expose-failed-rows-query", "failed-rows-cta", "no-failed-rows-cta"}
@@ -538,7 +540,7 @@ var datasetDiagnosticsCmd = &cobra.Command{
 		}
 
 		// no flags → show current settings
-		if !collectResults && !noCollectResults && !collectFailedRows && !noCollectFailedRows {
+		if !collectResults && !noCollectResults && !collectFailedRows && !noCollectFailedRows && !hasUniqueKeys {
 			result, err := client.GetDatasetDiagnostics(args[0])
 			if err != nil {
 				return err
@@ -569,6 +571,9 @@ var datasetDiagnosticsCmd = &cobra.Command{
 				if result.FailedRowsConfiguration.State != "" {
 					fmt.Printf("  %-28s %s\n", output.Bold.Render("State"), result.FailedRowsConfiguration.State)
 				}
+				if len(result.FailedRowsConfiguration.UniqueKeyColumnNames) > 0 {
+					fmt.Printf("  %-28s %s\n", output.Bold.Render("Unique key columns"), strings.Join(result.FailedRowsConfiguration.UniqueKeyColumnNames, ", "))
+				}
 			}
 			return nil
 		}
@@ -579,9 +584,27 @@ var datasetDiagnosticsCmd = &cobra.Command{
 			enabled := collectResults
 			cfg.ScanAndResultsConfiguration = &api.DiagnosticsScanConfig{Enabled: &enabled}
 		}
-		if collectFailedRows || noCollectFailedRows {
-			enabled := collectFailedRows
-			cfg.FailedRowsConfiguration = &api.DiagnosticsFailedRowsConfig{Enabled: &enabled}
+		if collectFailedRows || noCollectFailedRows || hasUniqueKeys {
+			// Seed from current state — the API replaces the whole
+			// failedRowsConfiguration object, so untouched fields would be reset.
+			current, err := client.GetDatasetDiagnostics(args[0])
+			if err != nil {
+				return err
+			}
+			fr := &api.DiagnosticsFailedRowsConfig{}
+			if current.FailedRowsConfiguration != nil {
+				enabled := current.FailedRowsConfiguration.Enabled
+				fr.Enabled = &enabled
+				fr.UniqueKeyColumnNames = current.FailedRowsConfiguration.UniqueKeyColumnNames
+			}
+			if collectFailedRows || noCollectFailedRows {
+				enabled := collectFailedRows
+				fr.Enabled = &enabled
+			}
+			if hasUniqueKeys {
+				fr.UniqueKeyColumnNames = uniqueKeys
+			}
+			cfg.FailedRowsConfiguration = fr
 		}
 
 		if _, err := client.UpdateDatasetDiagnostics(args[0], cfg); err != nil {
@@ -781,6 +804,7 @@ func init() {
 	datasetDiagnosticsCmd.Flags().Bool("no-collect-results", false, "Disable storing check results and scan history")
 	datasetDiagnosticsCmd.Flags().Bool("collect-failed-rows", false, "Store failed rows")
 	datasetDiagnosticsCmd.Flags().Bool("no-collect-failed-rows", false, "Disable storing failed rows")
+	datasetDiagnosticsCmd.Flags().StringSlice("unique-keys", nil, "Unique key columns for failed rows collection (comma-separated or repeated)")
 	datasetDiagnosticsCmd.Flags().String("table-prefix", "", "Prefix for diagnostic table names")
 	datasetDiagnosticsCmd.Flags().String("table-suffix", "", "Suffix for diagnostic table names")
 	datasetDiagnosticsCmd.Flags().String("failed-rows-description", "", "Description for failed rows storage context")

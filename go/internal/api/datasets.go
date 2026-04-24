@@ -142,9 +142,10 @@ type DiagnosticsWarehouseResult struct {
 }
 
 type DiagnosticsFailedRowsResult struct {
-	Enabled     bool   `json:"enabled"`
-	MaxRowCount int    `json:"maxRowCount"`
-	State       string `json:"state"`
+	Enabled              bool     `json:"enabled"`
+	MaxRowCount          int      `json:"maxRowCount"`
+	State                string   `json:"state"`
+	UniqueKeyColumnNames []string `json:"uniqueKeyColumnNames"`
 }
 
 type DiagnosticsScanResult struct {
@@ -165,7 +166,8 @@ func (c *Client) GetDatasetDiagnostics(datasetID string) (*DiagnosticsWarehouseR
 
 // POST /api/v1/datasets/{id}/diagnosticsWarehouse request
 type DiagnosticsFailedRowsConfig struct {
-	Enabled *bool `json:"enabled,omitempty"`
+	Enabled              *bool    `json:"enabled,omitempty"`
+	UniqueKeyColumnNames []string `json:"uniqueKeyColumnNames,omitempty"`
 }
 
 type DiagnosticsScanConfig struct {
