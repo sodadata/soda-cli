@@ -63,7 +63,7 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			if dsErr != nil {
 				return dsErr
 			}
-			var foundDatasourceID, foundDatasourceName string
+			var foundDatasourceID string
 			var foundDiscovered *api.DiscoveredDataset
 			for _, ds := range dsPage.Content {
 				discPage, discErr := client.ListDiscoveredDatasets(ds.ID, 0, 500)
@@ -74,7 +74,6 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 					d := &discPage.Content[i]
 					if d.ID == datasetID {
 						foundDatasourceID = ds.ID
-						foundDatasourceName = ds.Name
 						foundDiscovered = d
 						break
 					}
@@ -92,8 +91,15 @@ Interactive mode walks through each step. Use flags for CI/CD or AI agents:
 			}); err != nil {
 				return err
 			}
-			datasetName = foundDiscovered.Name
-			qualifiedName = foundDatasourceName + "/" + strings.ReplaceAll(foundDiscovered.QualifiedName, ".", "/")
+			// Re-fetch via the standard endpoint so qualifiedName matches the
+			// format used by the already-onboarded path (DiscoveredDataset
+			// includes the datasource prefix; Dataset does not).
+			detail, err := client.GetDataset(datasetID)
+			if err != nil {
+				return err
+			}
+			datasetName = detail.Name
+			qualifiedName = detail.Datasource.Name + "/" + strings.ReplaceAll(detail.QualifiedName, ".", "/")
 		}
 		fmt.Printf("  Dataset: %s\n\n", output.Bold.Render(datasetName))
 
