@@ -2,13 +2,53 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/soda-data-inc/soda-cli/internal/api"
 	"github.com/soda-data-inc/soda-cli/internal/output"
 )
+
+// parseHistoryStartDate accepts:
+//   - a relative form like "120d", "6m", "1y" (N days/months/years before now, UTC)
+//   - a YYYY-MM-DD calendar date (interpreted as midnight UTC)
+//   - a full RFC3339 timestamp (passed through, normalized to UTC)
+//
+// Returns an RFC3339 string suitable for sending to the API.
+var relativeRE = regexp.MustCompile(`^\d+[dmy]$`)
+
+func parseHistoryStartDate(input string) (string, error) {
+	s := strings.TrimSpace(input)
+	if s == "" {
+		return "", fmt.Errorf("empty value")
+	}
+	if relativeRE.MatchString(s) {
+		n, _ := strconv.Atoi(s[:len(s)-1])
+		now := time.Now().UTC()
+		var t time.Time
+		switch s[len(s)-1] {
+		case 'd':
+			t = now.AddDate(0, 0, -n)
+		case 'm':
+			t = now.AddDate(0, -n, 0)
+		case 'y':
+			t = now.AddDate(-n, 0, 0)
+		}
+		return t.Format(time.RFC3339), nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.UTC().Format(time.RFC3339), nil
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t.UTC().Format(time.RFC3339), nil
+	}
+	return "", fmt.Errorf("unrecognized date format %q (use YYYY-MM-DD, RFC3339, or relative like 30d / 6m / 1y)", input)
+}
 
 // parseExcludeValues parses repeated --exclude-values "column=v1,v2" entries
 // into a per-column map. Each key must appear in groupByCols; empty values
@@ -240,18 +280,41 @@ var monitorListCmd = &cobra.Command{
 var monitorConfigCmd = &cobra.Command{
 	Use:   "config <dataset-id>",
 	Short: "View or update dataset-level monitor settings",
-	Args:  cobra.ExactArgs(1),
+	Long: `View or update dataset-level metric monitoring settings.
+
+With no flags, prints the current configuration (enabled state, schedule,
+historical backfill date, and total monitor count).
+
+Update flags:
+  --enable / --disable          Toggle monitoring on/off for the dataset
+  --schedule <cron>             Cron expression (e.g. "0 6 * * *")
+  --timezone <tz>               Timezone for the schedule (default: UTC)
+  --history-start-date <date>   Historical backfill start (see formats below)
+
+History start date formats:
+  120d         Relative: 120 days ago (also Nm = months, Ny = years)
+  2026-01-03   Calendar date (interpreted as midnight UTC)
+  2026-01-03T00:00:00Z   RFC3339 timestamp
+
+Updates fetch the current config first and merge — flags you don't pass
+are preserved. The schedule and per-monitor configuration are always sent
+back so the API doesn't reject the request.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		enable, _ := cmd.Flags().GetBool("enable")
 		disable, _ := cmd.Flags().GetBool("disable")
 		schedule, _ := cmd.Flags().GetString("schedule")
+		timezone, _ := cmd.Flags().GetString("timezone")
+		historyStartDate, _ := cmd.Flags().GetString("history-start-date")
 
 		client, err := newAPIClient()
 		if err != nil {
 			return err
 		}
 
-		if !enable && !disable && schedule == "" {
+		anyUpdate := enable || disable || schedule != "" || timezone != "" || historyStartDate != ""
+
+		if !anyUpdate {
 			cfg, err := client.GetMetricMonitoring(args[0])
 			if err != nil {
 				return err
@@ -277,24 +340,79 @@ var monitorConfigCmd = &cobra.Command{
 			return output.Errorf(2, "--enable and --disable are mutually exclusive")
 		}
 
-		timezone, _ := cmd.Flags().GetString("timezone")
+		// Fetch current state to merge — POST /api/v1/datasets/{id} with
+		// metricMonitoring.enabled=true requires scanSchedule and
+		// datasetMetricMonitorsConfiguration in the same payload.
+		current, err := client.GetMetricMonitoring(args[0])
+		if err != nil {
+			return err
+		}
 
-		req := api.MetricMonitoringSettings{}
-		if enable {
+		req := api.MetricMonitoringSettings{
+			DatasetMetricMonitorsConfiguration:      current.DatasetMetricMonitorsConfiguration,
+			HistoricalMetricCollectionScanStartDate: current.HistoricalMetricCollectionScanStartDate,
+			ScanSchedule:                            current.ScanSchedule,
+		}
+
+		// enabled: user override wins; otherwise preserve current
+		switch {
+		case enable:
 			t := true
 			req.Enabled = &t
-		} else if disable {
+		case disable:
 			f := false
 			req.Enabled = &f
+		default:
+			cur := current.Enabled
+			req.Enabled = &cur
 		}
-		if schedule != "" {
+
+		// Merge schedule + timezone
+		if schedule != "" || timezone != "" {
+			cron := schedule
 			tz := timezone
+			if req.ScanSchedule != nil {
+				if cron == "" {
+					cron = req.ScanSchedule.CronExpression
+				}
+				if tz == "" {
+					tz = req.ScanSchedule.Timezone
+				}
+			}
 			if tz == "" {
 				tz = "UTC"
 			}
-			req.ScanSchedule = &api.ScanSchedule{
-				CronExpression: schedule,
-				Timezone:       tz,
+			if cron == "" {
+				return output.Errorf(2, "--timezone requires --schedule or an existing schedule on the dataset")
+			}
+			req.ScanSchedule = &api.ScanSchedule{CronExpression: cron, Timezone: tz}
+		}
+
+		// History start date
+		if historyStartDate != "" {
+			parsed, err := parseHistoryStartDate(historyStartDate)
+			if err != nil {
+				return output.Errorf(2, "%v", err)
+			}
+			pt, _ := time.Parse(time.RFC3339, parsed)
+			now := time.Now().UTC()
+			if !pt.Before(now) {
+				return output.Errorf(2, "--history-start-date must be in the past (got %s)", parsed)
+			}
+			if pt.Before(now.AddDate(-2, 0, 0)) {
+				fmt.Fprintf(os.Stderr, "  %s --history-start-date %s is more than 2 years ago — Soda may not have historical data that far back.\n", output.Yellow.Render("⚠"), parsed)
+			}
+			req.HistoricalMetricCollectionScanStartDate = parsed
+		}
+
+		// Guard: if we're sending enabled=true, both scanSchedule and monitors
+		// configuration must be non-empty (API constraint).
+		if req.Enabled != nil && *req.Enabled {
+			if req.ScanSchedule == nil || req.ScanSchedule.CronExpression == "" {
+				return output.Errorf(2, "cannot enable monitoring without a schedule — pass --schedule, or run `sodacli dataset onboard %s --monitoring ...` to set defaults", args[0])
+			}
+			if len(req.DatasetMetricMonitorsConfiguration) == 0 {
+				return output.Errorf(2, "cannot enable monitoring without per-monitor configuration — run `sodacli dataset onboard %s --monitoring ...` to set defaults first", args[0])
 			}
 		}
 
@@ -646,6 +764,7 @@ func init() {
 	monitorConfigCmd.Flags().Bool("disable", false, "Disable monitoring for this dataset")
 	monitorConfigCmd.Flags().String("schedule", "", "Cron schedule expression (e.g. '0 6 * * *')")
 	monitorConfigCmd.Flags().String("timezone", "", "Timezone for schedule (default: UTC)")
+	monitorConfigCmd.Flags().String("history-start-date", "", "Historical backfill start (YYYY-MM-DD, RFC3339, or relative like 30d / 6m / 1y)")
 
 	monitorAddCmd.Flags().String("dataset", "", "Dataset ID (required)")
 	monitorAddCmd.Flags().String("type", "", "Monitor type: column|custom|dataset (required)")
