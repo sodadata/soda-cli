@@ -533,6 +533,79 @@ func runContractCreateCopilot(client *api.Client, dataset, outFile string, noWai
 	return nil
 }
 
+// runContractCreateCopilotBulk submits one GenerateContract operation for N
+// qualifiedNames, polls a single status, then fetches each contract and writes
+// it to its own file (named via outFiles[qualifiedName]). Per-dataset failures
+// are logged as warnings and don't abort the rest. Returns the list of files
+// successfully written.
+func runContractCreateCopilotBulk(client *api.Client, qualifiedNames []string, outFiles map[string]string, noWait bool) ([]string, error) {
+	if len(qualifiedNames) == 0 {
+		return nil, nil
+	}
+	opID, err := client.GenerateContract(api.GenerateContractRequest{
+		DatasetQualifiedNames: qualifiedNames,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if noWait {
+		fmt.Printf("  %s AI contract generation started for %d datasets.\n", output.Green.Render("✓"), len(qualifiedNames))
+		fmt.Println(output.Dim.Render("  Running in background — contracts will appear in Soda Cloud when ready."))
+		fmt.Println(output.Dim.Render("  Check results:  sodacli results list"))
+		return nil, nil
+	}
+
+	spinner := output.NewSpinner(fmt.Sprintf("Generating AI contracts for %d datasets...", len(qualifiedNames)))
+	spinner.Start()
+
+	elapsed := 0
+	for {
+		time.Sleep(3 * time.Second)
+		elapsed += 3
+		status, err := client.GetGenerateStatus(opID)
+		if err != nil {
+			spinner.Stop()
+			return nil, err
+		}
+		if status.State == "completed" {
+			break
+		}
+		if status.State == "failed" || status.State == "canceled" {
+			spinner.Stop()
+			return nil, output.Errorf(2, "AI generation %s", status.State)
+		}
+		spinner.SetMessage(fmt.Sprintf("Generating AI contracts for %d datasets... (%ds)", len(qualifiedNames), elapsed))
+	}
+	spinner.Stop()
+
+	written := make([]string, 0, len(qualifiedNames))
+	for _, qn := range qualifiedNames {
+		contract, err := client.FindContractByDataset(qn)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s [%s] could not fetch contract: %v\n", output.Yellow.Render("⚠"), qn, err)
+			continue
+		}
+		if contract == nil {
+			fmt.Fprintf(os.Stderr, "  %s [%s] AI generation completed but contract was not persisted.\n", output.Yellow.Render("⚠"), qn)
+			continue
+		}
+		outFile := outFiles[qn]
+		if outFile == "" {
+			outFile = datasetFileName(qn)
+		}
+		if err := os.WriteFile(outFile, []byte(contract.Contents), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "  %s [%s] could not write file: %v\n", output.Yellow.Render("⚠"), qn, err)
+			continue
+		}
+		written = append(written, outFile)
+	}
+	if len(written) > 0 {
+		output.PrintSuccess(fmt.Sprintf("Wrote %d AI-generated contract(s).", len(written)), GCtx)
+	}
+	return written, nil
+}
+
 // ── contract copilot ──────────────────────────────────────────────────────────
 
 var contractCopilotCmd = &cobra.Command{
