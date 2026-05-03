@@ -256,8 +256,15 @@ type DatasetDetail struct {
 	Datasource        DatasourceProperties `json:"datasource"`
 	Tags              []string             `json:"tags"`
 	LastUpdated       string               `json:"lastUpdated"`
-	PartitionColumn   string               `json:"partitionColumn"`
+	PartitionColumn   *PartitionColumnInfo `json:"partitionColumn"`
 	Owners            []DatasetOwnerInfo   `json:"owners"`
+}
+
+// PartitionColumnInfo is the shape returned by GET /api/v1/datasets/{id} for
+// time-partitioned datasets: {name, columnType}. nil when unpartitioned.
+type PartitionColumnInfo struct {
+	Name       string `json:"name"`
+	ColumnType string `json:"columnType"`
 }
 
 type DatasetOwnerInfo struct {

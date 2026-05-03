@@ -209,6 +209,10 @@ var datasetGetCmd = &cobra.Command{
 		}
 
 		if output.EffectiveFmt(GCtx) == "json" {
+			pc := ""
+			if ds.PartitionColumn != nil {
+				pc = ds.PartitionColumn.Name
+			}
 			item := map[string]string{
 				"id":               ds.ID,
 				"name":             ds.Name,
@@ -217,7 +221,7 @@ var datasetGetCmd = &cobra.Command{
 				"status":           ds.DataQualityStatus,
 				"checks":           fmt.Sprintf("%.0f", ds.Checks),
 				"incidents":        fmt.Sprintf("%.0f", ds.Incidents),
-				"partitionColumn":  ds.PartitionColumn,
+				"partitionColumn":  pc,
 				"updated":          ds.LastUpdated,
 				"cloudUrl":         ds.CloudURL,
 			}
@@ -235,8 +239,12 @@ var datasetGetCmd = &cobra.Command{
 		}
 		fmt.Printf("  %-22s %.0f\n", output.Bold.Render("Checks"), ds.Checks)
 		fmt.Printf("  %-22s %.0f\n", output.Bold.Render("Incidents"), ds.Incidents)
-		if ds.PartitionColumn != "" {
-			fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), ds.PartitionColumn)
+		if ds.PartitionColumn != nil && ds.PartitionColumn.Name != "" {
+			label := ds.PartitionColumn.Name
+			if ds.PartitionColumn.ColumnType != "" {
+				label = fmt.Sprintf("%s (%s)", ds.PartitionColumn.Name, ds.PartitionColumn.ColumnType)
+			}
+			fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), label)
 		}
 		if len(ds.Tags) > 0 {
 			fmt.Printf("  %-22s %s\n", output.Bold.Render("Tags"), strings.Join(ds.Tags, ", "))
@@ -357,8 +365,12 @@ var datasetTimePartitionCmd = &cobra.Command{
 			}
 			fmt.Printf("  %-22s %s\n", output.Bold.Render("Dataset"), ds.Name)
 			fmt.Printf("  %-22s %s\n", output.Bold.Render("ID"), output.Dim.Render(ds.ID))
-			if ds.PartitionColumn != "" {
-				fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), ds.PartitionColumn)
+			if ds.PartitionColumn != nil && ds.PartitionColumn.Name != "" {
+				label := ds.PartitionColumn.Name
+				if ds.PartitionColumn.ColumnType != "" {
+					label = fmt.Sprintf("%s (%s)", ds.PartitionColumn.Name, ds.PartitionColumn.ColumnType)
+				}
+				fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), label)
 			} else {
 				fmt.Printf("  %-22s %s\n", output.Bold.Render("Partition column"), output.Dim.Render("not set"))
 			}
