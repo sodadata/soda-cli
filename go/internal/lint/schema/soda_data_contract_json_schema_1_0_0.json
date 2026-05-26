@@ -59,8 +59,7 @@
                                 "type": [
                                     "string",
                                     "number"
-                                ],
-                                "additionalProperties": false
+                                ]
                             }
                         }
                     }
@@ -68,7 +67,7 @@
             }
         },
         "soda_runner": {
-            "description": "The runner configuration to be used within the contract file",
+            "description": "The runner configuration to be used within the contract file. Replaces 'soda_agent'; both keys are accepted for backwards compatibility but not at the same time.",
             "type": "object",
             "properties": {
                 "checks_schedule": {
@@ -89,8 +88,7 @@
                                 "type": [
                                     "string",
                                     "number"
-                                ],
-                                "additionalProperties": false
+                                ]
                             }
                         }
                     }
@@ -867,16 +865,9 @@
         "dataset",
         "columns"
     ],
-    "oneOf": [
-        { "required": ["soda_runner"] },
-        { "required": ["soda_agent"] },
-        {
-            "allOf": [
-                { "not": { "required": ["soda_runner"] } },
-                { "not": { "required": ["soda_agent"] } }
-            ]
-        }
-    ],
+    "not": {
+        "required": ["soda_runner", "soda_agent"]
+    },
     "$defs": {
         "generic_check_properties": {
             "description": "NOT USED YET, problem with inheritance and additionalProperties",
