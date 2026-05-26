@@ -223,8 +223,15 @@ soda_agent:
 	if len(result.Errors) == 0 {
 		t.Fatal("expected at least one validation error")
 	}
+	rootError := false
 	for _, e := range result.Errors {
 		t.Logf("  %s: %s", e.Path, e.Message)
+		if e.Path == "$" {
+			rootError = true
+		}
+	}
+	if !rootError {
+		t.Fatal("expected a validation error at the root path '$' for the not-both constraint")
 	}
 }
 
