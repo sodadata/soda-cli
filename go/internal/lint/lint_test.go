@@ -148,6 +148,93 @@ unknown_prop: true
 	}
 }
 
+func TestLintFile_AcceptsSodaRunner(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "contract.yml")
+	os.WriteFile(f, []byte(`
+dataset: my_ds/db/schema/orders
+columns:
+  - name: id
+soda_runner:
+  checks_schedule:
+    cron: "0 0 * * *"
+    timezone: UTC
+`), 0644)
+
+	result, err := LintFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Valid {
+		for _, e := range result.Errors {
+			t.Logf("  %s: %s", e.Path, e.Message)
+		}
+		t.Fatalf("expected valid contract with soda_runner, got %d errors", len(result.Errors))
+	}
+}
+
+func TestLintFile_AcceptsSodaAgentLegacyAlias(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "contract.yml")
+	os.WriteFile(f, []byte(`
+dataset: my_ds/db/schema/orders
+columns:
+  - name: id
+soda_agent:
+  checks_schedule:
+    cron: "0 0 * * *"
+    timezone: UTC
+`), 0644)
+
+	result, err := LintFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Valid {
+		for _, e := range result.Errors {
+			t.Logf("  %s: %s", e.Path, e.Message)
+		}
+		t.Fatalf("expected valid contract with deprecated soda_agent, got %d errors", len(result.Errors))
+	}
+}
+
+func TestLintFile_RejectsBothSodaRunnerAndSodaAgent(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "contract.yml")
+	os.WriteFile(f, []byte(`
+dataset: my_ds/db/schema/orders
+columns:
+  - name: id
+soda_runner:
+  checks_schedule:
+    cron: "0 0 * * *"
+soda_agent:
+  checks_schedule:
+    cron: "0 0 * * *"
+`), 0644)
+
+	result, err := LintFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Valid {
+		t.Fatal("expected invalid when both soda_runner and soda_agent are set")
+	}
+	if len(result.Errors) == 0 {
+		t.Fatal("expected at least one validation error")
+	}
+	rootError := false
+	for _, e := range result.Errors {
+		t.Logf("  %s: %s", e.Path, e.Message)
+		if e.Path == "$" {
+			rootError = true
+		}
+	}
+	if !rootError {
+		t.Fatal("expected a validation error at the root path '$' for the not-both constraint")
+	}
+}
+
 func TestSegmentsToPath(t *testing.T) {
 	tests := []struct {
 		in   []string

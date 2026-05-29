@@ -38,7 +38,7 @@
             }
         },
         "soda_agent": {
-            "description": "The agent configuration to be used within the contract file",
+            "description": "DEPRECATED: use 'soda_runner' instead. The runner configuration to be used within the contract file. Kept for backwards compatibility.",
             "type": "object",
             "properties": {
                 "checks_schedule": {
@@ -59,8 +59,36 @@
                                 "type": [
                                     "string",
                                     "number"
-                                ],
-                                "additionalProperties": false
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "soda_runner": {
+            "description": "The runner configuration to be used within the contract file. Replaces 'soda_agent'; both keys are accepted for backwards compatibility but not at the same time.",
+            "type": "object",
+            "properties": {
+                "checks_schedule": {
+                    "type": "object",
+                    "properties": {
+                        "cron": {
+                            "type": "string",
+                            "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "The timezone to be used within the contract file"
+                        },
+                        "variables": {
+                            "type": "object",
+                            "description": "The variables to be used within the contract file",
+                            "additionalProperties": {
+                                "type": [
+                                    "string",
+                                    "number"
+                                ]
                             }
                         }
                     }
@@ -837,6 +865,9 @@
         "dataset",
         "columns"
     ],
+    "not": {
+        "required": ["soda_runner", "soda_agent"]
+    },
     "$defs": {
         "generic_check_properties": {
             "description": "NOT USED YET, problem with inheritance and additionalProperties",
