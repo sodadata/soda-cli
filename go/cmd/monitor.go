@@ -283,6 +283,14 @@ var monitorConfigCmd = &cobra.Command{
 		if enable {
 			t := true
 			req.Enabled = &t
+			monitors := make([]api.DatasetMetricMonitorCfg, len(api.DefaultDatasetMonitorTypes))
+			for i, mt := range api.DefaultDatasetMonitorTypes {
+				monitors[i] = api.DatasetMetricMonitorCfg{
+					MetricType:    mt,
+					Configuration: api.DatasetMonitorConfig{IsEnabled: true},
+				}
+			}
+			req.DatasetMetricMonitorsConfiguration = monitors
 		} else if disable {
 			f := false
 			req.Enabled = &f
