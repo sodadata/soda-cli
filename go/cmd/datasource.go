@@ -127,7 +127,7 @@ Example config:
 
 		result, err := client.CreateDatasource(api.CreateDatasourceRequest{
 			Name:                      name,
-			AgentID:                   runnerID,
+			RunnerID:                  runnerID,
 			ConfigurationFileContents: string(configBytes),
 		})
 		if err != nil {
@@ -195,7 +195,7 @@ var dsTestConnectionCmd = &cobra.Command{
 		fmt.Println(output.Dim.Render("  Testing connection from " + configFile + "..."))
 
 		operationID, err := client.TestConnection(api.TestConnectionRequest{
-			AgentID:                   runnerID,
+			RunnerID:                  runnerID,
 			ConfigurationFileContents: string(configBytes),
 		})
 		if err != nil {
@@ -299,7 +299,7 @@ var dsUpdateCmd = &cobra.Command{
 			req.Label = v
 		}
 		if v, _ := cmd.Flags().GetString("runner"); v != "" {
-			req.AgentID = v
+			req.RunnerID = v
 		}
 		if v, _ := cmd.Flags().GetString("config"); v != "" {
 			configBytes, err := os.ReadFile(v)
@@ -594,7 +594,7 @@ func init() {
 	dsCreateCmd.Flags().String("runner", "", "Route connection through a Soda Runner")
 	dsTestConnectionCmd.Flags().String("runner", "", "Soda Runner ID to route the test through")
 	dsUpdateCmd.Flags().String("label", "", "New label for the datasource")
-	dsUpdateCmd.Flags().String("runner", "", "Agent/runner ID to route through")
+	dsUpdateCmd.Flags().String("runner", "", "Runner ID to route through")
 	dsUpdateCmd.Flags().String("config", "", "YAML connection config file")
 
 	dsDiagnosticsCmd.Flags().Bool("enable", false, "Enable the diagnostics warehouse")

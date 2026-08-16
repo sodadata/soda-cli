@@ -58,7 +58,7 @@ func (c *Client) GetDatasource(datasourceID string) (*Datasource, error) {
 }
 
 type UpdateDatasourceRequest struct {
-	AgentID                   string `json:"runnerId,omitempty"`
+	RunnerID                  string `json:"runnerId,omitempty"`
 	ConfigurationFileContents string `json:"configurationFileContents,omitempty"`
 	Label                     string `json:"label,omitempty"`
 }
@@ -161,7 +161,7 @@ func (c *Client) OnboardDiscoveredDatasets(datasourceID string, req OnboardDatas
 
 type CreateDatasourceRequest struct {
 	Name                      string `json:"name"`
-	AgentID                   string `json:"runnerId"`
+	RunnerID                  string `json:"runnerId"`
 	ConfigurationFileContents string `json:"configurationFileContents"`
 	Label                     string `json:"label,omitempty"`
 }
@@ -190,7 +190,7 @@ func (c *Client) CreateDatasource(req CreateDatasourceRequest) (*CreateDatasourc
 // ── Test connection (async) ──────────────────────────────────────────────────
 
 type TestConnectionRequest struct {
-	AgentID                   string `json:"runnerId"`
+	RunnerID                  string `json:"runnerId"`
 	ConfigurationFileContents string `json:"configurationFileContents"`
 }
 
