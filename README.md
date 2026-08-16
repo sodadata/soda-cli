@@ -218,6 +218,7 @@ sodacli secret delete <id>
 ```bash
 sodacli results list
 sodacli results list --dataset-name "orders" --status failing --from 2026-03-01 --limit 20
+sodacli results list --ids <id1>,<id2>    # fetch specific checks by ID
 sodacli job status <scan-id>
 sodacli job logs <scan-id>
 ```

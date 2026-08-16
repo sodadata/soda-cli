@@ -21,6 +21,13 @@ type Check struct {
 	CheckType        string         `json:"checkType"`
 	LastCheckRunTime string         `json:"lastCheckRunTime"`
 	Datasets         []CheckDataset `json:"datasets"`
+	Definition           string            `json:"definition"`
+	LastCheckResultValue *CheckResultValue `json:"lastCheckResultValue"`
+}
+
+type CheckResultValue struct {
+	Value      *float64 `json:"value"`
+	ValueLabel string   `json:"valueLabel"`
 }
 
 type ChecksPage struct {
@@ -31,6 +38,7 @@ type ChecksPage struct {
 
 type ListChecksParams struct {
 	DatasetID string
+	CheckIDs  string // comma-separated
 	Size      int
 }
 
@@ -41,6 +49,9 @@ func (c *Client) ListChecks(p ListChecksParams) (*ChecksPage, error) {
 		size = 10 // API enforces minimum of 10
 	}
 	params.Set("size", fmt.Sprintf("%d", size))
+	if p.CheckIDs != "" {
+		params.Set("checkIds", p.CheckIDs)
+	}
 	if p.DatasetID != "" {
 		params.Set("datasetId", p.DatasetID)
 	}

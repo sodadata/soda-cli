@@ -212,6 +212,9 @@ sodacli results list --output json
 sodacli results list --dataset <id> --status failing --output json
 sodacli results list --dataset-name "orders" --from 2026-03-01 --until 2026-03-31 --output json
 
+# Fetch specific checks by ID
+sodacli results list --ids <id1>,<id2> --output json
+
 # Sort and paginate
 sodacli results list --limit 50 --sort name --order asc --output json
 ```

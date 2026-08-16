@@ -9,6 +9,7 @@ type ScanCheck struct {
 	Column           string `json:"column"` // column name if type=column
 	Definition       string `json:"definition"`
 	EvaluationStatus string `json:"evaluationStatus"` // pass|warn|fail|notEvaluated|excluded
+	Value            *float64 `json:"value"`
 }
 
 type ScanStatus struct {

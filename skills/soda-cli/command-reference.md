@@ -344,7 +344,8 @@ List check results across datasets.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--dataset <id>` | | Filter by dataset ID (server-side) |
-| `--dataset-name <pattern>` | | Substring match on qualified name (client-side) |
+| `--dataset-name <dqn>` | | Exact match on fully qualified name, case-insensitive (client-side) |
+| `--ids <id1,id2>` | | Comma-separated list of check IDs to fetch |
 | `--status passing\|failing\|error` | all | Filter by status (client-side) |
 | `--type check\|monitor\|all` | check | Filter by type |
 | `--limit <n>` | 10 | Max results |
