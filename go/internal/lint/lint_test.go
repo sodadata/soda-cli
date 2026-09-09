@@ -252,3 +252,34 @@ func TestSegmentsToPath(t *testing.T) {
 		}
 	}
 }
+
+// The embedded schema is synced from the canonical contract schema the backend validates every
+// contract against on ingestion. These keys arrived with that sync; pinning them here catches a
+// re-sync that regresses them.
+func TestLintFile_AcceptsDatasetLevelContractOptions(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "contract.yml")
+	os.WriteFile(f, []byte(`
+dataset: my_ds/db/schema/orders
+diagnostics: store_check_results
+check_attributes:
+  team: data-platform
+failed_rows:
+  strategy: store_keys
+  keys:
+    - id
+columns:
+  - name: id
+`), 0644)
+
+	result, err := LintFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Valid {
+		for _, e := range result.Errors {
+			t.Logf("  %s: %s", e.Path, e.Message)
+		}
+		t.Fatalf("expected valid contract with dataset-level options, got %d errors", len(result.Errors))
+	}
+}
