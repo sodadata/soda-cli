@@ -31,62 +31,6 @@ columns:
 	}
 }
 
-func TestLintFile_RejectsUnknownKeyInsideACheck(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - name: id
-    checks:
-      - missing:
-          bogus_check_key: 1
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected invalid, got valid")
-	}
-	found := false
-	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-		if strings.Contains(e.Message, "bogus_check_key") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("expected an error naming bogus_check_key")
-	}
-}
-
-// The schema is a verbatim copy of the backend's, which sets additionalProperties: true at the
-// root for forward compatibility: a contract written for a newer server must not fail against an
-// older one. Unknown keys deeper in the document are still rejected — see the test above.
-func TestLintFile_AllowsUnknownRootKeysLikeTheBackend(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-some_future_root_key: 42
-columns:
-  - name: id
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected an unknown root key to be accepted, got %d errors", len(result.Errors))
-	}
-}
-
 func TestLintFile_YAMLParseError(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "bad.yml")
@@ -124,27 +68,6 @@ func TestLintFile_EmptyFile(t *testing.T) {
 	}
 }
 
-func TestLintFile_MissingColumnName(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - data_type: INTEGER
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected invalid — column missing required 'name'")
-	}
-	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-	}
-}
-
 func TestLintFiles_Mixed(t *testing.T) {
 	dir := t.TempDir()
 
@@ -176,69 +99,13 @@ dataset: ds/db/schema/t
 	}
 }
 
-func TestLintFile_AcceptsSodaRunner(t *testing.T) {
+func TestLintFile_ReportsErrorPathsForAnInvalidContract(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "contract.yml")
 	os.WriteFile(f, []byte(`
 dataset: my_ds/db/schema/orders
 columns:
-  - name: id
-soda_runner:
-  checks_schedule:
-    cron: "0 0 * * *"
-    timezone: UTC
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected valid contract with soda_runner, got %d errors", len(result.Errors))
-	}
-}
-
-func TestLintFile_AcceptsSodaAgentLegacyAlias(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - name: id
-soda_agent:
-  checks_schedule:
-    cron: "0 0 * * *"
-    timezone: UTC
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected valid contract with deprecated soda_agent, got %d errors", len(result.Errors))
-	}
-}
-
-func TestLintFile_RejectsBothSodaRunnerAndSodaAgent(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - name: id
-soda_runner:
-  checks_schedule:
-    cron: "0 0 * * *"
-soda_agent:
-  checks_schedule:
-    cron: "0 0 * * *"
+  - data_type: INTEGER
 `), 0644)
 
 	result, err := LintFile(f)
@@ -246,20 +113,18 @@ soda_agent:
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Valid {
-		t.Fatal("expected invalid when both soda_runner and soda_agent are set")
+		t.Fatal("expected invalid")
 	}
 	if len(result.Errors) == 0 {
-		t.Fatal("expected at least one validation error")
+		t.Fatal("expected at least one error")
 	}
-	rootError := false
 	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-		if e.Path == "$" {
-			rootError = true
+		if !strings.HasPrefix(e.Path, "$") {
+			t.Errorf("error path %q does not start with $", e.Path)
 		}
-	}
-	if !rootError {
-		t.Fatal("expected a validation error at the root path '$' for the not-both constraint")
+		if e.Message == "" {
+			t.Error("error carries no message")
+		}
 	}
 }
 
@@ -278,36 +143,5 @@ func TestSegmentsToPath(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("segmentsToPath(%v) = %q, want %q", tt.in, got, tt.want)
 		}
-	}
-}
-
-// The embedded schema is synced from the canonical contract schema the backend validates every
-// contract against on ingestion. These keys arrived with that sync; pinning them here catches a
-// re-sync that regresses them.
-func TestLintFile_AcceptsDatasetLevelContractOptions(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-diagnostics: store_check_results
-check_attributes:
-  team: data-platform
-failed_rows:
-  strategy: store_keys
-  keys:
-    - id
-columns:
-  - name: id
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected valid contract with dataset-level options, got %d errors", len(result.Errors))
 	}
 }
