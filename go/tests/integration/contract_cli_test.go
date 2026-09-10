@@ -24,16 +24,19 @@ columns:
 		assertOutputContains(t, r, "valid")
 	})
 
-	t.Run("invalid_contract", func(t *testing.T) {
+	// The contract root and column objects are open by design — the schema
+	// allows unknown keys there — but check objects are closed.
+	t.Run("unknown_check_key", func(t *testing.T) {
 		f := writeTempFile(t, "contract-*.yml", `
 dataset: ds/db/schema/orders
-bogus_field: true
 columns:
   - name: id
+    checks:
+      - bogus_check: {}
 `)
 		r := run(t, "contract", "lint", f, "--output", "table")
 		assertExitCode(t, r, 2)
-		assertOutputContains(t, r, "bogus_field")
+		assertOutputContains(t, r, "bogus_check")
 	})
 
 	t.Run("missing_column_name", func(t *testing.T) {
