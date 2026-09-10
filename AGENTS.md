@@ -23,13 +23,26 @@ pushing — no internal URLs, customer names, or credentials.
 ```bash
 cd go
 go build -o sodacli .          # build the binary
-go test ./...                  # unit tests (no credentials needed)
+go test ./...                  # unit tests — in-process, no binary, no network
 
-# Integration tests (build tag `integration`) run the real binary against a live Cloud org.
-# They skip without credentials: SODA_TEST_HOST, SODA_TEST_API_KEY_ID, SODA_TEST_API_KEY_SECRET
-# (+ SODA_TEST_DATASOURCE_ID/NAME, SODA_TEST_DATASET_ID/DQN), read from env or a repo-root .env.
-go test -tags integration ./tests/integration/...
+# Offline CLI tests (build tag `cli`): build the real binary and drive it as a
+# subprocess, asserting on stdout/stderr and exit codes. No credentials, no
+# network. This is what CI runs on every PR (.github/workflows/test.yml).
+go test -tags cli ./tests/integration/...
+
+# Live tests (build tag `cloud`): the same harness against a real Cloud org.
+# They CREATE AND DELETE real resources (secrets, monitors, groups, runners).
+# They skip without credentials: SODA_TEST_HOST, SODA_TEST_API_KEY_ID,
+# SODA_TEST_API_KEY_SECRET (+ SODA_TEST_DATASOURCE_ID/NAME,
+# SODA_TEST_DATASET_ID/DQN), read from env or a repo-root .env. Not run in CI.
+go test -tags cloud ./tests/integration/...
 ```
+
+Both tiers live in `go/tests/integration/`, split by filename suffix
+(`*_cli_test.go` / `*_cloud_test.go`) with the shared harness in `helpers_test.go`.
+A new test belongs in the `cli` tier unless it genuinely needs a live org —
+flag validation and blocked-command guards run *before* the credential check,
+so those are offline-testable and exit 2, not 3.
 
 From the soda-punch workspace: `just setup cli` / `just test cli`.
 

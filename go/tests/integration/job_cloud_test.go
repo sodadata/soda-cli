@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 

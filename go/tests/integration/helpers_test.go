@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cli || cloud
 
 package integration
 
@@ -17,11 +17,11 @@ import (
 // ── Environment ──────────────────────────────────────────────────────────────
 
 var (
-	binPath    string
-	buildOnce  sync.Once
-	buildErr   error
-	envLoaded  bool
-	envOnce    sync.Once
+	binPath   string
+	buildOnce sync.Once
+	buildErr  error
+	envLoaded bool
+	envOnce   sync.Once
 )
 
 // env returns an environment variable, falling back to .env file at repo root.
@@ -51,9 +51,9 @@ func env(key string) string {
 	return os.Getenv(key)
 }
 
-func testHost() string      { return env("SODA_TEST_HOST") }
-func testKeyID() string     { return env("SODA_TEST_API_KEY_ID") }
-func testKeySecret() string { return env("SODA_TEST_API_KEY_SECRET") }
+func testHost() string           { return env("SODA_TEST_HOST") }
+func testKeyID() string          { return env("SODA_TEST_API_KEY_ID") }
+func testKeySecret() string      { return env("SODA_TEST_API_KEY_SECRET") }
 func testDatasourceID() string   { return env("SODA_TEST_DATASOURCE_ID") }
 func testDatasourceName() string { return env("SODA_TEST_DATASOURCE_NAME") }
 func testDatasetID() string      { return env("SODA_TEST_DATASET_ID") }
@@ -203,4 +203,40 @@ func skipIfNoCredentials(t *testing.T) {
 	if testKeyID() == "" || testKeySecret() == "" {
 		t.Skip("SODA_TEST_API_KEY_ID / SODA_TEST_API_KEY_SECRET not set")
 	}
+}
+
+// ── File / directory helpers ─────────────────────────────────────────────────
+
+// writeTempFile creates a temp file with the given content and returns its path.
+func writeTempFile(t *testing.T, pattern, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	return f.Name()
+}
+
+// runInDir executes the binary from a specific working directory.
+func runInDir(t *testing.T, bin, dir string, args ...string) Result {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			t.Fatalf("failed to run command: %v", err)
+		}
+	}
+	return Result{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: exitCode}
 }

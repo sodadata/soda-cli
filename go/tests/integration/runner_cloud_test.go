@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 
@@ -109,15 +109,4 @@ func TestRunnerDeleteBadID(t *testing.T) {
 
 	r := run(t, "runner", "delete", "bad-id")
 	assertExitCode(t, r, 2)
-}
-
-func TestRunnerCreateMissingName(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	r := run(t, "runner", "create")
-	// Cobra should error on missing --name
-	if r.ExitCode == 0 {
-		t.Error("expected error for missing --name flag")
-	}
 }

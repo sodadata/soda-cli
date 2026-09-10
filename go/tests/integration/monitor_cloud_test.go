@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 
@@ -167,11 +167,6 @@ func TestMonitorAddErrors(t *testing.T) {
 
 	t.Run("custom_no_name", func(t *testing.T) {
 		r := run(t, "monitor", "add", "--dataset", testDatasetID(), "--type", "custom")
-		assertExitCode(t, r, 2)
-	})
-
-	t.Run("no_dataset", func(t *testing.T) {
-		r := run(t, "monitor", "add", "--type", "column", "--column", "x", "--metric", "count")
 		assertExitCode(t, r, 2)
 	})
 
