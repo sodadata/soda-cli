@@ -3,6 +3,7 @@ package lint
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -30,14 +31,16 @@ columns:
 	}
 }
 
-func TestLintFile_InvalidProperty(t *testing.T) {
+func TestLintFile_RejectsUnknownKeyInsideACheck(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "contract.yml")
 	os.WriteFile(f, []byte(`
 dataset: my_ds/db/schema/orders
-bogus_field: true
 columns:
   - name: id
+    checks:
+      - missing:
+          bogus_check_key: 1
 `), 0644)
 
 	result, err := LintFile(f)
@@ -50,12 +53,37 @@ columns:
 	found := false
 	for _, e := range result.Errors {
 		t.Logf("  %s: %s", e.Path, e.Message)
-		if e.Path == "$" || e.Path == "$.bogus_field" {
+		if strings.Contains(e.Message, "bogus_check_key") {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("expected an error about bogus_field")
+		t.Fatal("expected an error naming bogus_check_key")
+	}
+}
+
+// The schema is a verbatim copy of the backend's, which sets additionalProperties: true at the
+// root for forward compatibility: a contract written for a newer server must not fail against an
+// older one. Unknown keys deeper in the document are still rejected — see the test above.
+func TestLintFile_AllowsUnknownRootKeysLikeTheBackend(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "contract.yml")
+	os.WriteFile(f, []byte(`
+dataset: my_ds/db/schema/orders
+some_future_root_key: 42
+columns:
+  - name: id
+`), 0644)
+
+	result, err := LintFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Valid {
+		for _, e := range result.Errors {
+			t.Logf("  %s: %s", e.Path, e.Message)
+		}
+		t.Fatalf("expected an unknown root key to be accepted, got %d errors", len(result.Errors))
 	}
 }
 
@@ -127,10 +155,10 @@ columns:
   - name: id
 `), 0644)
 
+	// Invalid because the required 'columns' is missing.
 	bad := filepath.Join(dir, "bad.yml")
 	os.WriteFile(bad, []byte(`
 dataset: ds/db/schema/t
-unknown_prop: true
 `), 0644)
 
 	results, err := LintFiles([]string{good, bad})

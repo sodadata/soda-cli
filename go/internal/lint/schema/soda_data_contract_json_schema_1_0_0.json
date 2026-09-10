@@ -4,7 +4,7 @@
   "title": "Soda Data Contract JSON Schema",
   "description": "Soda Data Contract",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "dataset": {
       "description": "The dataset fully qualified name of the dataset. Format is [datasource]/[database]/[schema]/[table]. The exact format may vary by data source type. https://docs.soda.io/soda-v4/reference/contract-language-reference#dataset-fully-qualified-name",
@@ -40,9 +40,7 @@
     "diagnostics": {
       "description": "Configuration for storing check results.",
       "type": "string",
-      "enum": [
-        "store_check_results"
-      ]
+      "enum": ["store_check_results"]
     },
     "failed_rows": {
       "description": "Configuration for storing failed rows.",
@@ -52,9 +50,7 @@
         "strategy": {
           "description": "Strategy for handling failed rows.",
           "type": "string",
-          "enum": [
-            "store_keys"
-          ]
+          "enum": ["store_keys"]
         },
         "keys": {
           "description": "Array of column names to use as keys for failed rows.",
@@ -65,10 +61,7 @@
           "minItems": 1
         }
       },
-      "required": [
-        "strategy",
-        "keys"
-      ]
+      "required": ["strategy", "keys"]
     },
     "soda_agent": {
       "description": "DEPRECATED: use 'soda_runner' instead. The runner configuration to be used within the contract file. Kept for backwards compatibility.",
@@ -144,9 +137,7 @@
           "description": "Source dataset configuration for reconciliation. The source dataset is compared with the main dataset.",
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "dataset"
-          ],
+          "required": ["dataset"],
           "properties": {
             "dataset": {
               "description": "The dataset fully qualified name of the source dataset. Format is [datasource]/[database]/[schema]/[table]. The exact format may vary by data source type. https://docs.soda.io/soda-v4/reference/contract-language-reference#dataset-fully-qualified-name",
@@ -210,10 +201,7 @@
                     "description": "Compare freshness differences between source and target datasets.",
                     "type": "object",
                     "additionalProperties": false,
-                    "required": [
-                      "source_column",
-                      "target_column"
-                    ],
+                    "required": ["source_column", "target_column"],
                     "properties": {
                       "name": {
                         "$ref": "#/$defs/check_name"
@@ -254,11 +242,7 @@
                     "description": "Compare aggregate function results between source and target datasets.",
                     "type": "object",
                     "additionalProperties": false,
-                    "required": [
-                      "function",
-                      "source_column",
-                      "target_column"
-                    ],
+                    "required": ["function", "source_column", "target_column"],
                     "properties": {
                       "name": {
                         "$ref": "#/$defs/check_name"
@@ -311,10 +295,7 @@
                     "description": "Compare duplicate metrics between source and target datasets.",
                     "type": "object",
                     "additionalProperties": false,
-                    "required": [
-                      "source_columns",
-                      "target_columns"
-                    ],
+                    "required": ["source_columns", "target_columns"],
                     "properties": {
                       "name": {
                         "$ref": "#/$defs/check_name"
@@ -406,27 +387,15 @@
                     },
                     "oneOf": [
                       {
-                        "required": [
-                          "source_expression",
-                          "target_expression"
-                        ],
+                        "required": ["source_expression", "target_expression"],
                         "not": {
-                          "required": [
-                            "source_query",
-                            "target_query"
-                          ]
+                          "required": ["source_query", "target_query"]
                         }
                       },
                       {
-                        "required": [
-                          "source_query",
-                          "target_query"
-                        ],
+                        "required": ["source_query", "target_query"],
                         "not": {
-                          "required": [
-                            "source_expression",
-                            "target_expression"
-                          ]
+                          "required": ["source_expression", "target_expression"]
                         }
                       }
                     ]
@@ -441,24 +410,13 @@
                     "description": "Compare individual rows between source and target datasets based on key columns. Note: source_key_columns and target_key_columns must have the same length, and source_columns and target_columns must have the same length.",
                     "type": "object",
                     "additionalProperties": false,
-                    "required": [
-                      "source_key_columns",
-                      "target_key_columns"
-                    ],
+                    "required": ["source_key_columns", "target_key_columns"],
                     "$comment": "Validation: source_key_columns and target_key_columns must have matching lengths. source_columns and target_columns must have matching lengths.",
                     "dependencies": {
-                      "source_key_columns": [
-                        "target_key_columns"
-                      ],
-                      "target_key_columns": [
-                        "source_key_columns"
-                      ],
-                      "source_columns": [
-                        "target_columns"
-                      ],
-                      "target_columns": [
-                        "source_columns"
-                      ]
+                      "source_key_columns": ["target_key_columns"],
+                      "target_key_columns": ["source_key_columns"],
+                      "source_columns": ["target_columns"],
+                      "target_columns": ["source_columns"]
                     },
                     "properties": {
                       "name": {
@@ -527,12 +485,8 @@
                         "type": "object",
                         "additionalProperties": false,
                         "dependencies": {
-                          "source_columns": [
-                            "target_columns"
-                          ],
-                          "target_columns": [
-                            "source_columns"
-                          ]
+                          "source_columns": ["target_columns"],
+                          "target_columns": ["source_columns"]
                         },
                         "properties": {
                           "name": {
@@ -571,11 +525,7 @@
                           "direction": {
                             "description": "Direction of the referential integrity check.",
                             "type": "string",
-                            "enum": [
-                              "target_must_exist_in_source",
-                              "source_must_exist_in_target",
-                              "both"
-                            ],
+                            "enum": ["target_must_exist_in_source", "source_must_exist_in_target", "both"],
                             "default": "target_must_exist_in_source"
                           },
                           "samples_limit": {
@@ -623,13 +573,9 @@
           "type": "array",
           "minItems": 1,
           "contains": {
-            "required": [
-              "default"
-            ],
+            "required": ["default"],
             "properties": {
-              "default": {
-                "const": true
-              }
+              "default": { "const": true }
             }
           },
           "minContains": 0,
@@ -637,9 +583,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "dataset"
-            ],
+            "required": ["dataset"],
             "properties": {
               "dataset": {
                 "description": "The dataset fully qualified name of the source dataset. Format is [datasource]/[database]/[schema]/[table].",
@@ -660,36 +604,20 @@
               }
             },
             "if": {
-              "required": [
-                "default"
-              ],
+              "required": ["default"],
               "properties": {
-                "default": {
-                  "const": true
-                }
+                "default": { "const": true }
               }
             },
             "else": {
-              "required": [
-                "name"
-              ]
+              "required": ["name"]
             }
           }
         }
       },
       "oneOf": [
-        {
-          "required": [
-            "source",
-            "checks"
-          ]
-        },
-        {
-          "required": [
-            "sources",
-            "checks"
-          ]
-        }
+        { "required": ["source", "checks"] },
+        { "required": ["sources", "checks"] }
       ]
     },
     "columns": {
@@ -754,7 +682,7 @@
                       "TIMESTAMP_TZ"
                     ]
                   }
-                ]
+                    ]
               },
               "column_expression": {
                 "description": "SQL expression applied to the column before executing any checks on it. It may transform the value (e.g., applying a function) or extract a subfield (e.g., accessing nested data). When a check-level expression is defined, it overrides this column-level expression.",
@@ -854,18 +782,10 @@
                                     "strategy": {
                                       "description": "The remediation strategy to apply.",
                                       "oneOf": [
-                                        {
-                                          "$ref": "#/$defs/strategy_constant"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_sql"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_llm"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_manual"
-                                        }
+                                        { "$ref": "#/$defs/strategy_constant" },
+                                        { "$ref": "#/$defs/strategy_sql" },
+                                        { "$ref": "#/$defs/strategy_llm" },
+                                        { "$ref": "#/$defs/strategy_manual" }
                                       ]
                                     }
                                   }
@@ -1023,18 +943,10 @@
                                     "strategy": {
                                       "description": "The remediation strategy to apply.",
                                       "oneOf": [
-                                        {
-                                          "$ref": "#/$defs/strategy_constant"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_sql"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_llm"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_manual"
-                                        }
+                                        { "$ref": "#/$defs/strategy_constant" },
+                                        { "$ref": "#/$defs/strategy_sql" },
+                                        { "$ref": "#/$defs/strategy_llm" },
+                                        { "$ref": "#/$defs/strategy_manual" }
                                       ]
                                     }
                                   }
@@ -1042,54 +954,34 @@
                               },
                               "anyOf": [
                                 {
-                                  "required": [
-                                    "valid_values"
-                                  ]
+                                  "required": ["valid_values"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_format"
-                                  ]
+                                  "required": ["valid_format"]
                                 },
                                 {
-                                  "required": [
-                                    "invalid_values"
-                                  ]
+                                  "required": ["invalid_values"]
                                 },
                                 {
-                                  "required": [
-                                    "invalid_format"
-                                  ]
+                                  "required": ["invalid_format"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_length"
-                                  ]
+                                  "required": ["valid_length"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_min_length"
-                                  ]
+                                  "required": ["valid_min_length"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_max_length"
-                                  ]
+                                  "required": ["valid_max_length"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_min"
-                                  ]
+                                  "required": ["valid_min"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_max"
-                                  ]
+                                  "required": ["valid_max"]
                                 },
                                 {
-                                  "required": [
-                                    "valid_reference_data"
-                                  ]
+                                  "required": ["valid_reference_data"]
                                 }
                               ]
                             }
@@ -1238,18 +1130,10 @@
                                     "strategy": {
                                       "description": "The remediation strategy to apply.",
                                       "oneOf": [
-                                        {
-                                          "$ref": "#/$defs/strategy_constant"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_sql"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_llm"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_manual"
-                                        }
+                                        { "$ref": "#/$defs/strategy_constant" },
+                                        { "$ref": "#/$defs/strategy_sql" },
+                                        { "$ref": "#/$defs/strategy_llm" },
+                                        { "$ref": "#/$defs/strategy_manual" }
                                       ]
                                     }
                                   }
@@ -1262,16 +1146,8 @@
                                   ],
                                   "not": {
                                     "anyOf": [
-                                      {
-                                        "required": [
-                                          "query"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "keys_query"
-                                        ]
-                                      }
+                                      { "required": ["query"] },
+                                      { "required": ["keys_query"] }
                                     ]
                                   }
                                 },
@@ -1281,16 +1157,8 @@
                                   ],
                                   "not": {
                                     "anyOf": [
-                                      {
-                                        "required": [
-                                          "expression"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "keys_query"
-                                        ]
-                                      }
+                                      { "required": ["expression"] },
+                                      { "required": ["keys_query"] }
                                     ]
                                   }
                                 },
@@ -1300,30 +1168,14 @@
                                   ],
                                   "not": {
                                     "anyOf": [
-                                      {
-                                        "required": [
-                                          "expression"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "query"
-                                        ]
-                                      }
+                                      { "required": ["expression"] },
+                                      { "required": ["query"] }
                                     ]
                                   }
                                 }
                               ],
-                              "if": {
-                                "required": [
-                                  "key_column_mapping"
-                                ]
-                              },
-                              "then": {
-                                "required": [
-                                  "keys_query"
-                                ]
-                              }
+                              "if": { "required": ["key_column_mapping"] },
+                              "then": { "required": ["keys_query"] }
                             }
                           ]
                         },
@@ -1351,6 +1203,7 @@
                                   "description": "The SQL query to be used.",
                                   "type": "string"
                                 },
+
                                 "threshold": {
                                   "$ref": "#/$defs/threshold"
                                 }
@@ -1417,18 +1270,10 @@
                                     "strategy": {
                                       "description": "The remediation strategy to apply.",
                                       "oneOf": [
-                                        {
-                                          "$ref": "#/$defs/strategy_constant"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_sql"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_llm"
-                                        },
-                                        {
-                                          "$ref": "#/$defs/strategy_manual"
-                                        }
+                                        { "$ref": "#/$defs/strategy_constant" },
+                                        { "$ref": "#/$defs/strategy_sql" },
+                                        { "$ref": "#/$defs/strategy_llm" },
+                                        { "$ref": "#/$defs/strategy_manual" }
                                       ]
                                     }
                                   }
@@ -1518,6 +1363,7 @@
                       "threshold": {
                         "$ref": "#/$defs/threshold"
                       },
+
                       "allow_extra_columns": {
                         "description": "Allow columns that are not defined in the contract schema.",
                         "type": "boolean"
@@ -1619,18 +1465,11 @@
                         "type": "object",
                         "additionalProperties": false,
                         "properties": {
-                          "description": {
-                            "description": "Description of the remediation action.",
-                            "type": "string"
-                          },
+                          "description": { "description": "Description of the remediation action.", "type": "string" },
                           "strategy": {
                             "oneOf": [
-                              {
-                                "$ref": "#/$defs/strategy_llm"
-                              },
-                              {
-                                "$ref": "#/$defs/strategy_manual"
-                              }
+                              { "$ref": "#/$defs/strategy_llm" },
+                              { "$ref": "#/$defs/strategy_manual" }
                             ]
                           }
                         }
@@ -1694,13 +1533,8 @@
                         "type": "object",
                         "additionalProperties": false,
                         "properties": {
-                          "description": {
-                            "description": "Description of the remediation action.",
-                            "type": "string"
-                          },
-                          "strategy": {
-                            "$ref": "#/$defs/strategy_llm"
-                          }
+                          "description": { "description": "Description of the remediation action.", "type": "string" },
+                          "strategy": { "$ref": "#/$defs/strategy_llm" }
                         }
                       }
                     },
@@ -1711,16 +1545,8 @@
                         ],
                         "not": {
                           "anyOf": [
-                            {
-                              "required": [
-                                "query"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "keys_query"
-                              ]
-                            }
+                            { "required": ["query"] },
+                            { "required": ["keys_query"] }
                           ]
                         }
                       },
@@ -1730,16 +1556,8 @@
                         ],
                         "not": {
                           "anyOf": [
-                            {
-                              "required": [
-                                "expression"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "keys_query"
-                              ]
-                            }
+                            { "required": ["expression"] },
+                            { "required": ["keys_query"] }
                           ]
                         }
                       },
@@ -1749,30 +1567,14 @@
                         ],
                         "not": {
                           "anyOf": [
-                            {
-                              "required": [
-                                "expression"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "query"
-                              ]
-                            }
+                            { "required": ["expression"] },
+                            { "required": ["query"] }
                           ]
                         }
                       }
                     ],
-                    "if": {
-                      "required": [
-                        "key_column_mapping"
-                      ]
-                    },
-                    "then": {
-                      "required": [
-                        "keys_query"
-                      ]
-                    }
+                    "if": { "required": ["key_column_mapping"] },
+                    "then": { "required": ["keys_query"] }
                   }
                 ]
               }
@@ -2028,18 +1830,11 @@
                         "type": "object",
                         "additionalProperties": false,
                         "properties": {
-                          "description": {
-                            "description": "Description of the remediation action.",
-                            "type": "string"
-                          },
+                          "description": { "description": "Description of the remediation action.", "type": "string" },
                           "strategy": {
                             "oneOf": [
-                              {
-                                "$ref": "#/$defs/strategy_llm"
-                              },
-                              {
-                                "$ref": "#/$defs/strategy_manual"
-                              }
+                              { "$ref": "#/$defs/strategy_llm" },
+                              { "$ref": "#/$defs/strategy_manual" }
                             ]
                           }
                         }
@@ -2063,10 +1858,7 @@
     "columns"
   ],
   "not": {
-    "required": [
-      "soda_runner",
-      "soda_agent"
-    ]
+    "required": ["soda_runner", "soda_agent"]
   },
   "$defs": {
     "check_name": {
@@ -2075,10 +1867,7 @@
     },
     "check_qualifier": {
       "description": "Required if multiple checks of the same type exist on the same object. Must be unique. https://docs.soda.io/soda-v4/reference/contract-language-reference#check-qualifiers",
-      "type": [
-        "string",
-        "integer"
-      ]
+      "type": ["string", "integer"]
     },
     "check_filter": {
       "description": "SQL expression filter applied on the metric. It is a SQL filter clause without the WHERE keyword. https://docs.soda.io/soda-v4/reference/contract-language-reference#configure-a-check-filter",
@@ -2100,9 +1889,7 @@
         "level": {
           "description": "Severity of this threshold when it is breached; fail is the default. Add a second threshold at the other level under additional.",
           "errorMessage": "level must be warn or fail.",
-          "message": {
-            "enum": "{0}: level must be warn or fail."
-          },
+          "message": { "enum": "{0}: level must be warn or fail." },
           "enum": [
             "warn",
             "fail"
@@ -2111,14 +1898,14 @@
         "metric": {
           "description": "Metric unit to evaluate (count or percent).",
           "enum": [
-            "count",
+            "count", 
             "percent"
           ]
         },
         "must_be": {
           "description": "Check passes if the metric equals this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
@@ -2132,14 +1919,14 @@
         "must_be_greater_than": {
           "description": "Check passes if the metric is greater than this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_be_greater_than_or_equal": {
           "description": "Check passes if the metric is greater than or equal to this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
@@ -2153,7 +1940,7 @@
         "must_be_less_than_or_equal": {
           "description": "Check passes if the metric is less than or equal to this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
@@ -2183,85 +1970,19 @@
           "description": "A threshold with an additional threshold carries exactly one flat must_be_* comparison itself. Every alternative repeats its key under properties: without a property match the editor language service drops its multiple-match report and a second comparison would go unflagged.",
           "if": {
             "allOf": [
-              {
-                "required": [
-                  "additional"
-                ]
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "type": "object"
-                  }
-                }
-              },
+              { "required": ["additional"] },
+              { "properties": { "additional": { "type": "object" } } },
               {
                 "not": {
                   "oneOf": [
-                    {
-                      "required": [
-                        "must_be"
-                      ],
-                      "properties": {
-                        "must_be": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_not_be"
-                      ],
-                      "properties": {
-                        "must_not_be": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_greater_than"
-                      ],
-                      "properties": {
-                        "must_be_greater_than": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_greater_than_or_equal"
-                      ],
-                      "properties": {
-                        "must_be_greater_than_or_equal": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_less_than"
-                      ],
-                      "properties": {
-                        "must_be_less_than": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_less_than_or_equal"
-                      ],
-                      "properties": {
-                        "must_be_less_than_or_equal": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_between"
-                      ],
-                      "properties": {
-                        "must_be_between": true
-                      }
-                    },
-                    {
-                      "required": [
-                        "must_be_not_between"
-                      ],
-                      "properties": {
-                        "must_be_not_between": true
-                      }
-                    }
+                    { "required": ["must_be"], "properties": { "must_be": true } },
+                    { "required": ["must_not_be"], "properties": { "must_not_be": true } },
+                    { "required": ["must_be_greater_than"], "properties": { "must_be_greater_than": true } },
+                    { "required": ["must_be_greater_than_or_equal"], "properties": { "must_be_greater_than_or_equal": true } },
+                    { "required": ["must_be_less_than"], "properties": { "must_be_less_than": true } },
+                    { "required": ["must_be_less_than_or_equal"], "properties": { "must_be_less_than_or_equal": true } },
+                    { "required": ["must_be_between"], "properties": { "must_be_between": true } },
+                    { "required": ["must_be_not_between"], "properties": { "must_be_not_between": true } }
                   ]
                 }
               }
@@ -2269,99 +1990,29 @@
           },
           "then": {
             "errorMessage": "A threshold that has an additional threshold must itself have exactly one comparison (one must_be_* key, or one must_be_between / must_be_not_between range).",
-            "message": {
-              "false": "{0}: A threshold that has an additional threshold must itself have exactly one comparison (one must_be_* key, or one must_be_between / must_be_not_between range)."
-            },
-            "properties": {
-              "additional": false
-            }
+            "message": { "false": "{0}: A threshold that has an additional threshold must itself have exactly one comparison (one must_be_* key, or one must_be_between / must_be_not_between range)." },
+            "properties": { "additional": false }
           }
         },
         {
           "description": "The additional threshold holds exactly one comparison. The alternatives repeat their key under properties for the same reason as the rule above.",
           "if": {
             "allOf": [
-              {
-                "required": [
-                  "additional"
-                ]
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "type": "object"
-                  }
-                }
-              },
+              { "required": ["additional"] },
+              { "properties": { "additional": { "type": "object" } } },
               {
                 "not": {
                   "properties": {
                     "additional": {
                       "oneOf": [
-                        {
-                          "required": [
-                            "must_be"
-                          ],
-                          "properties": {
-                            "must_be": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_not_be"
-                          ],
-                          "properties": {
-                            "must_not_be": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_greater_than"
-                          ],
-                          "properties": {
-                            "must_be_greater_than": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_greater_than_or_equal"
-                          ],
-                          "properties": {
-                            "must_be_greater_than_or_equal": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_less_than"
-                          ],
-                          "properties": {
-                            "must_be_less_than": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_less_than_or_equal"
-                          ],
-                          "properties": {
-                            "must_be_less_than_or_equal": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_between"
-                          ],
-                          "properties": {
-                            "must_be_between": true
-                          }
-                        },
-                        {
-                          "required": [
-                            "must_be_not_between"
-                          ],
-                          "properties": {
-                            "must_be_not_between": true
-                          }
-                        }
+                        { "required": ["must_be"], "properties": { "must_be": true } },
+                        { "required": ["must_not_be"], "properties": { "must_not_be": true } },
+                        { "required": ["must_be_greater_than"], "properties": { "must_be_greater_than": true } },
+                        { "required": ["must_be_greater_than_or_equal"], "properties": { "must_be_greater_than_or_equal": true } },
+                        { "required": ["must_be_less_than"], "properties": { "must_be_less_than": true } },
+                        { "required": ["must_be_less_than_or_equal"], "properties": { "must_be_less_than_or_equal": true } },
+                        { "required": ["must_be_between"], "properties": { "must_be_between": true } },
+                        { "required": ["must_be_not_between"], "properties": { "must_be_not_between": true } }
                       ]
                     }
                   }
@@ -2371,88 +2022,40 @@
           },
           "then": {
             "errorMessage": "additional takes exactly one comparison: one must_be_* key, or one must_be_between / must_be_not_between range.",
-            "message": {
-              "false": "{0}: additional takes exactly one comparison: one must_be_* key, or one must_be_between / must_be_not_between range."
-            },
-            "properties": {
-              "additional": false
-            }
+            "message": { "false": "{0}: additional takes exactly one comparison: one must_be_* key, or one must_be_between / must_be_not_between range." },
+            "properties": { "additional": false }
           }
         },
         {
           "description": "A threshold and its additional threshold cannot both be fail-level (the level of a threshold without a level).",
           "if": {
             "allOf": [
-              {
-                "required": [
-                  "additional"
-                ]
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "type": "object"
-                  }
-                }
-              },
-              {
-                "$ref": "#/$defs/threshold_level_is_fail"
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "$ref": "#/$defs/threshold_level_is_fail"
-                  }
-                }
-              }
+              { "required": ["additional"] },
+              { "properties": { "additional": { "type": "object" } } },
+              { "$ref": "#/$defs/threshold_level_is_fail" },
+              { "properties": { "additional": { "$ref": "#/$defs/threshold_level_is_fail" } } }
             ]
           },
           "then": {
             "errorMessage": "A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail.",
-            "message": {
-              "false": "{0}: A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail."
-            },
-            "properties": {
-              "additional": false
-            }
+            "message": { "false": "{0}: A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail." },
+            "properties": { "additional": false }
           }
         },
         {
           "description": "A threshold and its additional threshold cannot both be warn-level.",
           "if": {
             "allOf": [
-              {
-                "required": [
-                  "additional"
-                ]
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "type": "object"
-                  }
-                }
-              },
-              {
-                "$ref": "#/$defs/threshold_level_is_warn"
-              },
-              {
-                "properties": {
-                  "additional": {
-                    "$ref": "#/$defs/threshold_level_is_warn"
-                  }
-                }
-              }
+              { "required": ["additional"] },
+              { "properties": { "additional": { "type": "object" } } },
+              { "$ref": "#/$defs/threshold_level_is_warn" },
+              { "properties": { "additional": { "$ref": "#/$defs/threshold_level_is_warn" } } }
             ]
           },
           "then": {
             "errorMessage": "A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail.",
-            "message": {
-              "false": "{0}: A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail."
-            },
-            "properties": {
-              "additional": false
-            }
+            "message": { "false": "{0}: A threshold and its additional threshold must have different levels: one fail, one warn. A threshold without a level is fail." },
+            "properties": { "additional": false }
           }
         }
       ]
@@ -2460,35 +2063,17 @@
     "threshold_level_is_fail": {
       "description": "The threshold has no level (fail is the level of a threshold without one) or has level: fail.",
       "anyOf": [
+        { "not": { "required": ["level"] } },
         {
-          "not": {
-            "required": [
-              "level"
-            ]
-          }
-        },
-        {
-          "required": [
-            "level"
-          ],
-          "properties": {
-            "level": {
-              "const": "fail"
-            }
-          }
+          "required": ["level"],
+          "properties": { "level": { "const": "fail" } }
         }
       ]
     },
     "threshold_level_is_warn": {
       "description": "The threshold has level: warn.",
-      "required": [
-        "level"
-      ],
-      "properties": {
-        "level": {
-          "const": "warn"
-        }
-      }
+      "required": ["level"],
+      "properties": { "level": { "const": "warn" } }
     },
     "threshold_additional": {
       "type": "object",
@@ -2549,9 +2134,7 @@
         "level": {
           "description": "Severity of this threshold when it is breached; fail is the default.",
           "errorMessage": "level must be warn or fail.",
-          "message": {
-            "enum": "{0}: level must be warn or fail."
-          },
+          "message": { "enum": "{0}: level must be warn or fail." },
           "enum": [
             "warn",
             "fail"
@@ -2659,9 +2242,7 @@
         "level": {
           "description": "Severity of this threshold when it is breached; fail is the default. Add a second threshold at the other level under additional.",
           "errorMessage": "level must be warn or fail.",
-          "message": {
-            "enum": "{0}: level must be warn or fail."
-          },
+          "message": { "enum": "{0}: level must be warn or fail." },
           "enum": [
             "warn",
             "fail"
@@ -2670,50 +2251,50 @@
         "unit": {
           "description": "Time unit for freshness (minute, hour, day).",
           "enum": [
-            "minute",
-            "hour",
+            "minute", 
+            "hour", 
             "day"
           ]
         },
         "must_be": {
           "description": "Check passes if the metric equals this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_not_be": {
           "description": "Check passes if the metric does not equal this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_be_greater_than": {
           "description": "Check passes if the metric is greater than this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_be_greater_than_or_equal": {
           "description": "Check passes if the metric is greater than or equal to this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_be_less_than": {
           "description": "Check passes if the metric is less than this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
         "must_be_less_than_or_equal": {
           "description": "Check passes if the metric is less than or equal to this value.",
           "type": [
-            "number",
+            "number", 
             "string"
           ]
         },
@@ -2739,14 +2320,9 @@
     "strategy_constant": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "value"
-      ],
+      "required": ["type", "value"],
       "properties": {
-        "type": {
-          "const": "constant"
-        },
+        "type": { "const": "constant" },
         "value": {
           "description": "The constant value to assign to the field. Use null to clear the field."
         }
@@ -2757,16 +2333,8 @@
       "type": "object",
       "additionalProperties": false,
       "anyOf": [
-        {
-          "required": [
-            "instruction"
-          ]
-        },
-        {
-          "required": [
-            "confidence_threshold"
-          ]
-        }
+        { "required": ["instruction"] },
+        { "required": ["confidence_threshold"] }
       ],
       "properties": {
         "instruction": {
@@ -2784,33 +2352,22 @@
     "strategy_sql": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "query"
-      ],
+      "required": ["type", "query"],
       "properties": {
-        "type": {
-          "const": "sql"
-        },
+        "type": { "const": "sql" },
         "query": {
           "description": "SQL query to execute for remediation.",
           "type": "string"
         },
-        "fallback": {
-          "$ref": "#/$defs/strategy_fallback"
-        }
+        "fallback": { "$ref": "#/$defs/strategy_fallback" }
       }
     },
     "strategy_manual": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type"
-      ],
+      "required": ["type"],
       "properties": {
-        "type": {
-          "const": "manual"
-        },
+        "type": { "const": "manual" },
         "instruction": {
           "description": "Optional instruction to guide the data steward on how to fix the value.",
           "type": "string"
@@ -2820,14 +2377,9 @@
     "strategy_llm": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "prompt"
-      ],
+      "required": ["type", "prompt"],
       "properties": {
-        "type": {
-          "const": "llm"
-        },
+        "type": { "const": "llm" },
         "prompt": {
           "description": "Prompt for the LLM remediation.",
           "type": "string"
@@ -2838,23 +2390,11 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "type",
-              "name"
-            ],
+            "required": ["type", "name"],
             "properties": {
-              "type": {
-                "enum": [
-                  "table",
-                  "column"
-                ]
-              },
-              "name": {
-                "type": "string"
-              },
-              "description": {
-                "type": "string"
-              }
+              "type": { "enum": ["table", "column"] },
+              "name": { "type": "string" },
+              "description": { "type": "string" }
             }
           }
         },
@@ -2864,22 +2404,14 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "properties": {
-              "name": {
-                "type": "string"
-              },
-              "description": {
-                "type": "string"
-              }
+              "name": { "type": "string" },
+              "description": { "type": "string" }
             }
           }
         },
-        "fallback": {
-          "$ref": "#/$defs/strategy_fallback"
-        }
+        "fallback": { "$ref": "#/$defs/strategy_fallback" }
       }
     }
   }
