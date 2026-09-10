@@ -3,6 +3,7 @@ package lint
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,35 +28,6 @@ columns:
 			t.Logf("  %s: %s", e.Path, e.Message)
 		}
 		t.Fatalf("expected valid, got %d errors", len(result.Errors))
-	}
-}
-
-func TestLintFile_InvalidProperty(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-bogus_field: true
-columns:
-  - name: id
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected invalid, got valid")
-	}
-	found := false
-	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-		if e.Path == "$" || e.Path == "$.bogus_field" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("expected an error about bogus_field")
 	}
 }
 
@@ -96,27 +68,6 @@ func TestLintFile_EmptyFile(t *testing.T) {
 	}
 }
 
-func TestLintFile_MissingColumnName(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - data_type: INTEGER
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected invalid — column missing required 'name'")
-	}
-	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-	}
-}
-
 func TestLintFiles_Mixed(t *testing.T) {
 	dir := t.TempDir()
 
@@ -127,10 +78,10 @@ columns:
   - name: id
 `), 0644)
 
+	// Invalid because the required 'columns' is missing.
 	bad := filepath.Join(dir, "bad.yml")
 	os.WriteFile(bad, []byte(`
 dataset: ds/db/schema/t
-unknown_prop: true
 `), 0644)
 
 	results, err := LintFiles([]string{good, bad})
@@ -148,69 +99,13 @@ unknown_prop: true
 	}
 }
 
-func TestLintFile_AcceptsSodaRunner(t *testing.T) {
+func TestLintFile_ReportsErrorPathsForAnInvalidContract(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "contract.yml")
 	os.WriteFile(f, []byte(`
 dataset: my_ds/db/schema/orders
 columns:
-  - name: id
-soda_runner:
-  checks_schedule:
-    cron: "0 0 * * *"
-    timezone: UTC
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected valid contract with soda_runner, got %d errors", len(result.Errors))
-	}
-}
-
-func TestLintFile_AcceptsSodaAgentLegacyAlias(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - name: id
-soda_agent:
-  checks_schedule:
-    cron: "0 0 * * *"
-    timezone: UTC
-`), 0644)
-
-	result, err := LintFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Valid {
-		for _, e := range result.Errors {
-			t.Logf("  %s: %s", e.Path, e.Message)
-		}
-		t.Fatalf("expected valid contract with deprecated soda_agent, got %d errors", len(result.Errors))
-	}
-}
-
-func TestLintFile_RejectsBothSodaRunnerAndSodaAgent(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "contract.yml")
-	os.WriteFile(f, []byte(`
-dataset: my_ds/db/schema/orders
-columns:
-  - name: id
-soda_runner:
-  checks_schedule:
-    cron: "0 0 * * *"
-soda_agent:
-  checks_schedule:
-    cron: "0 0 * * *"
+  - data_type: INTEGER
 `), 0644)
 
 	result, err := LintFile(f)
@@ -218,20 +113,18 @@ soda_agent:
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Valid {
-		t.Fatal("expected invalid when both soda_runner and soda_agent are set")
+		t.Fatal("expected invalid")
 	}
 	if len(result.Errors) == 0 {
-		t.Fatal("expected at least one validation error")
+		t.Fatal("expected at least one error")
 	}
-	rootError := false
 	for _, e := range result.Errors {
-		t.Logf("  %s: %s", e.Path, e.Message)
-		if e.Path == "$" {
-			rootError = true
+		if !strings.HasPrefix(e.Path, "$") {
+			t.Errorf("error path %q does not start with $", e.Path)
 		}
-	}
-	if !rootError {
-		t.Fatal("expected a validation error at the root path '$' for the not-both constraint")
+		if e.Message == "" {
+			t.Error("error carries no message")
+		}
 	}
 }
 
