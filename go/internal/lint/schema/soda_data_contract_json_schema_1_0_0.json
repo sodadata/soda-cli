@@ -2089,7 +2089,7 @@
       "type": "string"
     },
     "attributes": {
-      "description": "Optional metadata for tagging or categorizing checks. https://beta.docs.soda.io/manage-issues/check-and-dataset-attributes#attributes-in-checks",
+      "description": "Optional metadata for tagging or categorizing checks. https://docs.soda.io/soda-v4/manage-issues/check-and-dataset-attributes#attributes-in-checks",
       "type": "object"
     },
     "threshold": {
