@@ -1,0 +1,72 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# A new push to a PR supersedes the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: go
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Neither job runs git operations, so don't leave GITHUB_TOKEN in the
+          # local git config for later steps to read.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: go/go.sum
+
+      - name: Build
+        run: go build -o sodacli .
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+  cli:
+    name: CLI tests (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Neither job runs git operations, so don't leave GITHUB_TOKEN in the
+          # local git config for later steps to read.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: go/go.sum
+
+      # Black-box tests against the built binary: flag parsing, exit codes,
+      # output formats, contract lint, local-verify error paths, and the
+      # blocked-command messages. No credentials, no network, no Cloud org.
+      #
+      # The live-org suite (`-tags cloud`) is deliberately not run here — it
+      # needs SODA_TEST_* secrets and mutates real resources.
+      - name: Test
+        run: go test -tags cli ./tests/integration/...

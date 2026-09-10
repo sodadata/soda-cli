@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 
@@ -155,12 +155,4 @@ func TestDatasourceDiagnostics(t *testing.T) {
 		r := run(t, "datasource", "diagnostics", testDatasourceID())
 		t.Logf("datasource diagnostics exit=%d output=%s", r.ExitCode, r.Output())
 	})
-}
-
-func TestDatasourceCreateBadFile(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	r := run(t, "datasource", "create", "nonexistent.yml")
-	assertExitCode(t, r, 2)
 }

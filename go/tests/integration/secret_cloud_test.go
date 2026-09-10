@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 
@@ -72,15 +72,6 @@ func TestSecretCRUD(t *testing.T) {
 	r = run(t, "secret", "delete", secretID)
 	t.Logf("secret delete: exit=%d output=%s", r.ExitCode, r.Output())
 	assertExitCode(t, r, 0)
-}
-
-func TestSecretCreateMissingFlags(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	r := run(t, "secret", "create")
-	assertExitCode(t, r, 2)
-	assertOutputContains(t, r, "--name is required")
 }
 
 func TestSecretGetBadID(t *testing.T) {

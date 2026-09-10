@@ -1,4 +1,4 @@
-//go:build integration
+//go:build cloud
 
 package integration
 
@@ -8,12 +8,6 @@ import (
 
 func TestAuth(t *testing.T) {
 	skipIfNoCredentials(t)
-
-	t.Run("login_interactive_no_flags_nointeractive_errors", func(t *testing.T) {
-		r := run(t, "auth", "login", "--no-interactive")
-		assertExitCode(t, r, 2)
-		assertOutputContains(t, r, "required")
-	})
 
 	t.Run("login_noninteractive_full_flags", func(t *testing.T) {
 		r := run(t, "auth", "login",

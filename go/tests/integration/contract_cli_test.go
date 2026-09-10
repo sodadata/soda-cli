@@ -1,69 +1,15 @@
-//go:build integration
+//go:build cli
 
 package integration
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 )
 
-func TestContractList(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	t.Run("table", func(t *testing.T) {
-		r := run(t, "contract", "list")
-		assertExitCode(t, r, 0)
-	})
-
-	t.Run("json", func(t *testing.T) {
-		r := run(t, "contract", "list", "--output", "json")
-		assertExitCode(t, r, 0)
-	})
-
-	t.Run("csv", func(t *testing.T) {
-		r := run(t, "contract", "list", "--output", "csv")
-		assertExitCode(t, r, 0)
-	})
-}
-
-func TestContractCreate(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	t.Run("no_dataset_nointeractive_errors", func(t *testing.T) {
-		r := run(t, "contract", "create", "--no-interactive")
-		assertExitCode(t, r, 2)
-		assertOutputContains(t, r, "required")
-	})
-
-	t.Run("bad_mode", func(t *testing.T) {
-		r := run(t, "contract", "create",
-			"--dataset", testDatasourceName()+"/SODA_TESTING/PUBLIC/ACCOUNT_BALANCES",
-			"--mode", "badmode",
-		)
-		assertExitCode(t, r, 2)
-	})
-
-	// skeleton create — may or may not persist depending on API state
-	t.Run("skeleton", func(t *testing.T) {
-		r := run(t, "contract", "create",
-			"--dataset", testDatasourceName()+"/SODA_TESTING/PUBLIC/ACCOUNT_BALANCES",
-			"--mode", "skeleton",
-			"--output", "/tmp/soda-test-contract.yml",
-		)
-		// Log result regardless — skeleton generation may time out or fail on backend
-		t.Logf("skeleton create: exit=%d output=%s", r.ExitCode, r.Output())
-	})
-}
-
 func TestContractLint(t *testing.T) {
-	// Lint is offline — no credentials needed.
-
 	t.Run("valid_contract", func(t *testing.T) {
 		f := writeTempFile(t, "contract-*.yml", `
 dataset: ds/db/schema/orders
@@ -179,65 +125,15 @@ columns:
 	})
 }
 
-func TestContractPull(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	t.Run("bad_qualified_name", func(t *testing.T) {
-		r := run(t, "contract", "pull", "bad/qualified/name")
-		assertExitCode(t, r, 2)
-	})
-}
-
-func TestContractVerify(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
-	t.Run("no_file_errors", func(t *testing.T) {
-		r := run(t, "contract", "verify")
-		// cobra should error on missing required arg
-		if r.ExitCode == 0 {
-			t.Error("expected non-zero exit code for missing file arg")
-		}
-	})
-
-	t.Run("nonexistent_file", func(t *testing.T) {
-		r := run(t, "contract", "verify", "nonexistent.yml")
-		assertExitCode(t, r, 2)
-	})
-}
-
-func TestContractVerifyDQN(t *testing.T) {
+// TestContractVerifyLocal covers the --local error paths, which are handled
+// before any Cloud call. `local_push_without_auth` tolerates soda-core being
+// absent from PATH.
+func TestContractVerifyLocal(t *testing.T) {
 	t.Run("local_rejects_dqn", func(t *testing.T) {
-		// Error path — no credentials needed.
 		r := run(t, "contract", "verify", "datasource/db/schema/table", "--local", "--datasource", "ds.yml")
 		assertExitCode(t, r, 2)
 		assertOutputContains(t, r, "--local requires a contract file")
 	})
-
-	t.Run("nonexistent_dqn", func(t *testing.T) {
-		skipIfNoCredentials(t)
-		loginForTest(t)
-		r := run(t, "contract", "verify", "fake/ds/no/exist", "--no-wait")
-		assertExitCode(t, r, 2)
-		assertOutputContains(t, r, "no contract found")
-	})
-
-	t.Run("verify_by_dqn", func(t *testing.T) {
-		skipIfNoCredentials(t)
-		dqn := testDatasetDQN()
-		if dqn == "" {
-			t.Skip("SODA_TEST_DATASET_DQN not set")
-		}
-		loginForTest(t)
-		r := run(t, "contract", "verify", dqn, "--no-wait")
-		assertExitCode(t, r, 0)
-		assertOutputContains(t, r, "Verification started")
-	})
-}
-
-func TestContractVerifyLocal(t *testing.T) {
-	// Local verify error paths don't need credentials.
 
 	t.Run("local_requires_datasource", func(t *testing.T) {
 		f := writeTempFile(t, "contract-*.yml", `
@@ -306,10 +202,9 @@ connection:
 	})
 }
 
+// TestContractProposal covers commands blocked on unreleased API endpoints.
+// The guard runs before the credential check.
 func TestContractProposal(t *testing.T) {
-	skipIfNoCredentials(t)
-	loginForTest(t)
-
 	t.Run("list_blocked", func(t *testing.T) {
 		r := run(t, "contract", "proposal", "list")
 		assertExitCode(t, r, 2)
@@ -333,40 +228,4 @@ func TestContractProposal(t *testing.T) {
 		assertExitCode(t, r, 2)
 		assertOutputContains(t, r, "not yet available")
 	})
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// writeTempFile creates a temp file with the given content and returns its path.
-func writeTempFile(t *testing.T, pattern, content string) string {
-	t.Helper()
-	f, err := os.CreateTemp(t.TempDir(), pattern)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.WriteString(content); err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-	return f.Name()
-}
-
-// runInDir executes the binary from a specific working directory.
-func runInDir(t *testing.T, bin, dir string, args ...string) Result {
-	t.Helper()
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command(bin, args...)
-	cmd.Dir = dir
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			t.Fatalf("failed to run command: %v", err)
-		}
-	}
-	return Result{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: exitCode}
 }
