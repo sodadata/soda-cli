@@ -93,8 +93,8 @@ func (c *Client) UpdateMetricMonitoring(datasetID string, req MetricMonitoringSe
 
 // EnableDefaultMonitoring enables all dataset-level metric monitors for a dataset.
 // It uses POST /api/v1/datasets/{id} (the generic dataset update endpoint) because
-// defaultDatasetMonitorTypes are the known API metricType values for dataset-level monitors.
-var defaultDatasetMonitorTypes = []string{
+// DefaultDatasetMonitorTypes are the known API metricType values for dataset-level monitors.
+var DefaultDatasetMonitorTypes = []string{
 	"rowCount", "freshness", "schema", "rowsInserted", "totalRowCountChange", "timeliness",
 }
 
@@ -119,8 +119,8 @@ func (c *Client) EnableDatasetDefaults(datasetID string, monitoring, profiling b
 
 	if monitoring {
 		t := true
-		monitors := make([]DatasetMetricMonitorCfg, len(defaultDatasetMonitorTypes))
-		for i, mt := range defaultDatasetMonitorTypes {
+		monitors := make([]DatasetMetricMonitorCfg, len(DefaultDatasetMonitorTypes))
+		for i, mt := range DefaultDatasetMonitorTypes {
 			monitors[i] = DatasetMetricMonitorCfg{
 				MetricType:    mt,
 				Configuration: DatasetMonitorConfig{IsEnabled: true},
