@@ -142,7 +142,7 @@ var runnerCreateCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Println(output.Dim.Render("  Next steps:"))
 		fmt.Println(output.Dim.Render("  To connect this runner, deploy the Soda Runner Helm chart on your Kubernetes cluster."))
-		fmt.Println(output.Dim.Render("  Docs: https://docs.soda.io/deployment-options/soda-agent/deploy-soda-agent"))
+		fmt.Println(output.Dim.Render("  Docs: https://go.soda.io/agent"))
 		return nil
 	},
 }

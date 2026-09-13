@@ -384,7 +384,7 @@ List registered Soda Runners. Returns: id, name, status, version, last seen.
 Show details for a specific runner.
 
 ### `sodacli runner create --name <name>`
-Create runner credentials for Kubernetes deployment. Returns API key ID + secret (shown once). The runner appears in `runner list` only after the Helm chart is deployed and the agent connects to Soda Cloud.
+Create runner credentials for Kubernetes deployment. Returns API key ID + secret (shown once). The runner appears in `runner list` only after the Helm chart is deployed and the runner connects to Soda Cloud.
 
 ### `sodacli runner delete <runner-id>`
 Delete a runner.

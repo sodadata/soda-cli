@@ -107,7 +107,7 @@ selecting all discovered datasets and applying the requested settings.
 			fmt.Println(output.Dim.Render("  Creating datasource '" + name + "'..."))
 			createResult, err := client.CreateDatasource(api.CreateDatasourceRequest{
 				Name:                      name,
-				AgentID:                   runnerID,
+				RunnerID:                  runnerID,
 				ConfigurationFileContents: string(configBytes),
 			})
 			if err != nil {
