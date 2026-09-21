@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -836,24 +837,31 @@ done:
 	fmt.Println(summary)
 
 	if len(finalStatus.Checks) > 0 {
-		rows := make([]map[string]string, len(finalStatus.Checks))
+		// Enrich scan check results with full check details (name, column, value)
+		// by looking up all check IDs in one call.
+		checkDetails := map[string]api.Check{}
+		ids := make([]string, len(finalStatus.Checks))
 		for i, chk := range finalStatus.Checks {
-			name := chk.Name
-			if name == "" {
-				name = chk.Definition
-			}
-			if name == "" {
-				name = chk.ID
-			}
-			rows[i] = map[string]string{
-				"type":   chk.Type,
-				"column": chk.Column,
-				"name":   name,
-				"status": fmtCheckStatus(chk.EvaluationStatus),
+			ids[i] = chk.ID
+		}
+		if details, err := client.ListChecks(api.ListChecksParams{CheckIDs: strings.Join(ids, ",")}); err == nil {
+			for _, c := range details.Content {
+				checkDetails[c.ID] = c
 			}
 		}
+
+		enriched := make([]api.Check, 0, len(finalStatus.Checks))
+		for _, chk := range finalStatus.Checks {
+			if d, ok := checkDetails[chk.ID]; ok {
+				enriched = append(enriched, d)
+			}
+		}
+		// Sort by column so dataset-level checks appear last.
+		sort.SliceStable(enriched, func(i, j int) bool {
+			return enriched[i].Column < enriched[j].Column
+		})
 		fmt.Println()
-		output.Render(rows, []string{"type", "column", "name", "status"}, map[string]bool{"status": true}, GCtx)
+		renderCheckRows(enriched)
 	}
 
 	if finalStatus.CloudURL != "" {
