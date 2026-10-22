@@ -11,16 +11,18 @@ type DatasourceProperties struct {
 }
 
 type Dataset struct {
-	ID                string               `json:"id"`
-	Name              string               `json:"name"`
-	QualifiedName     string               `json:"qualifiedName"`
-	CloudURL          string               `json:"cloudUrl"`
-	Checks            float64              `json:"checks"`
-	Incidents         float64              `json:"incidents"`
-	DataQualityStatus string               `json:"dataQualityStatus"`
-	Datasource        DatasourceProperties `json:"datasource"`
-	Tags              []string             `json:"tags"`
-	LastUpdated       string               `json:"lastUpdated"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	QualifiedName string `json:"qualifiedName"`
+	// DatasetQualifiedName is in the form DiscoveredDataset.QualifiedName uses.
+	DatasetQualifiedName string               `json:"datasetQualifiedName"`
+	CloudURL             string               `json:"cloudUrl"`
+	Checks               float64              `json:"checks"`
+	Incidents            float64              `json:"incidents"`
+	DataQualityStatus    string               `json:"dataQualityStatus"`
+	Datasource           DatasourceProperties `json:"datasource"`
+	Tags                 []string             `json:"tags"`
+	LastUpdated          string               `json:"lastUpdated"`
 }
 
 type DatasetPage struct {
