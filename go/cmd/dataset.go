@@ -70,7 +70,10 @@ var datasetListCmd = &cobra.Command{
 		}
 
 		rows := make([]map[string]string, 0, len(result.Content))
+		// The discovered list can trail an onboarding and still mark these datasets as not onboarded.
+		onboardedQualifiedNames := map[string]bool{}
 		for _, d := range result.Content {
+			onboardedQualifiedNames[d.DatasetQualifiedName] = true
 			rows = append(rows, map[string]string{
 				"id":         d.ID,
 				"name":       d.Name,
@@ -101,7 +104,7 @@ var datasetListCmd = &cobra.Command{
 					continue
 				}
 				for _, d := range discPage.Content {
-					if d.Onboarded || isInternalDataset(d.Name, d.QualifiedName) {
+					if d.Onboarded || onboardedQualifiedNames[d.QualifiedName] || isInternalDataset(d.Name, d.QualifiedName) {
 						continue
 					}
 					rows = append(rows, map[string]string{

@@ -415,43 +415,51 @@ selecting all discovered datasets and applying the requested settings.
 	},
 }
 
-// pollDiscoveredDatasets fetches all discovered datasets for a datasource,
-// retrying until results appear or the timeout is reached.
+// pollDiscoveredDatasets fetches all discovered datasets for a datasource. The
+// list can trail the discovery that fills it, so it waits until results appear
+// and their count is the same on two polls in a row, or the timeout is reached.
 func pollDiscoveredDatasets(client *api.Client, datasourceID string, spinner *output.Spinner) ([]api.DiscoveredDataset, error) {
 	deadline := time.Now().Add(5 * time.Minute)
 	elapsed := 0
+	previousCount := 0
 	for {
 		first, err := client.ListDiscoveredDatasets(datasourceID, 0, 100)
 		if err != nil {
 			return nil, fmt.Errorf("could not list discovered datasets: %w", err)
 		}
-		if len(first.Content) == 0 {
-			if time.Now().After(deadline) {
-				return nil, fmt.Errorf("discovery timed out after 5 minutes — datasets may still appear later")
-			}
-			elapsed += 5
-			spinner.SetMessage(fmt.Sprintf("Discovering datasets... (%ds)", elapsed))
-			time.Sleep(5 * time.Second)
-			continue
+		count := first.TotalElements
+		timedOut := time.Now().After(deadline)
+		if count > 0 && (count == previousCount || timedOut) {
+			spinner.SetMessage("Loading discovered datasets...")
+			return loadRemainingDiscoveredDatasets(client, datasourceID, first), nil
 		}
-
-		spinner.SetMessage("Loading discovered datasets...")
-		all := first.Content
-		if !first.Last {
-			for pg := 1; ; pg++ {
-				time.Sleep(200 * time.Millisecond)
-				page, err := client.ListDiscoveredDatasets(datasourceID, pg, 100)
-				if err != nil {
-					break
-				}
-				all = append(all, page.Content...)
-				if page.Last || len(page.Content) == 0 {
-					break
-				}
-			}
+		if timedOut {
+			return nil, fmt.Errorf("discovery timed out after 5 minutes — datasets may still appear later")
 		}
-		return all, nil
+		previousCount = count
+		elapsed += 5
+		spinner.SetMessage(fmt.Sprintf("Discovering datasets... (%ds)", elapsed))
+		time.Sleep(5 * time.Second)
 	}
+}
+
+func loadRemainingDiscoveredDatasets(client *api.Client, datasourceID string, first *api.DiscoveredDatasetPage) []api.DiscoveredDataset {
+	all := first.Content
+	if first.Last {
+		return all
+	}
+	for pg := 1; ; pg++ {
+		time.Sleep(200 * time.Millisecond)
+		page, err := client.ListDiscoveredDatasets(datasourceID, pg, 100)
+		if err != nil {
+			break
+		}
+		all = append(all, page.Content...)
+		if page.Last || len(page.Content) == 0 {
+			break
+		}
+	}
+	return all
 }
 
 // isInternalDataset returns true for Soda temp tables and diagnostics tables.
